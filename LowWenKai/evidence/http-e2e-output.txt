@@ -1,0 +1,6 @@
+PASS organiser login
+PASS payment stops at PENDING_ADMIN_APPROVAL
+PASS organiser self-approval blocked
+PASS administrator web approval
+PASS administrator API approval
+CLEANUP removed test elections: 7,8

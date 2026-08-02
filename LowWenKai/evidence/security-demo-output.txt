@@ -1,0 +1,9 @@
+VoteTrust secure coding before/after demonstration
+==================================================================
+BEFORE  No password supplied                        NOMINATION_OPEN
+BEFORE  Organiser bypasses admin approval           NOMINATION_OPEN (VULNERABLE)
+AFTER   No password supplied                        BLOCKED (PASSWORD REQUIRED)
+AFTER   Unconfirmed payment supplied                PENDING_PAYMENT (PAYMENT GATE HELD)
+AFTER   Confirmed payment supplied                  PENDING_ADMIN_APPROVAL (ADMIN GATE HELD)
+AFTER   Organiser attempts self-approval            PENDING_ADMIN_APPROVAL (ORGANISER FORBIDDEN)
+AFTER   Independent administrator approves          NOMINATION_OPEN

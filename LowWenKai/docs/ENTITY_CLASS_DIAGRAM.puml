@@ -1,0 +1,75 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+
+title VoteTrust Election Module - Shared Database ORM Model
+
+class User <<Entity: user>> {
+  id: int
+  username: string
+  passwordHash: string
+  isAdmin: bool
+  +isAdmin(): bool
+  +isOrganizer(): bool
+  +organizer(): Organizer?
+}
+
+class Organizer <<Entity: organizer>> {
+  id: int
+  +user(): User
+  +elections(): Election[]
+}
+
+class Election <<Entity: election>> {
+  id: int
+  organizerId: int
+  title: string
+  description: string
+  eligibilityRules: string
+  status: string
+  paymentId: int?
+  paymentReference: string?
+  paymentVerifiedAt: DateTime?
+  approvedBy: int?
+  approvedAt: DateTime?
+  rejectionReason: string?
+  transitionHistoryJson: JSON
+  version: int
+  +organizer(): User
+  +approvedBy(): User?
+  +transitionLogs(): TransitionRecord[]
+  +paymentVerification(): PaymentVerification?
+}
+
+class TransitionRecord <<Value Object>> {
+  requestId: string
+  actorId: int
+  actorRole: string
+  action: string
+  fromState: string
+  toState: string
+  metadata: object
+  createdAt: DateTime
+}
+
+class PaymentVerification <<Value Object>> {
+  requestId: string
+  paymentReference: string
+  providerStatus: string
+  response: object
+  verifiedAt: DateTime?
+}
+
+User "1" -- "0..1" Organizer : account role >
+Organizer "1" -- "0..*" Election : organises >
+User "0..1" -- "0..*" Election : approves >
+Election "1" *-- "0..*" TransitionRecord : embedded JSON audit >
+Election "1" *-- "0..1" PaymentVerification : embedded snapshot >
+
+note right of Election
+  The module uses the team's existing user,
+  organizer, election and payment tables.
+  Audit and verification evidence is stored in
+  added election columns, so no lwk_* table is needed.
+end note
+@enduml
