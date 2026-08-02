@@ -1,0 +1,88 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam nodesep 28
+skinparam ranksep 34
+
+title VoteTrust Election Lifecycle - State Pattern
+
+class ElectionService <<Service>> {
+  +transition(actor, electionId, action, password, input): Election
+  +transitionFromAdminApi(actor, electionId, action, input): Election
+  +availability(election, at): array
+}
+
+class ElectionLifecycle <<Context>> {
+  -election: Election
+  -state: ElectionState
+  +transition(action, context): void
+  +moveTo(stateName, action, metadata): void
+}
+
+interface ElectionState <<State>> {
+  +name(): string
+  +label(): string
+  +actions(election): array
+  +canRegisterCandidate(election, now): bool
+  +canVote(election, now): bool
+  +apply(lifecycle, action, context): void
+}
+
+abstract class AbstractElectionState
+class DraftState
+class PendingPaymentState
+class PendingAdminApprovalState
+class NominationOpenState
+class VotingOpenState
+class ClosedState
+class CancelledState
+class RejectedState
+class ElectionStateFactory <<Factory>>
+class TransitionContext
+interface PaymentGateway
+class HttpPaymentGateway
+class Election <<Shared ORM Entity>>
+class User <<Shared ORM Entity>> {
+  +isAdmin(): bool
+}
+
+ElectionService --> ElectionLifecycle : invokes
+ElectionLifecycle o-- Election : owns lifecycle entity
+ElectionLifecycle o-- ElectionState : current behaviour
+ElectionLifecycle --> ElectionStateFactory : restores persisted state
+ElectionStateFactory ..> ElectionState : creates concrete state
+
+ElectionState <|.. AbstractElectionState
+AbstractElectionState <|-- DraftState
+AbstractElectionState <|-- PendingPaymentState
+AbstractElectionState <|-- PendingAdminApprovalState
+AbstractElectionState <|-- NominationOpenState
+AbstractElectionState <|-- VotingOpenState
+AbstractElectionState <|-- ClosedState
+AbstractElectionState <|-- CancelledState
+AbstractElectionState <|-- RejectedState
+
+DraftState -[hidden]down- PendingPaymentState
+PendingPaymentState -[hidden]down- PendingAdminApprovalState
+PendingAdminApprovalState -[hidden]down- NominationOpenState
+VotingOpenState -[hidden]down- ClosedState
+ClosedState -[hidden]down- CancelledState
+CancelledState -[hidden]down- RejectedState
+DraftState -[hidden]right- VotingOpenState
+
+ElectionState ..> TransitionContext : actor and transition data
+TransitionContext o-- PaymentGateway
+TransitionContext o-- User : current actor
+PaymentGateway <|.. HttpPaymentGateway
+PendingPaymentState --> PaymentGateway : verifies hosting fee
+PendingAdminApprovalState --> User : requires independent admin
+
+note bottom of ElectionLifecycle
+  Persisted transition path:
+  DRAFT -> PENDING_PAYMENT -> PENDING_ADMIN_APPROVAL
+  -> NOMINATION_OPEN -> VOTING_OPEN -> CLOSED
+  CANCELLED and REJECTED are terminal.
+end note
+@enduml
