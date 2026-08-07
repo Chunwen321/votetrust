@@ -21,6 +21,7 @@ return static function (Router $router): void {
     $router->get('/elections/{id}', [ElectionController::class, 'show']);
     $router->get('/elections/{id}/edit', [ElectionController::class, 'edit']);
     $router->put('/elections/{id}', [ElectionController::class, 'update']);
+    $router->post('/elections/{id}/candidates', [ElectionController::class, 'reviewCandidates']);
     $router->post('/elections/{id}/transition', [ElectionController::class, 'transition']);
 
     $router->get('/admin/elections', [AdminElectionController::class, 'index']);

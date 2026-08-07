@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use VoteTrust\Election\Core\Config;
 use VoteTrust\Election\Core\Database;
+use VoteTrust\Election\Models\Candidate;
+use VoteTrust\Election\Models\Candidacy;
 use VoteTrust\Election\Models\Election;
 use VoteTrust\Election\Models\Organizer;
 use VoteTrust\Election\Models\User;
@@ -15,7 +17,7 @@ require_once __DIR__ . '/Fakes/FakePaymentGateway.php';
 require_once __DIR__ . '/Security/InsecureElectionWorkflow.php';
 Config::load($root);
 date_default_timezone_set('Asia/Kuala_Lumpur');
-putenv('SECURITY_LOG_PATH=' . $root . '/tmp/test-security.log');
+putenv('SECURITY_LOG_PATH=' . $root . '/storage/logs/test-security.log');
 
 function resetTestDatabase(): void
 {
@@ -31,6 +33,9 @@ CREATE TABLE `user` (
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE organizer (
+    id INTEGER PRIMARY KEY
+);
+CREATE TABLE candidate (
     id INTEGER PRIMARY KEY
 );
 CREATE TABLE election (
@@ -61,6 +66,13 @@ CREATE TABLE election (
     version INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NULL,
     updated_at TEXT NULL
+);
+CREATE TABLE candidacy (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    candidate_id INTEGER NOT NULL,
+    election_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'Pending',
+    registered_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 SQL);
 }
@@ -106,5 +118,24 @@ function makeTestElection(User $user, ?DateTimeImmutable $now = null): Election
         'status' => Election::DRAFT,
         'transition_history_json' => '[]',
         'version' => 1,
+    ]);
+}
+
+function makeTestCandidacy(Election $election, string $status = Candidacy::PENDING): Candidacy
+{
+    static $candidateNumber = 0;
+    $candidateNumber++;
+    $candidateUser = makeTestUser(
+        'TestCandidate' . $candidateNumber,
+        'Candidate!Pass1',
+        false,
+        false
+    );
+    Candidate::create(['id' => $candidateUser->id()]);
+
+    return Candidacy::create([
+        'candidate_id' => $candidateUser->id(),
+        'election_id' => $election->id(),
+        'status' => $status,
     ]);
 }

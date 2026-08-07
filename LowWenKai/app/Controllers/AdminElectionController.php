@@ -38,16 +38,19 @@ final class AdminElectionController
     {
         $admin = $this->requireAdmin();
         $election = $this->service->findForAdmin($admin, (int) $request->route('id'));
+        $candidateSummary = $this->service->candidateSummary($election);
 
         return Response::html(View::render('elections/show', [
             'election' => $election,
             'user' => $admin,
             'availability' => $this->service->availability($election),
             'actions' => $this->service->actions($election, $admin),
+            'candidateSummary' => $candidateSummary,
             'logs' => $election->transitionLogs(),
             'isAdminView' => true,
             'backUrl' => url('/admin/elections'),
             'transitionUrl' => url('/admin/elections/' . $election->id() . '/transition'),
+            'candidateReviewUrl' => null,
         ]));
     }
 

@@ -5,84 +5,113 @@ Assignment: BMIT3173 Integrative Programming
 System: VoteTrust Online Election Management System  
 SDG: **SDG 16 - Peace, Justice and Strong Institutions**
 
-This folder contains the MVC Election Management Module. An organiser creates an election and verifies its hosting payment. A separate system administrator must then approve it before candidate nomination is enabled. Candidate registration and voting remain owned by the other team modules; they can call this module's availability API.
+This is the MVC Election Management Module. An organizer creates an election, verifies the hosting payment, and waits for a separate system administrator to approve it. Candidate registration and voting are handled by the teammates' modules through this module's API.
 
-## Roles and lifecycle
+## Open these folders during the presentation
 
-- **Organizer** means a user whose ID also exists in the shared `organizer` table. The organizer creates, pays for, and manages their own election.
-- **System administrator** means a user with `user.is_admin = 1`. The administrator reviews paid elections and may approve or reject them. An administrator cannot approve their own election.
-- `OrganizerAdmin` is only an existing username in the submitted database. It is not automatically a system administrator; the account has `is_admin = 0` unless the database explicitly grants that flag.
+| Tutor asks for | Open | What it demonstrates |
+|---|---|---|
+| MVC controller | `app/Controllers` | Receives browser requests and calls the service layer |
+| MVC model | `app/Models` | ORM entities mapped only to existing shared database tables |
+| MVC view | `app/Views` | PHP pages shown to organizers and administrators |
+| MVC routing | `routes` | Maps URLs to controller actions |
+| ORM | `app/ORM` | Active Record model, queries, prepared statements, and optimistic locking |
+| State design pattern | `app/States` | State interface, factory, lifecycle context, and concrete election states |
+| Secure coding | `app/Security` | Reauthentication, API validation, and security audit logging |
+| Before/after security test | `tests/security_demo.php` | Safe terminal comparison of insecure and secured workflows |
+| Web service integration | `app/Controllers/Api` and `app/Services/Payment` | APIs provided by this module and Payment Module API consumption |
 
-The State-pattern lifecycle is:
+For the State pattern, start with these files in order:
+
+1. `ElectionState.php` — common State interface.
+2. `ElectionStateFactory.php` — creates the correct object for the current election status.
+3. `ElectionLifecycle.php` — context that delegates actions to the current State.
+4. `DraftState.php`, `PendingPaymentState.php`, and `PendingAdminApprovalState.php` — concrete examples of different rules for each state.
+
+## Folder structure
+
+```text
+LowWenKai/
+|-- app/                 Application source code
+|   |-- Controllers/     MVC controllers and API controllers
+|   |-- Models/          Database-table ORM models
+|   |-- ORM/             Reusable ORM infrastructure
+|   |-- Security/        Selected secure coding practices
+|   |-- Services/        Election workflow and Payment API integration
+|   |-- States/          State design pattern implementation
+|   |-- ValueObjects/    Embedded election data; not database tables
+|   `-- Views/            MVC user interface
+|-- bin/                 One-time application setup command
+|-- database/            Shared-table schema additions
+|-- payment_stub/        Temporary Payment Module API simulator
+|-- public/              Web entry point and CSS
+|-- report/              Assignment report; does not run in the application
+|-- routes/              Web and API route definitions
+|-- storage/             Runtime security logs and PHP sessions
+`-- tests/               Automated and tutor demonstration tests
+```
+
+The report is the only non-code submission artifact intentionally retained in this folder.
+
+## Database mapping
+
+The module preserves the team's eight submitted tables:
+
+```text
+candidacy, candidate, election, organizer, payment, user, vote, voter
+```
+
+No `lwk_*` tables are required. The existing `election` table stores payment verification, admin approval, version, and transition-history data in added columns. The existing `user` table gains only `is_admin`.
+
+- `app/Models/User.php` maps to `user`.
+- `app/Models/Organizer.php` maps to `organizer`.
+- `app/Models/Election.php` maps to `election`.
+- `app/Models/Candidate.php` and `Candidacy.php` map to the existing teammate tables so the organizer can review the ballot without creating another table.
+- `app/ValueObjects/PaymentVerification.php` and `ElectionTransitionRecord.php` are not tables; they represent data stored inside the election row.
+
+## Election lifecycle
 
 ```text
 DRAFT -> PENDING_PAYMENT -> PENDING_ADMIN_APPROVAL
       -> NOMINATION_OPEN -> VOTING_OPEN -> CLOSED
 ```
 
-`CANCELLED` and `REJECTED` are terminal states.
+`CANCELLED` and `REJECTED` are terminal states. An organizer creates and pays for an election. A user with `user.is_admin = 1` independently approves it. An administrator cannot approve their own election. An account named `OrganizerAdmin` is still only an organizer unless its `user.is_admin` column is set to `1`.
 
-## Database constraint
-
-The implementation preserves the team's eight submitted tables:
-
-```text
-candidacy, candidate, election, organizer, payment, user, vote, voter
-```
-
-It does not require `lwk_users`, `lwk_elections`, `lwk_payment_verifications`, or `lwk_election_transition_logs`. Election configuration, payment verification, approval, optimistic-lock version, and JSON audit history are stored in added columns of the existing shared `election` table. The existing `user` table gains only `is_admin`.
-
-## Rubric technologies
-
-- PHP 8.2 and MariaDB/MySQL from XAMPP.
-- MVC: routes delegate to controllers, services/ORM entities, and PHP views.
-- ORM: the dependency-free Active Record mapper in `app/ORM` maps the shared tables to entity objects, uses prepared statements, protects fillable attributes, resolves relationships, and performs optimistic locking.
-- State pattern: eight concrete State classes own lifecycle-specific actions and rules.
-- Secure practice 1: current-password reauthentication for critical browser transitions.
-- Secure practice 2: server-side workflow authorization, including payment verification, an independent admin approval gate, separation of duties, date validation, transactions, and an actor-attributed audit history.
-- Web services: the module exposes election availability and admin approval APIs and consumes the Payment Module IFA through cURL.
-
-## Run locally with XAMPP
-
-Start MySQL in XAMPP, then run:
+## Run with XAMPP
 
 ```powershell
 cd C:\Users\lowwe\source\repos\votetrust-voting-system\LowWenKai
 Copy-Item .env.example .env
 C:\xampp\php\php.exe bin\setup.php
 
-# Terminal 1 - local stand-in for the teammate Payment Module
+# Terminal 1: temporary Payment Module API
 C:\xampp\php\php.exe -S 127.0.0.1:8081 -t payment_stub\public payment_stub\public\router.php
 
-# Terminal 2 - Election Module
+# Terminal 2: Election Module
 C:\xampp\php\php.exe -S 127.0.0.1:8080 -t public public\router.php
 ```
 
 Open `http://127.0.0.1:8080`.
 
-Local assessment accounts:
-
 - Organizer: `LowWenKaiOrganizer` / `VoteTrust!2026`
 - Administrator: `SystemAdmin` / `VoteTrustAdmin!2026`
-- Confirmed sandbox payment: `VT-HOST-PAID-001`
-- Pending sandbox payment: `VT-HOST-PENDING-001`
-
-These values are local assessment fixtures only. Production credentials and API keys must come from the environment.
+- Confirmed payment: `VT-HOST-PAID-001`
+- Pending payment: `VT-HOST-PENDING-001`
 
 ## Test in sequence
 
-1. Log in as `LowWenKaiOrganizer`.
-2. Create an election with valid nomination and voting dates.
-3. Submit it for payment; it becomes `PENDING_PAYMENT`.
-4. Try `VT-HOST-PENDING-001`; verify the status does not change.
-5. Use `VT-HOST-PAID-001`; verify it becomes `PENDING_ADMIN_APPROVAL`, not `NOMINATION_OPEN`.
-6. Confirm the organizer cannot approve the election.
-7. Log out, then log in as `SystemAdmin`.
-8. Open **Approval queue**, review the paid election, and approve it.
-9. Verify the state becomes `NOMINATION_OPEN` and the audit trail identifies the admin.
-10. Continue the date-dependent nomination, voting, and closure actions as the organizer.
+1. Log in as the organizer and create an election.
+2. Submit it for payment and confirm it becomes `PENDING_PAYMENT`.
+3. Try the pending payment reference; the state must not change.
+4. Use the confirmed reference; the state becomes `PENDING_ADMIN_APPROVAL`.
+5. Verify the organizer cannot approve the election.
+6. Log in as the administrator and approve it from **Approval queue**.
+7. Verify it becomes `NOMINATION_OPEN` and the audit trail names the administrator.
+8. Log back in as the organizer, review every candidate application, and approve at least one candidate.
+9. After the configured voting start time, open voting and verify only approved candidates are ballot-eligible.
 
-Run automated verification:
+Run the automated checks:
 
 ```powershell
 C:\xampp\php\php.exe tests\run.php
@@ -90,19 +119,17 @@ C:\xampp\php\php.exe tests\security_demo.php
 powershell -ExecutionPolicy Bypass -File tests\http_e2e.ps1
 ```
 
-The HTTP script removes only the two `E2E Administrator ...` elections it created. Add `-KeepTestData` if you deliberately want to inspect those rows afterward.
+The security demonstration keeps the deliberately insecure example in a command-line-only test fixture. It is never reachable from the website.
 
-The terminal before/after demonstration is intentionally safer than commenting insecure production code in and out: the vulnerable examples exist only in a CLI fixture and have no web route.
+## Teammate module integration
 
-## APIs
-
-Availability for Candidate/Voting modules:
+Candidate and Voting modules can check whether an election accepts their action through:
 
 ```text
 GET /api/v1/elections/{id}/availability?requestID=...&timestamp=...
 ```
 
-Admin Module approval integration:
+A separate Admin Module can call:
 
 ```text
 POST /api/v1/elections/{id}/approval
@@ -110,17 +137,4 @@ X-Admin-API-Key: value from ADMIN_API_KEY
 Content-Type: application/json
 ```
 
-The full request and response fields are in `docs/WEB_SERVICE_IFA.md`.
-
-## Replacing teammate sandboxes
-
-When the Payment Module is ready, update `PAYMENT_API_URL` and `PAYMENT_API_KEY` in `.env`. When a separate Admin Module calls the approval endpoint, share `ADMIN_API_KEY` securely and send a real system-admin user ID. No controller, State, view, or ORM redesign is required.
-
-## Documentation map
-
-- `docs/STATE_PATTERN.puml` - eight-state pattern class diagram.
-- `docs/ENTITY_CLASS_DIAGRAM.puml` - shared-table ORM and embedded value objects.
-- `docs/WEB_SERVICE_IFA.md` - availability, payment, and admin approval contracts.
-- `docs/SECURITY_BEFORE_AFTER.md` - tutor-facing comparison procedure.
-- `docs/SHARED_SCHEMA_MIGRATION.md` - schema decision and recovery record.
-- `docs/RUBRIC_EVIDENCE.md` - code and test evidence by criterion.
+When the teammate Payment Module is available, change only `PAYMENT_API_URL` and `PAYMENT_API_KEY` in `.env`; the controller, State classes, views, and ORM do not need redesigning.

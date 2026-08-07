@@ -5,6 +5,7 @@ declare(strict_types=1);
 use VoteTrust\Election\Core\FrozenClock;
 use VoteTrust\Election\Exceptions\AuthorizationException;
 use VoteTrust\Election\Exceptions\BusinessRuleException;
+use VoteTrust\Election\Models\Candidacy;
 use VoteTrust\Election\Models\Election;
 use VoteTrust\Election\Security\ApiRequestValidator;
 use VoteTrust\Election\Services\ElectionService;
@@ -38,6 +39,7 @@ $runner->add('State pattern follows payment, independent admin approval, voting 
     TestRunner::assertSame(Election::NOMINATION_OPEN, $election->status());
     TestRunner::assertTrue($election->adminApproved());
 
+    makeTestCandidacy($election, Candidacy::APPROVED);
     $election = $service->transition($organizer, $election->id(), 'start_voting', 'Correct!Pass1');
     TestRunner::assertSame(Election::VOTING_OPEN, $election->status());
     TestRunner::assertThrows(BusinessRuleException::class, static fn () => $service->transition(
@@ -51,6 +53,41 @@ $runner->add('State pattern follows payment, independent admin approval, voting 
     $election = $service->transition($organizer, $election->id(), 'close_voting', 'Correct!Pass1');
     TestRunner::assertSame(Election::CLOSED, $election->status());
     TestRunner::assertSame(5, count($election->transitionLogs()));
+});
+
+$runner->add('Candidate review gate requires a completed ballot before voting', static function (): void {
+    resetTestDatabase();
+    $now = new DateTimeImmutable('2026-08-01 12:00:00');
+    $organizer = makeTestUser();
+    $admin = makeTestAdmin();
+    $election = makeTestElection($organizer, $now);
+    $service = new ElectionService(paymentGateway: new FakePaymentGateway(true), clock: new FrozenClock($now));
+
+    $service->transition($organizer, $election->id(), 'submit_for_payment', 'Correct!Pass1');
+    $service->transition($organizer, $election->id(), 'verify_payment', 'Correct!Pass1', [
+        'payment_reference' => 'VT-HOST-PAID-001',
+    ]);
+    $election = $service->transition($admin, $election->id(), 'approve', 'Admin!Pass1');
+    $application = makeTestCandidacy($election);
+
+    TestRunner::assertThrows(BusinessRuleException::class, static fn () => $service->transition(
+        $organizer,
+        $election->id(),
+        'start_voting',
+        'Correct!Pass1'
+    ));
+
+    $updated = $service->reviewCandidates(
+        $organizer,
+        $election->id(),
+        [$application->id() => Candidacy::APPROVED],
+        'Correct!Pass1'
+    );
+    TestRunner::assertSame(1, $updated);
+    TestRunner::assertTrue($service->candidateSummary($election)['ready']);
+
+    $election = $service->transition($organizer, $election->id(), 'start_voting', 'Correct!Pass1');
+    TestRunner::assertSame(Election::VOTING_OPEN, $election->status());
 });
 
 $runner->add('State pattern blocks lifecycle skipping', static function (): void {

@@ -25,8 +25,8 @@ final class PendingPaymentState extends AbstractElectionState
         return [
             [
                 'action' => 'verify_payment',
-                'label' => 'Verify payment & request approval',
-                'description' => 'Consumes the Payment Module API. A confirmed payment sends the election to the administrator; it does not open nominations.',
+                'label' => 'Pay hosting fee',
+                'description' => 'Completes the hosting payment through the Payment Module. After confirmation, the election is sent to the administrator for approval.',
                 'tone' => 'primary',
                 'audience' => 'organizer',
                 'requiresPaymentReference' => true,

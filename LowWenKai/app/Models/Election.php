@@ -6,6 +6,8 @@ namespace VoteTrust\Election\Models;
 
 use DateTimeImmutable;
 use VoteTrust\Election\ORM\Model;
+use VoteTrust\Election\ValueObjects\ElectionTransitionRecord;
+use VoteTrust\Election\ValueObjects\PaymentVerification;
 
 final class Election extends Model
 {
@@ -61,7 +63,7 @@ final class Election extends Model
         return $id > 0 ? User::find($id) : null;
     }
 
-    /** @return list<ElectionTransitionLog> */
+    /** @return list<ElectionTransitionRecord> */
     public function transitionLogs(): array
     {
         $history = json_decode((string) $this->get('transition_history_json', '[]'), true);
@@ -72,7 +74,7 @@ final class Election extends Model
         $records = [];
         foreach (array_reverse($history) as $entry) {
             if (is_array($entry)) {
-                $records[] = new ElectionTransitionLog($entry);
+                $records[] = new ElectionTransitionRecord($entry);
             }
         }
 
