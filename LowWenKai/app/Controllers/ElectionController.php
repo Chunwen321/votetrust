@@ -81,17 +81,47 @@ final class ElectionController
     {
         $user = Auth::requireUser();
         $election = $this->service->findOwned($user, (int) $request->route('id'));
+        $candidateSummary = $this->service->candidateSummary($election);
 
         return Response::html(View::render('elections/show', [
             'election' => $election,
             'user' => $user,
             'availability' => $this->service->availability($election),
             'actions' => $this->service->actions($election, $user),
+            'candidateSummary' => $candidateSummary,
             'logs' => $election->transitionLogs(),
             'isAdminView' => false,
             'backUrl' => url('/elections'),
             'transitionUrl' => url('/elections/' . $election->id() . '/transition'),
+            'candidateReviewUrl' => url('/elections/' . $election->id() . '/candidates'),
         ]));
+    }
+
+    public function reviewCandidates(Request $request): Response
+    {
+        $user = Auth::requireUser();
+        Csrf::assertValid($request->input('_token'));
+        $id = (int) $request->route('id');
+        $decisions = $request->input('decisions', []);
+
+        try {
+            $updated = $this->service->reviewCandidates(
+                $user,
+                $id,
+                is_array($decisions) ? $decisions : [],
+                (string) $request->input('current_password', '')
+            );
+            Session::flash(
+                'success',
+                $updated > 0
+                    ? "{$updated} candidate decision" . ($updated === 1 ? '' : 's') . ' saved.'
+                    : 'Candidate decisions are already up to date.'
+            );
+        } catch (HttpException $exception) {
+            Session::flash('error', $exception->getMessage());
+        }
+
+        return Response::redirect(url('/elections/' . $id));
     }
 
     public function edit(Request $request): Response

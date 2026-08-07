@@ -1,10 +1,5 @@
 .env
 storage/logs/*.log
 storage/sessions/*
-storage/backups/*
-database/backups/*
 !storage/logs/.gitkeep
 !storage/sessions/.gitkeep
-!storage/backups/.gitkeep
-tmp/
-tools/__pycache__/

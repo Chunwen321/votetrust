@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use VoteTrust\Election\Core\Config;
 use VoteTrust\Election\Core\Database;
+use VoteTrust\Election\Models\Candidate;
+use VoteTrust\Election\Models\Candidacy;
 use VoteTrust\Election\Models\Election;
 use VoteTrust\Election\Models\Organizer;
 use VoteTrust\Election\Models\User;
@@ -55,9 +57,18 @@ if (!$admin instanceof User) {
     $admin->save();
 }
 
-if (Election::where('organizer_id', $organizer->id())->count() === 0) {
+$organizerElections = Election::where('organizer_id', $organizer->id())->orderBy('created_at', 'DESC')->get();
+$demoElection = null;
+foreach ($organizerElections as $organizerElection) {
+    if (!in_array($organizerElection->status(), [Election::CANCELLED, Election::REJECTED, Election::CLOSED], true)) {
+        $demoElection = $organizerElection;
+        break;
+    }
+}
+
+if (!$demoElection instanceof Election) {
     $now = new DateTimeImmutable('now');
-    ElectionService::fromConfig()->create($organizer, [
+    $demoElection = ElectionService::fromConfig()->create($organizer, [
         'title' => 'VoteTrust Student Council Election 2026',
         'description' => 'A transparent institutional election used to demonstrate payment verification and independent administrator approval.',
         'eligibility_rules' => 'Active students verified by the User Module may participate.',
@@ -68,6 +79,30 @@ if (Election::where('organizer_id', $organizer->id())->count() === 0) {
         'hosting_fee' => '100.00',
         'currency' => 'MYR',
     ]);
+}
+
+foreach (['CandidateAisha', 'CandidateDaniel'] as $candidateUsername) {
+    $candidateUser = User::where('username', $candidateUsername)->first();
+    if (!$candidateUser instanceof User) {
+        $candidateUser = User::create([
+            'username' => $candidateUsername,
+            'password_hash' => password_hash('Candidate!2026', PASSWORD_DEFAULT),
+            'is_admin' => 0,
+        ]);
+    }
+    if (!Candidate::find($candidateUser->id()) instanceof Candidate) {
+        Candidate::create(['id' => $candidateUser->id()]);
+    }
+    $existingApplication = Candidacy::where('candidate_id', $candidateUser->id())
+        ->where('election_id', $demoElection->id())
+        ->first();
+    if (!$existingApplication instanceof Candidacy) {
+        Candidacy::create([
+            'candidate_id' => $candidateUser->id(),
+            'election_id' => $demoElection->id(),
+            'status' => Candidacy::PENDING,
+        ]);
+    }
 }
 
 $paymentDataDirectory = $root . '/payment_stub/data';
@@ -103,5 +138,6 @@ echo "VoteTrust Election Module setup completed.\n";
 echo 'Database: ' . Config::get('DB_DATABASE', 'election_db') . "\n";
 echo "Organiser: {$organizerUsername} / {$organizerPassword}\n";
 echo "Administrator: {$adminUsername} / {$adminPassword}\n";
+echo "Demo candidate applications: CandidateAisha and CandidateDaniel\n";
 echo "Confirmed demo payment: VT-HOST-PAID-001\n";
 

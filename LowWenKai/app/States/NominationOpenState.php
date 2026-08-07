@@ -27,7 +27,7 @@ final class NominationOpenState extends AbstractElectionState
             [
                 'action' => 'start_voting',
                 'label' => 'Open voting',
-                'description' => 'Allowed only after nominations end and the configured voting start time is reached.',
+                'description' => 'Available after every candidate application is reviewed, at least one candidate is approved, and the configured voting time is reached.',
                 'tone' => 'primary',
                 'audience' => 'organizer',
                 'requiresPaymentReference' => false,
@@ -68,6 +68,12 @@ final class NominationOpenState extends AbstractElectionState
         }
         if (!$election->adminApproved()) {
             throw new BusinessRuleException('Voting cannot open before administrator approval.');
+        }
+        if ((int) $context->input('approved_candidate_count', 0) < 1) {
+            throw new BusinessRuleException('Voting cannot open until at least one candidate is approved for the ballot.');
+        }
+        if ((int) $context->input('pending_candidate_count', 0) > 0) {
+            throw new BusinessRuleException('Review every pending candidate application before opening voting.');
         }
         if ($context->now < $election->date('nomination_end') || $context->now < $election->date('voting_start')) {
             throw new BusinessRuleException('Voting cannot open before nominations end and the configured voting start time is reached.');

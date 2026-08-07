@@ -12,6 +12,7 @@ use VoteTrust\Election\Core\SystemClock;
 use VoteTrust\Election\Exceptions\AuthorizationException;
 use VoteTrust\Election\Exceptions\BusinessRuleException;
 use VoteTrust\Election\Exceptions\NotFoundException;
+use VoteTrust\Election\Models\Candidacy;
 use VoteTrust\Election\Models\Election;
 use VoteTrust\Election\Models\User;
 use VoteTrust\Election\Security\ReauthenticationGuard;
@@ -143,6 +144,12 @@ final class ElectionService
             }
             $this->assertActionActor($actor, $election, $action);
 
+            if ($action === 'start_voting') {
+                $candidateSummary = $this->candidateSummary($election);
+                $input['approved_candidate_count'] = $candidateSummary['approved'];
+                $input['pending_candidate_count'] = $candidateSummary['pending'];
+            }
+
             foreach ($election->transitionLogs() as $record) {
                 if (hash_equals((string) $record->get('request_id', ''), $requestId)) {
                     return $election;
@@ -253,6 +260,149 @@ final class ElectionService
             ],
             'checkedAt' => $now->format(DATE_ATOM),
         ];
+    }
+
+    /** @return list<Candidacy> */
+    public function candidateApplications(Election $election): array
+    {
+        /** @var list<Candidacy> $applications */
+        $applications = Candidacy::where('election_id', $election->id())
+            ->orderBy('registered_at', 'ASC')
+            ->get();
+
+        return $applications;
+    }
+
+    /**
+     * Reads the shared candidacy records created by the Candidate Registration
+     * Module. This method can later be replaced by that module's API adapter.
+     *
+     * @return array{applications:list<Candidacy>,total:int,pending:int,approved:int,rejected:int,ready:bool}
+     */
+    public function candidateSummary(Election $election): array
+    {
+        $applications = $this->candidateApplications($election);
+        $summary = [
+            'applications' => $applications,
+            'total' => count($applications),
+            'pending' => 0,
+            'approved' => 0,
+            'rejected' => 0,
+            'ready' => false,
+        ];
+
+        foreach ($applications as $application) {
+            match ($application->status()) {
+                Candidacy::APPROVED => $summary['approved']++,
+                Candidacy::REJECTED => $summary['rejected']++,
+                default => $summary['pending']++,
+            };
+        }
+
+        $summary['ready'] = $summary['approved'] > 0 && $summary['pending'] === 0;
+
+        return $summary;
+    }
+
+    /**
+     * @param array<int|string, mixed> $decisions
+     */
+    public function reviewCandidates(
+        User $organizer,
+        int $electionId,
+        array $decisions,
+        string $currentPassword
+    ): int {
+        $election = $this->findOwned($organizer, $electionId);
+        if ($election->status() !== Election::NOMINATION_OPEN) {
+            throw new BusinessRuleException('Candidate decisions are available only while nominations are open.');
+        }
+        $this->reauthentication->assertPassword(
+            $organizer,
+            $currentPassword,
+            "election:{$electionId}:candidate_review"
+        );
+
+        $allowedStatuses = [Candidacy::PENDING, Candidacy::APPROVED, Candidacy::REJECTED];
+        $requestId = $this->newRequestId();
+
+        return Database::transaction(function (PDO $pdo) use (
+            $organizer,
+            $electionId,
+            $decisions,
+            $allowedStatuses,
+            $requestId
+        ): int {
+            if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql') {
+                $electionLock = $pdo->prepare('SELECT id FROM `election` WHERE id = ? FOR UPDATE');
+                $electionLock->execute([$electionId]);
+                $candidateLock = $pdo->prepare('SELECT id FROM `candidacy` WHERE election_id = ? FOR UPDATE');
+                $candidateLock->execute([$electionId]);
+            }
+
+            $election = Election::find($electionId);
+            if (!$election instanceof Election || !$election->ownedBy($organizer)) {
+                throw new AuthorizationException('Only the owning organiser can review these candidates.');
+            }
+            if ($election->status() !== Election::NOMINATION_OPEN) {
+                throw new BusinessRuleException('Candidate decisions are available only while nominations are open.');
+            }
+
+            $applications = $this->candidateApplications($election);
+            $applicationsById = [];
+            foreach ($applications as $application) {
+                $applicationsById[$application->id()] = $application;
+            }
+
+            $changes = [];
+            foreach ($decisions as $applicationId => $decision) {
+                $id = filter_var($applicationId, FILTER_VALIDATE_INT);
+                $status = trim((string) $decision);
+                if ($id === false || !isset($applicationsById[$id])) {
+                    throw new BusinessRuleException('A candidate decision does not belong to this election.');
+                }
+                if (!in_array($status, $allowedStatuses, true)) {
+                    throw new BusinessRuleException('Select a valid candidate decision.');
+                }
+
+                $application = $applicationsById[$id];
+                if ($application->status() === $status) {
+                    continue;
+                }
+
+                $application->set('status', $status);
+                $application->save();
+                $changes[] = [
+                    'candidacy_id' => $application->id(),
+                    'candidate_id' => (int) $application->get('candidate_id'),
+                    'decision' => $status,
+                ];
+            }
+
+            if ($changes === []) {
+                return 0;
+            }
+
+            $election->appendTransition([
+                'actor_user_id' => $organizer->id(),
+                'request_id' => $requestId,
+                'action' => 'review_candidates',
+                'from_state' => Election::NOMINATION_OPEN,
+                'to_state' => Election::NOMINATION_OPEN,
+                'metadata' => ['candidate_decisions' => $changes],
+                'created_at' => $this->clock->now()->format('Y-m-d H:i:s'),
+            ]);
+            $election->save();
+
+            $this->auditLogger->log('candidate_ballot_decisions_updated', [
+                'election_id' => $electionId,
+                'actor_user_id' => $organizer->id(),
+                'request_id' => $requestId,
+                'candidate_decisions' => $changes,
+            ]);
+
+            return count($changes);
+        });
     }
 
     private function authorizeAction(User $actor, int $electionId, string $action): void

@@ -2,9 +2,15 @@
 
 declare(strict_types=1);
 
-namespace VoteTrust\Election\Models;
+namespace VoteTrust\Election\ValueObjects;
 
-final class ElectionTransitionLog
+use VoteTrust\Election\Models\User;
+
+/**
+ * Read-only representation of one entry in election.transition_history_json.
+ * This class is not mapped to a database table.
+ */
+final class ElectionTransitionRecord
 {
     /** @param array<string, mixed> $attributes */
     public function __construct(private readonly array $attributes)
