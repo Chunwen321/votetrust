@@ -1,0 +1,18 @@
+{
+    "VT-HOST-PAID-001": {
+        "paymentStatus": "CONFIRMED",
+        "amount": 100,
+        "currency": "MYR",
+        "payerId": 3,
+        "purpose": "ELECTION_HOSTING",
+        "paymentId": null
+    },
+    "VT-HOST-PENDING-001": {
+        "paymentStatus": "PENDING",
+        "amount": 100,
+        "currency": "MYR",
+        "payerId": 3,
+        "purpose": "ELECTION_HOSTING",
+        "paymentId": null
+    }
+}
