@@ -1,5 +1,0 @@
-.env
-storage/logs/*.log
-storage/sessions/*
-!storage/logs/.gitkeep
-!storage/sessions/.gitkeep

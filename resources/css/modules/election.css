@@ -1,0 +1,191 @@
+/* PIC: Low Wen Kai - Election Management Module */
+
+.election-shell {
+    width: min(1180px, calc(100% - 2rem));
+    margin: 2rem auto 4rem;
+    color: #172033;
+}
+
+.election-shell h1,
+.election-shell h2,
+.election-shell h3,
+.election-shell p {
+    margin-top: 0;
+}
+
+.election-page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin: 1.25rem 0 1.5rem;
+}
+
+.election-page-header h1 {
+    font-size: clamp(2rem, 5vw, 3.4rem);
+    line-height: 1;
+    letter-spacing: -.04em;
+    margin-bottom: .75rem;
+}
+
+.election-eyebrow {
+    color: #3158d3;
+    font-size: .75rem;
+    font-weight: 800;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+}
+
+.election-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.election-card {
+    padding: 1.4rem;
+    border: 1px solid #dce2ee;
+    border-radius: 1rem;
+    background: #fff;
+    box-shadow: 0 12px 35px rgb(32 46 78 / 7%);
+}
+
+.election-card-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    color: #637089;
+    font-size: .82rem;
+}
+
+.election-status {
+    display: inline-flex;
+    width: fit-content;
+    padding: .35rem .65rem;
+    border-radius: 999px;
+    background: #edf1f8;
+    color: #344159;
+    font-size: .75rem;
+    font-weight: 800;
+    letter-spacing: .03em;
+}
+
+.election-status-draft { background: #edf1f8; }
+.election-status-pending-payment,
+.election-status-pending-admin-approval { background: #fff2cc; color: #805b00; }
+.election-status-nomination-open,
+.election-status-voting-open { background: #dff7e9; color: #12663a; }
+.election-status-rejected,
+.election-status-cancelled { background: #ffe0e2; color: #9a2630; }
+.election-status-closed { background: #e8e3fb; color: #4b358f; }
+
+.election-facts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .75rem;
+    margin: 1rem 0;
+}
+
+.election-facts div {
+    padding: .75rem;
+    border-radius: .7rem;
+    background: #f7f9fc;
+}
+
+.election-facts dt {
+    color: #68748b;
+    font-size: .72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.election-facts dd { margin: .25rem 0 0; }
+.election-facts-stacked { grid-template-columns: 1fr; }
+
+.election-link {
+    color: #244cc5;
+    font-weight: 750;
+    text-decoration: none;
+}
+
+.election-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.7rem;
+    padding: .65rem 1rem;
+    border: 1px solid #c9d1df;
+    border-radius: .7rem;
+    background: #fff;
+    color: #23314b;
+    font: inherit;
+    font-weight: 750;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.election-button-primary { border-color: #3158d3; background: #3158d3; color: #fff; }
+.election-button-danger { border-color: #bf3643; background: #bf3643; color: #fff; }
+
+.election-form-shell { max-width: 900px; }
+.election-form { display: grid; gap: 1.2rem; }
+.election-form fieldset { display: grid; gap: .65rem; padding: 1rem; border: 1px solid #dfe5ef; border-radius: .8rem; }
+.election-form legend { padding: 0 .4rem; font-weight: 800; }
+.election-form label,
+.election-action label { display: grid; gap: .35rem; font-size: .85rem; font-weight: 700; }
+.election-form input,
+.election-form textarea,
+.election-form select,
+.election-action input,
+.election-table select,
+.election-card > form > label input {
+    width: 100%;
+    padding: .7rem .8rem;
+    border: 1px solid #bac4d4;
+    border-radius: .55rem;
+    background: #fff;
+    color: #172033;
+    font: inherit;
+}
+
+.election-choice-row { display: flex; flex-wrap: wrap; gap: 1rem; }
+.election-choice-row label { display: flex; align-items: center; gap: .4rem; }
+.election-choice-row input { width: auto; }
+.election-criteria { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; }
+.election-field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.election-form-actions { display: flex; justify-content: flex-end; gap: .75rem; }
+.election-field-error { color: #ad2633; font-weight: 650; }
+
+.election-detail-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(260px, .8fr);
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.election-action {
+    display: grid;
+    gap: .75rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e0e5ed;
+}
+
+.election-table-wrap { overflow-x: auto; }
+.election-table { width: 100%; border-collapse: collapse; }
+.election-table th,
+.election-table td { padding: .75rem; border-bottom: 1px solid #e3e7ee; text-align: left; vertical-align: top; }
+.election-table th { color: #59667d; font-size: .75rem; text-transform: uppercase; }
+.election-approval-priority { border-color: #e2b744; box-shadow: 0 12px 35px rgb(179 130 0 / 12%); }
+.election-empty { text-align: center; }
+
+@media (max-width: 760px) {
+    .election-page-header,
+    .election-detail-grid { display: grid; grid-template-columns: 1fr; }
+    .election-criteria,
+    .election-field-grid,
+    .election-facts { grid-template-columns: 1fr; }
+}
