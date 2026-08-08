@@ -6,6 +6,7 @@ namespace VoteTrust\Election\Validation;
 
 use DateTimeImmutable;
 use VoteTrust\Election\Exceptions\ValidationException;
+use VoteTrust\Election\ValueObjects\EligibilityRules;
 
 final class ElectionValidator
 {
@@ -16,7 +17,10 @@ final class ElectionValidator
     {
         $title = trim((string) ($input['title'] ?? ''));
         $description = trim((string) ($input['description'] ?? ''));
-        $rules = trim((string) ($input['eligibility_rules'] ?? ''));
+        $eligibilityMode = strtoupper(trim((string) ($input['eligibility_mode'] ?? '')));
+        $minimumAgeInput = trim((string) ($input['eligibility_minimum_age'] ?? ''));
+        $occupation = strtoupper(trim((string) ($input['eligibility_occupation'] ?? 'ANY')));
+        $nationality = strtoupper(trim((string) ($input['eligibility_nationality'] ?? 'ANY')));
         $currency = strtoupper(trim((string) ($input['currency'] ?? 'MYR')));
         $fee = filter_var($input['hosting_fee'] ?? null, FILTER_VALIDATE_FLOAT);
         $errors = [];
@@ -27,8 +31,30 @@ final class ElectionValidator
         if (mb_strlen($description) < 20 || mb_strlen($description) > 2000) {
             $errors['description'] = 'Description must contain between 20 and 2,000 characters.';
         }
-        if (mb_strlen($rules) < 5 || mb_strlen($rules) > 1000) {
-            $errors['eligibility_rules'] = 'Eligibility rules must contain between 5 and 1,000 characters.';
+        if (!in_array($eligibilityMode, [EligibilityRules::PUBLIC, EligibilityRules::RESTRICTED], true)) {
+            $errors['eligibility_mode'] = 'Choose whether this election is public or restricted.';
+        }
+
+        $minimumAge = null;
+        if ($minimumAgeInput !== '') {
+            $parsedAge = filter_var($minimumAgeInput, FILTER_VALIDATE_INT);
+            if ($parsedAge === false || !in_array((int) $parsedAge, EligibilityRules::minimumAgeOptions(), true)) {
+                $errors['eligibility_minimum_age'] = 'Choose a valid minimum age.';
+            } else {
+                $minimumAge = (int) $parsedAge;
+            }
+        }
+        if (!array_key_exists($occupation, EligibilityRules::occupationOptions())) {
+            $errors['eligibility_occupation'] = 'Choose a valid occupation.';
+        }
+        if (!array_key_exists($nationality, EligibilityRules::nationalityOptions())) {
+            $errors['eligibility_nationality'] = 'Choose a valid nationality.';
+        }
+        if ($eligibilityMode === EligibilityRules::RESTRICTED
+            && $minimumAge === null
+            && $occupation === 'ANY'
+            && $nationality === 'ANY') {
+            $errors['eligibility_criteria'] = 'Select at least one eligibility requirement.';
         }
         if ($fee === false || $fee < 1 || $fee > 10000) {
             $errors['hosting_fee'] = 'Hosting fee must be between 1.00 and 10,000.00.';
@@ -63,10 +89,14 @@ final class ElectionValidator
             throw new ValidationException($errors);
         }
 
+        $rules = $eligibilityMode === EligibilityRules::PUBLIC
+            ? EligibilityRules::publicElection()
+            : EligibilityRules::restricted($minimumAge, $occupation, $nationality);
+
         return [
             'title' => $title,
             'description' => $description,
-            'eligibility_rules' => $rules,
+            'eligibility_rules' => $rules->toStorage(),
             'nomination_start' => $dates['nomination_start']->format('Y-m-d H:i:s'),
             'nomination_end' => $dates['nomination_end']->format('Y-m-d H:i:s'),
             'voting_start' => $dates['voting_start']->format('Y-m-d H:i:s'),

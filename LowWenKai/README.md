@@ -67,7 +67,8 @@ No `lwk_*` tables are required. The existing `election` table stores payment ver
 - `app/Models/Organizer.php` maps to `organizer`.
 - `app/Models/Election.php` maps to `election`.
 - `app/Models/Candidate.php` and `Candidacy.php` map to the existing teammate tables so the organizer can review the ballot without creating another table.
-- `app/ValueObjects/PaymentVerification.php` and `ElectionTransitionRecord.php` are not tables; they represent data stored inside the election row.
+- `app/ValueObjects/PaymentVerification.php`, `ElectionTransitionRecord.php`, and `EligibilityRules.php` are not tables; they represent structured data stored inside the election row.
+- New elections use predefined public/restricted voter requirements stored as JSON in the existing `election.eligibility_rules` column.
 
 ## Election lifecycle
 

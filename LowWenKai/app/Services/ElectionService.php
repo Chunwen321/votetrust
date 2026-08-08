@@ -248,6 +248,7 @@ final class ElectionService
             'lifecycleLabel' => $state->label(),
             'hostingPaymentVerified' => $election->paymentVerified(),
             'administratorApproved' => $election->adminApproved(),
+            'eligibility' => $election->eligibilityRules()->toArray(),
             'candidateRegistrationAllowed' => $state->canRegisterCandidate($election, $now),
             'votingAllowed' => $state->canVote($election, $now),
             'nominationPeriod' => [

@@ -11,10 +11,52 @@ use VoteTrust\Election\Security\ApiRequestValidator;
 use VoteTrust\Election\Services\ElectionService;
 use VoteTrust\Election\Tests\Fakes\FakePaymentGateway;
 use VoteTrust\Election\Tests\TestRunner;
+use VoteTrust\Election\Validation\ElectionValidator;
+use VoteTrust\Election\ValueObjects\EligibilityRules;
 
 require __DIR__ . '/bootstrap.php';
 
 $runner = new TestRunner();
+
+$runner->add('Structured eligibility supports public and predefined restricted elections', static function (): void {
+    $validator = new ElectionValidator();
+    $baseInput = [
+        'title' => 'Eligibility Rules Election',
+        'description' => 'An election used to verify structured voter eligibility rules.',
+        'nomination_start' => '2026-08-01T09:00',
+        'nomination_end' => '2026-08-02T09:00',
+        'voting_start' => '2026-08-02T10:00',
+        'voting_end' => '2026-08-03T10:00',
+        'hosting_fee' => '100.00',
+        'currency' => 'MYR',
+    ];
+
+    $public = $validator->validate($baseInput + ['eligibility_mode' => EligibilityRules::PUBLIC]);
+    TestRunner::assertSame(
+        EligibilityRules::PUBLIC,
+        EligibilityRules::fromStored((string) $public['eligibility_rules'])->mode()
+    );
+
+    $restricted = $validator->validate($baseInput + [
+        'eligibility_mode' => EligibilityRules::RESTRICTED,
+        'eligibility_minimum_age' => '18',
+        'eligibility_occupation' => 'STUDENT',
+        'eligibility_nationality' => 'MALAYSIAN',
+    ]);
+    $rules = EligibilityRules::fromStored((string) $restricted['eligibility_rules']);
+    TestRunner::assertSame(18, $rules->minimumAge());
+    TestRunner::assertSame('STUDENT', $rules->occupation());
+    TestRunner::assertSame('MALAYSIAN', $rules->nationality());
+
+    TestRunner::assertThrows(
+        \VoteTrust\Election\Exceptions\ValidationException::class,
+        static fn () => $validator->validate($baseInput + [
+            'eligibility_mode' => EligibilityRules::RESTRICTED,
+            'eligibility_occupation' => 'ANY',
+            'eligibility_nationality' => 'ANY',
+        ])
+    );
+});
 
 $runner->add('State pattern follows payment, independent admin approval, voting and closure', static function (): void {
     resetTestDatabase();
