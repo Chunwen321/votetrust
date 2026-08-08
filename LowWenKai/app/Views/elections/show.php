@@ -278,7 +278,7 @@ $approvedBy = $election->approvedBy()?->username() ?? (
         <dl class="overview-list">
             <div>
                 <dt>Eligibility</dt>
-                <dd><?= e($election->get('eligibility_rules')) ?></dd>
+                <dd><?= e($election->eligibilityRules()->summary()) ?></dd>
             </div>
             <div>
                 <dt>Nominations</dt>

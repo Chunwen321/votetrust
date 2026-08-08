@@ -71,7 +71,10 @@ if (!$demoElection instanceof Election) {
     $demoElection = ElectionService::fromConfig()->create($organizer, [
         'title' => 'VoteTrust Student Council Election 2026',
         'description' => 'A transparent institutional election used to demonstrate payment verification and independent administrator approval.',
-        'eligibility_rules' => 'Active students verified by the User Module may participate.',
+        'eligibility_mode' => 'RESTRICTED',
+        'eligibility_minimum_age' => '18',
+        'eligibility_occupation' => 'STUDENT',
+        'eligibility_nationality' => 'ANY',
         'nomination_start' => $now->modify('-2 days')->format('Y-m-d\\TH:i'),
         'nomination_end' => $now->modify('-1 hour')->format('Y-m-d\\TH:i'),
         'voting_start' => $now->modify('-30 minutes')->format('Y-m-d\\TH:i'),

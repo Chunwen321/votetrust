@@ -111,6 +111,21 @@ input:focus, textarea:focus, select:focus { outline: 3px solid rgba(15, 118, 110
 .form-grid-compact { max-width: 620px; }
 .field-wide { grid-column: 1 / -1; }
 .field textarea { resize: vertical; }
+.eligibility-fieldset { min-width: 0; padding: 0; border: 0; }
+.eligibility-fieldset legend { margin-bottom: 9px; font-size: 0.88rem; font-weight: 750; }
+.eligibility-choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.eligibility-choice { display: flex; gap: 11px; align-items: flex-start; margin: 0; padding: 15px; border: 1px solid #cbd5df; border-radius: 12px; cursor: pointer; }
+.eligibility-choice:has(input:checked) { background: var(--teal-soft); border-color: var(--teal); }
+.eligibility-choice input { width: auto; margin: 4px 0 0; accent-color: var(--teal); }
+.eligibility-choice span, .eligibility-choice strong, .eligibility-choice small { display: block; }
+.eligibility-choice small { margin-top: 3px; color: var(--muted); font-size: 0.78rem; font-weight: 500; }
+.eligibility-criteria { margin-top: 16px; padding: 18px; background: var(--soft); border-radius: 12px; }
+.criteria-heading { margin-bottom: 5px; }
+.criteria-heading strong, .criteria-heading small { display: block; }
+.criteria-heading small { margin-top: 3px; color: var(--muted); font-size: 0.78rem; }
+.criteria-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.criteria-grid label { margin-top: 12px; }
+.eligibility-criteria-error { margin-top: 10px; }
 .form-actions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 8px; }
 
 .election-heading { align-items: center; margin-bottom: 24px; }
@@ -214,6 +229,7 @@ th { color: var(--muted); font-size: 0.72rem; letter-spacing: 0.05em; text-trans
     .site-header { padding: 10px 14px; }
     .user-chip { display: none; }
     .form-grid { grid-template-columns: 1fr; }
+    .eligibility-choice-grid, .criteria-grid { grid-template-columns: 1fr; }
     .field-wide { grid-column: auto; }
     .lifecycle { grid-template-columns: repeat(6, minmax(105px, 1fr)); overflow-x: auto; padding-bottom: 8px; }
     .overview-list > div { grid-template-columns: 92px minmax(0, 1fr); }

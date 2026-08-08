@@ -50,7 +50,10 @@ function Create-And-PayElection {
         _token = $token
         title = $Title
         description = 'A full HTTP integration test for payment and independent administrator approval.'
-        eligibility_rules = 'Verified active students may participate.'
+        eligibility_mode = 'RESTRICTED'
+        eligibility_minimum_age = '18'
+        eligibility_occupation = 'STUDENT'
+        eligibility_nationality = 'ANY'
         nomination_start = $now.AddDays(-2).ToString('yyyy-MM-ddTHH:mm')
         nomination_end = $now.AddHours(-2).ToString('yyyy-MM-ddTHH:mm')
         voting_start = $now.AddHours(-1).ToString('yyyy-MM-ddTHH:mm')

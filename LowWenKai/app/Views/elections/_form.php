@@ -1,6 +1,7 @@
 <?php
 
 use VoteTrust\Election\Core\Csrf;
+use VoteTrust\Election\ValueObjects\EligibilityRules;
 
 $value = static function (string $key, mixed $fallback = '') use ($election, $defaults): mixed {
     if (isset($_SESSION['_old_input']) && array_key_exists($key, $_SESSION['_old_input'])) {
@@ -17,8 +18,15 @@ $value = static function (string $key, mixed $fallback = '') use ($election, $de
 
     return $defaults[$key] ?? $fallback;
 };
+$storedEligibility = $election !== null
+    ? $election->eligibilityRules()
+    : EligibilityRules::publicElection();
+$eligibilityMode = strtoupper((string) old('eligibility_mode', $storedEligibility->mode()));
+$eligibilityMinimumAge = (string) old('eligibility_minimum_age', $storedEligibility->minimumAge() ?? '');
+$eligibilityOccupation = strtoupper((string) old('eligibility_occupation', $storedEligibility->occupation()));
+$eligibilityNationality = strtoupper((string) old('eligibility_nationality', $storedEligibility->nationality()));
 ?>
-<form class="form-stack" method="post" action="<?= e($formAction) ?>" novalidate>
+<form class="form-stack" method="post" action="<?= e($formAction) ?>" novalidate data-election-form>
     <input type="hidden" name="_token" value="<?= e(Csrf::token()) ?>">
     <?php if ($election !== null): ?><input type="hidden" name="_method" value="PUT"><?php endif; ?>
 
@@ -38,11 +46,58 @@ $value = static function (string $key, mixed $fallback = '') use ($election, $de
                 <textarea id="description" name="description" rows="4" maxlength="2000" required><?= e($value('description')) ?></textarea>
                 <?php if (isset($errors['description'])): ?><small class="field-error"><?= e($errors['description']) ?></small><?php endif; ?>
             </div>
-            <div class="field field-wide">
-                <label for="eligibility_rules">Voter eligibility rules</label>
-                <textarea id="eligibility_rules" name="eligibility_rules" rows="3" maxlength="1000" required><?= e($value('eligibility_rules')) ?></textarea>
-                <?php if (isset($errors['eligibility_rules'])): ?><small class="field-error"><?= e($errors['eligibility_rules']) ?></small><?php endif; ?>
-            </div>
+            <fieldset class="field field-wide eligibility-fieldset">
+                <legend>Set voter eligibility requirements?</legend>
+                <div class="eligibility-choice-grid">
+                    <label class="eligibility-choice">
+                        <input type="radio" name="eligibility_mode" value="<?= e(EligibilityRules::PUBLIC) ?>"<?= $eligibilityMode === EligibilityRules::PUBLIC ? ' checked' : '' ?> required>
+                        <span><strong>No — public election</strong><small>Any registered voter may participate.</small></span>
+                    </label>
+                    <label class="eligibility-choice">
+                        <input type="radio" name="eligibility_mode" value="<?= e(EligibilityRules::RESTRICTED) ?>"<?= $eligibilityMode === EligibilityRules::RESTRICTED ? ' checked' : '' ?> required>
+                        <span><strong>Yes — restricted election</strong><small>Only voters matching the selected requirements may participate.</small></span>
+                    </label>
+                </div>
+                <?php if (isset($errors['eligibility_mode'])): ?><small class="field-error"><?= e($errors['eligibility_mode']) ?></small><?php endif; ?>
+
+                <div class="eligibility-criteria" data-eligibility-criteria<?= $eligibilityMode !== EligibilityRules::RESTRICTED ? ' hidden' : '' ?>>
+                    <div class="criteria-heading">
+                        <strong>Choose at least one requirement</strong>
+                        <small>The User/Voter Module will compare these values with the voter profile.</small>
+                    </div>
+                    <div class="criteria-grid">
+                        <div class="field">
+                            <label for="eligibility_minimum_age">Minimum age</label>
+                            <select id="eligibility_minimum_age" name="eligibility_minimum_age">
+                                <option value="">No age restriction</option>
+                                <?php foreach (EligibilityRules::minimumAgeOptions() as $age): ?>
+                                    <option value="<?= e($age) ?>"<?= selected($eligibilityMinimumAge, $age) ?>><?= e($age) ?> years or older</option>
+                                <?php endforeach; ?>
+                            </select>
+                            <?php if (isset($errors['eligibility_minimum_age'])): ?><small class="field-error"><?= e($errors['eligibility_minimum_age']) ?></small><?php endif; ?>
+                        </div>
+                        <div class="field">
+                            <label for="eligibility_occupation">Occupation</label>
+                            <select id="eligibility_occupation" name="eligibility_occupation">
+                                <?php foreach (EligibilityRules::occupationOptions() as $key => $label): ?>
+                                    <option value="<?= e($key) ?>"<?= selected($eligibilityOccupation, $key) ?>><?= e($label) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <?php if (isset($errors['eligibility_occupation'])): ?><small class="field-error"><?= e($errors['eligibility_occupation']) ?></small><?php endif; ?>
+                        </div>
+                        <div class="field">
+                            <label for="eligibility_nationality">Nationality</label>
+                            <select id="eligibility_nationality" name="eligibility_nationality">
+                                <?php foreach (EligibilityRules::nationalityOptions() as $key => $label): ?>
+                                    <option value="<?= e($key) ?>"<?= selected($eligibilityNationality, $key) ?>><?= e($label) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <?php if (isset($errors['eligibility_nationality'])): ?><small class="field-error"><?= e($errors['eligibility_nationality']) ?></small><?php endif; ?>
+                        </div>
+                    </div>
+                    <?php if (isset($errors['eligibility_criteria'])): ?><small class="field-error eligibility-criteria-error"><?= e($errors['eligibility_criteria']) ?></small><?php endif; ?>
+                </div>
+            </fieldset>
         </div>
     </section>
 
@@ -94,4 +149,5 @@ $value = static function (string $key, mixed $fallback = '') use ($election, $de
         <button class="button button-primary" type="submit"><?= e($submitLabel) ?></button>
     </div>
 </form>
+<script src="<?= e(url('/assets/election-form.js')) ?>" defer></script>
 

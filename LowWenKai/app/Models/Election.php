@@ -6,6 +6,7 @@ namespace VoteTrust\Election\Models;
 
 use DateTimeImmutable;
 use VoteTrust\Election\ORM\Model;
+use VoteTrust\Election\ValueObjects\EligibilityRules;
 use VoteTrust\Election\ValueObjects\ElectionTransitionRecord;
 use VoteTrust\Election\ValueObjects\PaymentVerification;
 
@@ -54,6 +55,11 @@ final class Election extends Model
     public function organizer(): ?User
     {
         return User::find((int) $this->get('organizer_id'));
+    }
+
+    public function eligibilityRules(): EligibilityRules
+    {
+        return EligibilityRules::fromStored((string) $this->get('eligibility_rules', ''));
     }
 
     public function approvedBy(): ?User
