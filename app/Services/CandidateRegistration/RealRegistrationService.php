@@ -4,7 +4,6 @@ namespace App\Services\CandidateRegistration;
 
 use App\Contracts\RegistrationService;
 use App\Models\Candidacy;
-use App\Models\Candidate;
 use App\Models\CandidateDocument;
 use App\Models\Election;
 use App\Models\Payment;
@@ -56,12 +55,8 @@ final class RealRegistrationService implements RegistrationService
                     ]);
                 }
 
-                $candidate = Candidate::query()->firstOrNew(['user_id' => $userId]);
-                $candidate->user_id = $userId;
-                $candidate->save();
-
                 $candidacy = Candidacy::query()
-                    ->where('candidate_id', $userId)
+                    ->where('user_id', $userId)
                     ->where('election_id', $electionId)
                     ->lockForUpdate()
                     ->first();
@@ -74,7 +69,7 @@ final class RealRegistrationService implements RegistrationService
 
                 if (! $candidacy instanceof Candidacy) {
                     $candidacy = new Candidacy;
-                    $candidacy->candidate_id = $userId;
+                    $candidacy->user_id = $userId;
                     $candidacy->election_id = $electionId;
                 } else {
                     if (is_string($candidacy->profile_photo) && $candidacy->profile_photo !== '') {

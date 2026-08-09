@@ -5,7 +5,7 @@
 
 @section('content')
 <div class="user-module">
-<a class="back-link" href="{{ route('admin.dashboard') }}">← Admin dashboard</a>
+<a class="back-link" href="{{ route('admin.dashboard') }}">&larr; Admin dashboard</a>
 <section class="page-heading split-heading">
     <div><p class="eyebrow">Election #{{ $election->getKey() }}</p><h1>{{ $election->title }}</h1><p>Manage voter eligibility and candidate approval for this election.</p></div>
     <span class="badge status-{{ strtolower($election->status) }}">{{ str_replace('_', ' ', $election->status) }}</span>
@@ -17,10 +17,10 @@
 </section>
 
 <section id="voters" class="card management-section">
-    <div class="section-title"><div><p class="eyebrow">Voter access</p><h2>Add and manage voters</h2></div><p>{{ $voters->count() }} records</p></div>
+    <div class="section-title"><div><p class="eyebrow">Voter access</p><h2>Add and manage voters</h2></div><div class="section-actions"><p>{{ $voters->count() }} records</p><a class="back-link" href="{{ route('admin.elections.show', $election) }}">Review election &rarr;</a></div></div>
     <form method="post" action="{{ route('admin.participants.voters.store', $election) }}" class="management-add-form">
         @csrf
-        <label>User<select name="user_id" required><option value="">Choose a registered user</option>@foreach($eligibleUsers as $person)<option value="{{ $person->getKey() }}">{{ $person->full_name ?: $person->username }} ({{ '@'.$person->username }})</option>@endforeach</select></label>
+        <label>User<select name="user_id" required><option value="">Choose a registered user</option>@foreach($availableVoters as $person)<option value="{{ $person->getKey() }}">{{ $person->full_name ?: $person->username }} ({{ '@'.$person->username }})</option>@endforeach</select></label>
         <label>Status<select name="status">@foreach(\App\Services\AdminManagementService::VOTER_STATUSES as $status)<option value="{{ $status }}">{{ ucfirst(strtolower($status)) }}</option>@endforeach</select></label>
         <button type="submit">Save voter</button>
     </form>
@@ -47,7 +47,7 @@
     <div class="section-title"><div><p class="eyebrow">Ballot management</p><h2>Add and manage candidates</h2></div><p>{{ $candidates->count() }} records</p></div>
     <form method="post" action="{{ route('admin.participants.candidates.store', $election) }}" class="management-add-form">
         @csrf
-        <label>User<select name="user_id" required><option value="">Choose a registered user</option>@foreach($eligibleUsers as $person)<option value="{{ $person->getKey() }}">{{ $person->full_name ?: $person->username }} ({{ '@'.$person->username }})</option>@endforeach</select></label>
+        <label>User<select name="user_id" required><option value="">Choose a registered user</option>@foreach($availableCandidates as $person)<option value="{{ $person->getKey() }}">{{ $person->full_name ?: $person->username }} ({{ '@'.$person->username }})</option>@endforeach</select></label>
         <label>Status<select name="status">@foreach(\App\Services\AdminManagementService::CANDIDATE_STATUSES as $status)<option value="{{ $status }}">{{ $status }}</option>@endforeach</select></label>
         <button type="submit">Save candidate</button>
     </form>
@@ -61,7 +61,7 @@
                 <td><strong>{{ $candidate->full_name ?: $candidate->username }}</strong><br><small>{{ $candidate->email }}</small></td>
                 <td>{{ $candidate->account_status }}</td>
                 <td><span class="badge status-{{ strtolower($candidate->status) }}">{{ $candidate->status }}</span></td>
-                <td><form method="post" action="{{ route('admin.participants.candidates.update', [$election, $candidate->candidate_id]) }}" class="row-action-form">@csrf @method('PATCH')<select name="status">@foreach(\App\Services\AdminManagementService::CANDIDATE_STATUSES as $status)<option value="{{ $status }}" @selected($candidate->status === $status)>{{ $status }}</option>@endforeach</select><button class="button-small" type="submit">Save</button></form></td>
+                <td><form method="post" action="{{ route('admin.participants.candidates.update', [$election, $candidate->user_id]) }}" class="row-action-form">@csrf @method('PATCH')<select name="status">@foreach(\App\Services\AdminManagementService::CANDIDATE_STATUSES as $status)<option value="{{ $status }}" @selected($candidate->status === $status)>{{ $status }}</option>@endforeach</select><button class="button-small" type="submit">Save</button></form></td>
             </tr>
         @endforeach
         </tbody></table></div>

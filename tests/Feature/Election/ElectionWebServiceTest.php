@@ -5,7 +5,6 @@
 namespace Tests\Feature\Election;
 
 use App\Models\Candidacy;
-use App\Models\Candidate;
 use App\Models\Election;
 use App\Models\Organizer;
 use App\Models\User;
@@ -60,7 +59,7 @@ final class ElectionWebServiceTest extends TestCase
             ->assertJsonMissingPath('data.eligibility.occupation')
             ->assertJsonPath('data.votingAllowed', true)
             ->assertJsonPath('data.ballot.0.id', $approvedCandidacy->getKey())
-            ->assertJsonPath('data.ballot.0.candidateId', $approvedCandidacy->candidate_id)
+            ->assertJsonPath('data.ballot.0.candidateId', $approvedCandidacy->user_id)
             ->assertJsonPath('data.ballot.0.name', 'Approved Candidate')
             ->assertJsonPath('data.ballot.0.position', 'President')
             ->assertJsonPath('data.ballot.0.manifesto', 'A transparent manifesto supplied through the Election REST provider.')
@@ -164,16 +163,12 @@ final class ElectionWebServiceTest extends TestCase
         ]);
         $candidateUser = User::query()->create([
             'name' => 'Approved Candidate Account',
+            'full_name' => 'Approved Candidate',
             'email' => 'approved-candidate@example.test',
             'password' => Hash::make('Candidate!Pass1'),
         ]);
-        Candidate::query()->create([
-            'user_id' => $candidateUser->getKey(),
-            'full_name' => 'Approved Candidate',
-            'email' => $candidateUser->email,
-        ]);
         $approved = Candidacy::query()->create([
-            'candidate_id' => $candidateUser->getKey(),
+            'user_id' => $candidateUser->getKey(),
             'election_id' => $election->getKey(),
             'status' => Candidacy::APPROVED,
             'position_sought' => 'President',
@@ -185,9 +180,8 @@ final class ElectionWebServiceTest extends TestCase
             'email' => 'pending-candidate@example.test',
             'password' => Hash::make('Candidate!Pass2'),
         ]);
-        Candidate::query()->create(['user_id' => $pendingUser->getKey(), 'full_name' => 'Pending Candidate']);
         Candidacy::query()->create([
-            'candidate_id' => $pendingUser->getKey(),
+            'user_id' => $pendingUser->getKey(),
             'election_id' => $election->getKey(),
             'status' => Candidacy::PENDING,
             'position_sought' => 'President',

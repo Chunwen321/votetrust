@@ -17,7 +17,7 @@ Route::middleware(['throttle:60,1', ValidateCandidateApiRequest::class])
     ->name('api.candidates.payment-information');
 
 // PIC: Wong Shun Bin — Candidate Registration module routes.
-Route::middleware('auth')
+Route::middleware(['auth', 'active.account'])
     ->prefix('candidate')
     ->name('candidate.')
     ->group(function (): void {

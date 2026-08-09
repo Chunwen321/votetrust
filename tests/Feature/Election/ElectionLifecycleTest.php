@@ -8,7 +8,6 @@ use App\Contracts\Clock;
 use App\Contracts\PaymentGateway;
 use App\Exceptions\BusinessRuleException;
 use App\Models\Candidacy;
-use App\Models\Candidate;
 use App\Models\Election;
 use App\Models\Organizer;
 use App\Models\User;
@@ -103,9 +102,8 @@ final class ElectionLifecycleTest extends TestCase
             'email' => 'candidate@example.test',
             'password' => Hash::make('Candidate!Pass1'),
         ]);
-        Candidate::query()->create(['user_id' => $candidateUser->getKey()]);
         Candidacy::query()->create([
-            'candidate_id' => $candidateUser->getKey(),
+            'user_id' => $candidateUser->getKey(),
             'election_id' => $election->getKey(),
             'status' => Candidacy::APPROVED,
         ]);

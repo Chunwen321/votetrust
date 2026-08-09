@@ -13,7 +13,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('election_id')->constrained()->cascadeOnDelete();
             $table->foreignId('voter_id')->constrained('users')->cascadeOnDelete();
-            $table->foreignId('candidate_id')->constrained('candidates', 'user_id')->cascadeOnDelete();
+            $table->foreignId('candidate_id')->constrained('users')->cascadeOnDelete();
             $table->timestamp('cast_at')->useCurrent();
             $table->unique(['voter_id', 'election_id']);
             $table->index(['election_id', 'candidate_id']);

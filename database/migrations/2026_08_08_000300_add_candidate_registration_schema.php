@@ -9,9 +9,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('candidates', function (Blueprint $table): void {
-            $table->string('full_name', 100)->nullable();
-            $table->string('email', 150)->nullable();
+        Schema::table('users', function (Blueprint $table): void {
             $table->string('phone_number', 30)->nullable();
         });
 
@@ -49,8 +47,8 @@ return new class extends Migration
             ]);
         });
 
-        Schema::table('candidates', function (Blueprint $table): void {
-            $table->dropColumn(['full_name', 'email', 'phone_number']);
+        Schema::table('users', function (Blueprint $table): void {
+            $table->dropColumn('phone_number');
         });
     }
 };

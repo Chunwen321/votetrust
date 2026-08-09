@@ -32,10 +32,10 @@ final class RegisterRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'username' => ['required', 'string', 'min:3', 'max:50', 'regex:/^[A-Za-z0-9_.-]+$/', 'unique:users,username'],
+            'username' => ['required', 'string', 'min:3', 'max:50', 'regex:/^[A-Za-z0-9_.-]+$/', 'unique:user,username'],
             'full_name' => ['required', 'string', 'min:2', 'max:100'],
-            'email' => ['required', 'string', 'email', 'max:190', 'unique:users,email'],
-            'ic_number' => ['required', 'regex:/^\d{12}$/', 'unique:users,ic_number'],
+            'email' => ['required', 'string', 'email', 'max:190', 'unique:user,email'],
+            'ic_number' => ['required', 'regex:/^\d{12}$/', 'unique:user,ic_number'],
             'password' => ['required', 'confirmed', Password::min(12)->mixedCase()->numbers()->symbols()],
         ];
     }

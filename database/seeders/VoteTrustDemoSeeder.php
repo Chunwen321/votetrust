@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\Candidacy;
-use App\Models\Candidate;
 use App\Models\Election;
 use App\Models\Organizer;
 use App\Models\Payment;
@@ -27,16 +26,6 @@ class VoteTrustDemoSeeder extends Seeder
 
             foreach (['OrganizerAdmin', 'LowWenKaiOrganizer'] as $username) {
                 Organizer::query()->firstOrCreate(['user_id' => $users[$username]->id]);
-            }
-
-            foreach (['CandidateAisha', 'CandidateDaniel'] as $username) {
-                Candidate::query()->updateOrCreate(
-                    ['user_id' => $users[$username]->id],
-                    [
-                        'full_name' => $users[$username]->display_name,
-                        'email' => $users[$username]->email,
-                    ],
-                );
             }
 
             $payment = Payment::query()->updateOrCreate(
@@ -80,7 +69,7 @@ class VoteTrustDemoSeeder extends Seeder
 
             foreach (['CandidateAisha', 'CandidateDaniel'] as $username) {
                 Candidacy::query()->updateOrCreate(
-                    ['candidate_id' => $users[$username]->id, 'election_id' => $election->id],
+                    ['user_id' => $users[$username]->id, 'election_id' => $election->id],
                     [
                         'status' => Candidacy::APPROVED,
                         'position_sought' => 'Student Council Representative',

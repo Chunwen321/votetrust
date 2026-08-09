@@ -24,7 +24,8 @@ final class ParticipantController extends Controller
             'election' => $election,
             'voters' => $this->management->voters($election),
             'candidates' => $this->management->candidates($election),
-            'eligibleUsers' => $this->management->eligibleUsers(),
+            'availableVoters' => $this->management->availableVoters($election),
+            'availableCandidates' => $this->management->availableCandidates($election),
             'counts' => $this->management->participantCounts($election),
         ]);
     }
@@ -32,7 +33,7 @@ final class ParticipantController extends Controller
     public function storeVoter(Request $request, Election $election): RedirectResponse
     {
         $validated = $request->validate([
-            'user_id' => ['required', 'integer', 'exists:users,id'],
+            'user_id' => ['required', 'integer', 'exists:user,id'],
             'status' => ['required', Rule::in(AdminManagementService::VOTER_STATUSES)],
         ]);
         $this->management->saveVoter(
@@ -63,7 +64,7 @@ final class ParticipantController extends Controller
     public function storeCandidate(Request $request, Election $election): RedirectResponse
     {
         $validated = $request->validate([
-            'user_id' => ['required', 'integer', 'exists:users,id'],
+            'user_id' => ['required', 'integer', 'exists:user,id'],
             'status' => ['required', Rule::in(AdminManagementService::CANDIDATE_STATUSES)],
         ]);
         $this->management->saveCandidate(

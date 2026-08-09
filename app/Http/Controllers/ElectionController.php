@@ -12,6 +12,8 @@ use App\Http\Requests\TransitionElectionRequest;
 use App\Http\Requests\UpdateElectionRequest;
 use App\Models\Election;
 use App\Services\ElectionService;
+use App\Services\User\VotingParticipationClient;
+use App\Services\VoterService;
 use App\States\ElectionStatus;
 use App\ValueObjects\EligibilityRules;
 use Carbon\CarbonImmutable;
@@ -21,20 +23,38 @@ use Illuminate\View\View;
 
 final class ElectionController extends Controller
 {
-    public function __construct(private readonly ElectionService $service) {}
+    public function __construct(
+        private readonly ElectionService $service,
+        private readonly VoterService $voters,
+        private readonly VotingParticipationClient $voting,
+    ) {}
 
-    public function index(Request $request): View
+    public function index(Request $request): View|RedirectResponse
     {
-        $organizer = $this->service->requireOrganizer($request->user());
+        $user = $request->user();
+        if ($this->service->isAdmin($user)) {
+            return redirect()->route('admin.elections.index');
+        }
+
+        $enrollments = $this->voters->enrollmentsForVoter((int) $user->getKey());
 
         return view('elections.index', [
-            'elections' => Election::query()->where('organizer_id', $organizer->getKey())->latest('updated_at')->paginate(12),
+            'user' => $user,
+            'voterEnrollments' => $enrollments,
+            'organizedElections' => Election::query()
+                ->where('organizer_id', $user->getKey())
+                ->latest('updated_at')
+                ->get(),
+            'votingStatuses' => $this->voting->statusesForVoter(
+                (int) $user->getKey(),
+                $enrollments->pluck('election_id')->all(),
+            ),
         ]);
     }
 
     public function create(Request $request): View
     {
-        $this->service->requireOrganizer($request->user());
+        abort_if($this->service->isAdmin($request->user()), 403, 'Administrators cannot create elections.');
         $now = CarbonImmutable::now();
 
         return view('elections.create', ['defaults' => [

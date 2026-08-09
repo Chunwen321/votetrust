@@ -12,6 +12,8 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
+    protected $table = 'user';
+
     /**
      * @var list<string>
      */
@@ -22,6 +24,7 @@ class User extends Authenticatable
         'ic_number',
         'date_of_birth',
         'nationality_country_code',
+        'phone_number',
         'email',
         'password',
         'is_admin',
@@ -86,9 +89,9 @@ class User extends Authenticatable
     }
 
     // PIC: Wong Shun Bin — Candidate registration relationship.
-    public function candidate()
+    public function candidacies()
     {
-        return $this->hasOne(Candidate::class);
+        return $this->hasMany(Candidacy::class);
     }
 
     // PIC: Goh Chun Wen — Voting relationship.

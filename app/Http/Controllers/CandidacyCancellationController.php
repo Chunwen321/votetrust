@@ -24,7 +24,7 @@ final class CandidacyCancellationController extends Controller
         PaymentStatusClient $paymentStatusClient,
     ): RedirectResponse {
         $userId = (int) $request->user()?->getAuthIdentifier();
-        abort_unless((int) $candidacy->candidate_id === $userId, 403);
+        abort_unless((int) $candidacy->user_id === $userId, 403);
 
         if ($candidacy->payment_id === null) {
             throw ValidationException::withMessages([
@@ -49,7 +49,7 @@ final class CandidacyCancellationController extends Controller
         $obsoletePaths = DB::transaction(function () use ($candidacy, $userId, $paymentId): array {
             $lockedCandidacy = Candidacy::query()
                 ->whereKey($candidacy->getKey())
-                ->where('candidate_id', $userId)
+                ->where('user_id', $userId)
                 ->lockForUpdate()
                 ->firstOrFail();
 

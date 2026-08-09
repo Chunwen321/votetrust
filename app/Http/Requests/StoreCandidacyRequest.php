@@ -22,7 +22,7 @@ final class StoreCandidacyRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'election_id' => ['required', 'integer', 'exists:elections,id'],
+            'election_id' => ['required', 'integer', 'exists:election,id'],
             ...RegistrationRules::application(),
         ];
     }

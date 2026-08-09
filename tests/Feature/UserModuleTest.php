@@ -30,7 +30,7 @@ final class UserModuleTest extends TestCase
 
         $response->assertRedirect(route('dashboard'));
         $this->assertAuthenticated();
-        $this->assertDatabaseHas('users', [
+        $this->assertDatabaseHas('user', [
             'username' => 'chew.member',
             'name' => 'Chew Member',
             'full_name' => 'Chew Member',
@@ -164,15 +164,14 @@ final class UserModuleTest extends TestCase
             'status' => 'Approved',
         ])->assertRedirect(route('admin.participants.show', $election).'#candidates');
 
-        $this->assertDatabaseHas('voter_enrollments', [
+        $this->assertDatabaseHas('voter', [
             'user_id' => $member->getKey(),
             'election_id' => $election->getKey(),
             'status' => VoterEnrollment::APPROVED,
             'added_by' => $admin->getKey(),
         ]);
-        $this->assertDatabaseHas('candidates', ['user_id' => $member->getKey()]);
-        $this->assertDatabaseHas('candidacies', [
-            'candidate_id' => $member->getKey(),
+        $this->assertDatabaseHas('candidacy', [
+            'user_id' => $member->getKey(),
             'election_id' => $election->getKey(),
             'status' => 'Approved',
         ]);
@@ -185,6 +184,62 @@ final class UserModuleTest extends TestCase
             ->get(route('admin.participants.show', $election))
             ->assertOk()
             ->assertSee('Election Member');
+    }
+
+    public function test_an_administrator_can_filter_and_change_member_account_access(): void
+    {
+        $admin = User::factory()->create([
+            'username' => 'access.admin',
+            'full_name' => 'Access Admin',
+            'is_admin' => true,
+            'account_status' => 'ACTIVE',
+        ]);
+        $member = User::factory()->create([
+            'username' => 'member.access',
+            'full_name' => 'Member Access',
+            'is_admin' => false,
+            'account_status' => 'ACTIVE',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.users.index', ['search' => 'member.access', 'status' => 'ACTIVE']))
+            ->assertOk()
+            ->assertSee('Member Access')
+            ->assertSee('Member account management');
+
+        $this->actingAs($admin)
+            ->patch(route('admin.users.update', $member), ['status' => 'DISABLED'])
+            ->assertRedirect(route('admin.users.index'));
+
+        $this->assertDatabaseHas('user', [
+            'id' => $member->getKey(),
+            'account_status' => 'DISABLED',
+            'failed_login_attempts' => 0,
+        ]);
+
+        $this->actingAs($admin)
+            ->patch(route('admin.users.update', $member), ['status' => 'ACTIVE'])
+            ->assertRedirect(route('admin.users.index'));
+
+        $this->assertDatabaseHas('user', [
+            'id' => $member->getKey(),
+            'account_status' => 'ACTIVE',
+            'account_disabled_at' => null,
+        ]);
+    }
+
+    public function test_a_disabled_member_is_signed_out_before_entering_protected_pages(): void
+    {
+        $member = User::factory()->create([
+            'username' => 'disabled.member',
+            'is_admin' => false,
+            'account_status' => 'DISABLED',
+        ]);
+
+        $this->actingAs($member)
+            ->get(route('dashboard'))
+            ->assertRedirect(route('login'))
+            ->assertSessionHas('error');
     }
 
     public function test_a_member_can_open_dashboard_profile_and_voter_enrolments(): void

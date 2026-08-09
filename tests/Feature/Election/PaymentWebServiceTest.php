@@ -228,7 +228,7 @@ final class PaymentWebServiceTest extends TestCase
         self::assertSame(ElectionStatus::PENDING_PAYMENT->value, $election->status);
         self::assertNull($election->payment_verified_at);
         self::assertNull($election->payment_response_json);
-        self::assertSame(0, DB::table('payments')->count());
+        self::assertSame(0, DB::table('payment')->count());
         Http::assertSentCount(1);
     }
 }

@@ -7,10 +7,10 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Candidacy;
-use App\Models\Candidate;
 use App\Models\Election;
 use App\Models\User;
 use App\Models\VoterEnrollment;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -23,7 +23,10 @@ final class AdminManagementService
     /** @var list<string> */
     public const CANDIDATE_STATUSES = ['Pending', 'Approved', 'Rejected'];
 
-    /** @return array{elections:int,active:int,voters:int,pending_candidates:int} */
+    /** @var list<string> */
+    public const ACCOUNT_STATUSES = ['ACTIVE', 'DISABLED'];
+
+    /** @return array{elections:int,active:int,voters:int,pending_candidates:int,members:int,disabled_members:int,pending_election_approvals:int} */
     public function dashboardCounts(): array
     {
         return [
@@ -35,6 +38,14 @@ final class AdminManagementService
             'pending_candidates' => Candidacy::query()
                 ->whereRaw('LOWER(status) = ?', ['pending'])
                 ->count(),
+            'members' => User::query()->where('is_admin', false)->count(),
+            'disabled_members' => User::query()
+                ->where('is_admin', false)
+                ->where('account_status', 'DISABLED')
+                ->count(),
+            'pending_election_approvals' => Election::query()
+                ->where('status', Election::PENDING_ADMIN_APPROVAL)
+                ->count(),
         ];
     }
 
@@ -44,6 +55,17 @@ final class AdminManagementService
         return Election::query()
             ->orderByDesc('updated_at')
             ->orderByDesc('id')
+            ->limit(max(1, $limit))
+            ->get();
+    }
+
+    /** @return EloquentCollection<int, Election> */
+    public function pendingElectionApprovals(int $limit = 4): EloquentCollection
+    {
+        return Election::query()
+            ->with('organizer:id,name,username,full_name')
+            ->where('status', Election::PENDING_ADMIN_APPROVAL)
+            ->orderBy('updated_at')
             ->limit(max(1, $limit))
             ->get();
     }
@@ -83,7 +105,7 @@ final class AdminManagementService
                 "{$userTable}.email",
                 "{$userTable}.account_status",
             ])
-            ->join($userTable, "{$userTable}.id", '=', "{$candidacyTable}.candidate_id")
+            ->join($userTable, "{$userTable}.id", '=', "{$candidacyTable}.user_id")
             ->where("{$candidacyTable}.election_id", $election->getKey())
             ->orderByRaw("CASE LOWER({$candidacyTable}.status) WHEN 'pending' THEN 1 WHEN 'rejected' THEN 2 ELSE 3 END")
             ->orderBy("{$userTable}.username")
@@ -101,6 +123,74 @@ final class AdminManagementService
             ->get();
     }
 
+    /** @return EloquentCollection<int, User> */
+    public function availableVoters(Election $election): EloquentCollection
+    {
+        return User::query()
+            ->select(['id', 'username', 'full_name', 'email'])
+            ->where('is_admin', false)
+            ->where('account_status', 'ACTIVE')
+            ->whereNotIn('id', VoterEnrollment::query()
+                ->select('user_id')
+                ->where('election_id', $election->getKey()))
+            ->orderBy('username')
+            ->get();
+    }
+
+    /** @return EloquentCollection<int, User> */
+    public function availableCandidates(Election $election): EloquentCollection
+    {
+        return User::query()
+            ->select(['id', 'username', 'full_name', 'email'])
+            ->where('is_admin', false)
+            ->where('account_status', 'ACTIVE')
+            ->whereNotIn('id', Candidacy::query()
+                ->select('user_id')
+                ->where('election_id', $election->getKey()))
+            ->orderBy('username')
+            ->get();
+    }
+
+    /** @return LengthAwarePaginator<int, User> */
+    public function members(string $search = '', ?string $status = null): LengthAwarePaginator
+    {
+        $search = trim($search);
+        $status = $status === null ? null : strtoupper(trim($status));
+
+        return User::query()
+            ->where('is_admin', false)
+            ->when($search !== '', function ($query) use ($search): void {
+                $query->where(function ($members) use ($search): void {
+                    $members
+                        ->where('username', 'like', "%{$search}%")
+                        ->orWhere('full_name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                });
+            })
+            ->when(in_array($status, self::ACCOUNT_STATUSES, true), function ($query) use ($status): void {
+                $query->where('account_status', $status);
+            })
+            ->orderBy('full_name')
+            ->orderBy('username')
+            ->paginate(15)
+            ->withQueryString();
+    }
+
+    /** @return array{active:int,disabled:int} */
+    public function accountStatusCounts(): array
+    {
+        return [
+            'active' => User::query()
+                ->where('is_admin', false)
+                ->where('account_status', 'ACTIVE')
+                ->count(),
+            'disabled' => User::query()
+                ->where('is_admin', false)
+                ->where('account_status', 'DISABLED')
+                ->count(),
+        ];
+    }
+
     /** @return array{voters:int,approved_voters:int,candidates:int,approved_candidates:int} */
     public function participantCounts(Election $election): array
     {
@@ -112,12 +202,11 @@ final class AdminManagementService
                 ->where('election_id', $election->getKey())
                 ->where('status', 'APPROVED')
                 ->count(),
-            // The legacy query counted c.id. Candidacy is keyed by candidate_id.
-            'candidates' => (clone $candidateQuery)->distinct()->count('candidate_id'),
+            'candidates' => (clone $candidateQuery)->distinct()->count('user_id'),
             'approved_candidates' => (clone $candidateQuery)
                 ->whereRaw('LOWER(status) = ?', ['approved'])
                 ->distinct()
-                ->count('candidate_id'),
+                ->count('user_id'),
         ];
     }
 
@@ -157,15 +246,8 @@ final class AdminManagementService
         $this->assertStatus($status, self::CANDIDATE_STATUSES, 'candidate');
 
         DB::transaction(function () use ($election, $user, $status): void {
-            $candidate = Candidate::query()->find($user->getKey());
-            if (! $candidate instanceof Candidate) {
-                $candidate = new Candidate;
-                $candidate->setAttribute($candidate->getKeyName(), $user->getKey());
-                $candidate->save();
-            }
-
             $candidacy = Candidacy::query()->firstOrNew([
-                'candidate_id' => $user->getKey(),
+                'user_id' => $user->getKey(),
                 'election_id' => $election->getKey(),
             ]);
             $candidacy->status = $status;
@@ -182,11 +264,38 @@ final class AdminManagementService
         $this->assertStatus($status, self::CANDIDATE_STATUSES, 'candidate');
 
         $candidacy = Candidacy::query()
-            ->where('candidate_id', $candidateId)
+            ->where('user_id', $candidateId)
             ->where('election_id', $election->getKey())
             ->firstOrFail();
         $candidacy->status = $status;
         $candidacy->save();
+    }
+
+    public function changeMemberAccountStatus(User $administrator, User $member, string $status): void
+    {
+        $status = strtoupper(trim($status));
+        $this->assertStatus($status, self::ACCOUNT_STATUSES, 'account');
+
+        DB::transaction(function () use ($administrator, $member, $status): void {
+            /** @var User|null $lockedMember */
+            $lockedMember = User::query()->lockForUpdate()->find($member->getKey());
+
+            if (! $lockedMember instanceof User
+                || (bool) $lockedMember->is_admin
+                || $lockedMember->is($administrator)) {
+                throw ValidationException::withMessages([
+                    'user' => 'Only non-administrator member accounts can be managed here.',
+                ]);
+            }
+
+            $lockedMember->forceFill([
+                'account_status' => $status,
+                'failed_login_attempts' => 0,
+                'account_disabled_at' => $status === 'DISABLED'
+                    ? ($lockedMember->account_disabled_at ?? now())
+                    : null,
+            ])->save();
+        });
     }
 
     private function eligibleUser(int $userId): User

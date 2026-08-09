@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 // PIC: Goh Chun Wen — Voting Process module.
 class Vote extends Model
 {
+    protected $table = 'vote';
+
     public const CREATED_AT = 'cast_at';
 
     public const UPDATED_AT = null;

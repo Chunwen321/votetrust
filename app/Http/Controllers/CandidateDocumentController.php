@@ -20,7 +20,7 @@ final class CandidateDocumentController extends Controller
         CandidateDocument $document,
         CandidateFileStorage $fileStorage,
     ): StreamedResponse {
-        abort_unless((int) $candidacy->candidate_id === (int) $request->user()?->getAuthIdentifier(), 403);
+        abort_unless((int) $candidacy->user_id === (int) $request->user()?->getAuthIdentifier(), 403);
         abort_unless((int) $document->candidacy_id === (int) $candidacy->getKey(), 404);
 
         return $fileStorage->downloadDocument(
