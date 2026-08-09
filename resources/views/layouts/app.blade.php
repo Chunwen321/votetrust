@@ -8,7 +8,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'VoteTrust') · VoteTrust</title>
+    <meta name="description" content="VoteTrust is a guided online election platform for organisers, candidates, and voters.">
+    <title>@yield('title', 'VoteTrust') &middot; VoteTrust</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('head')
 </head>
@@ -38,6 +39,12 @@
                     <a href="{{ route('admin.dashboard') }}" @class(['is-active' => request()->routeIs('admin.*')])>Admin</a>
                 @endif
             @endauth
+            @guest
+                @if (request()->routeIs('home'))
+                    <a href="#why-votetrust">Why VoteTrust</a>
+                    <a href="#how-it-works">How it works</a>
+                @endif
+            @endguest
         </nav>
 
         <div class="account-nav">
@@ -87,8 +94,8 @@
 </main>
 
 <footer class="site-footer">
-    <span>VoteTrust · Secure, accountable elections</span>
-    <span>SDG 16 · Peace, Justice and Strong Institutions</span>
+    <span>VoteTrust &middot; Clear, accountable elections</span>
+    <span>SDG 16 &middot; Peace, Justice and Strong Institutions</span>
 </footer>
 @stack('scripts')
 </body>
