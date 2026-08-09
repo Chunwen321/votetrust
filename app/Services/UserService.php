@@ -24,12 +24,15 @@ final class UserService
     {
         return DB::transaction(function () use ($attributes): User {
             $fullName = $this->normaliseName((string) $attributes['full_name']);
+            $icNumber = Identity::normaliseIcNumber((string) $attributes['ic_number']);
             $user = new User;
             $user->forceFill([
                 'name' => $fullName,
                 'username' => trim((string) $attributes['username']),
                 'full_name' => $fullName,
-                'ic_number' => Identity::normaliseIcNumber((string) $attributes['ic_number']),
+                'ic_number' => $icNumber,
+                'date_of_birth' => Identity::dateOfBirthFromMalaysianIc($icNumber)?->toDateString(),
+                'nationality_country_code' => 'MY',
                 'email' => mb_strtolower(trim((string) $attributes['email'])),
                 'password' => Hash::make((string) $attributes['password']),
                 'is_admin' => false,

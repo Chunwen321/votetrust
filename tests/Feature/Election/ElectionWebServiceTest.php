@@ -36,7 +36,9 @@ final class ElectionWebServiceTest extends TestCase
             ->assertJsonPath('data.count', 1)
             ->assertJsonPath('data.elections.0.electionId', $election->getKey())
             ->assertJsonPath('data.elections.0.title', 'Open Student Election')
-            ->assertJsonPath('data.elections.0.eligibilityRules.mode', EligibilityRules::PUBLIC)
+            ->assertJsonPath('data.elections.0.eligibility.type', EligibilityRules::RESTRICTED)
+            ->assertJsonPath('data.elections.0.eligibility.minimumAge', 18)
+            ->assertJsonPath('data.elections.0.eligibility.nationality.countryCode', 'MY')
             ->assertJsonPath('data.elections.0.ballotCandidateCount', 1)
             ->assertJsonStructure(['status', 'timestamp', 'data' => ['elections']]);
 
@@ -50,7 +52,12 @@ final class ElectionWebServiceTest extends TestCase
             ->assertJsonPath('requestID', 'VOTE-DETAIL-0001')
             ->assertJsonPath('data.electionId', $election->getKey())
             ->assertJsonPath('data.description', 'The election API supplies an approved ballot to the voting consumer.')
-            ->assertJsonPath('data.eligibilityRules.mode', EligibilityRules::PUBLIC)
+            ->assertJsonPath('data.eligibility.type', EligibilityRules::RESTRICTED)
+            ->assertJsonPath('data.eligibility.minimumAge', 18)
+            ->assertJsonPath('data.eligibility.nationality.restricted', true)
+            ->assertJsonPath('data.eligibility.nationality.countryCode', 'MY')
+            ->assertJsonPath('data.eligibility.nationality.countryName', 'Malaysia')
+            ->assertJsonMissingPath('data.eligibility.occupation')
             ->assertJsonPath('data.votingAllowed', true)
             ->assertJsonPath('data.ballot.0.id', $approvedCandidacy->getKey())
             ->assertJsonPath('data.ballot.0.candidateId', $approvedCandidacy->candidate_id)
@@ -141,7 +148,7 @@ final class ElectionWebServiceTest extends TestCase
             'organizer_id' => $organizer->getKey(),
             'title' => 'Open Student Election',
             'description' => 'The election API supplies an approved ballot to the voting consumer.',
-            'eligibility_rules' => EligibilityRules::publicElection()->toStorage(),
+            'eligibility_rules' => EligibilityRules::restricted(18, 'MY')->toStorage(),
             'nomination_start' => $now->subDays(2),
             'nomination_end' => $now->subDay(),
             'voting_start' => $now->subMinute(),

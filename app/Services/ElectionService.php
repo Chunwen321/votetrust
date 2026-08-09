@@ -308,6 +308,7 @@ final class ElectionService
                     'description' => (string) $election->description,
                     'lifecycleState' => ElectionStatus::VOTING_OPEN->value,
                     'eligibilityRules' => EligibilityRules::fromStored($election->eligibility_rules)->toArray(),
+                    'eligibility' => EligibilityRules::fromStored($election->eligibility_rules)->toArray(),
                     'votingPeriod' => [
                         'start' => CarbonImmutable::parse($election->voting_start)->toAtomString(),
                         'end' => CarbonImmutable::parse($election->voting_end)->toAtomString(),
@@ -524,7 +525,6 @@ final class ElectionService
         $rules = $mode === EligibilityRules::RESTRICTED
             ? EligibilityRules::restricted(
                 ($input['eligibility_minimum_age'] ?? '') === '' ? null : (int) $input['eligibility_minimum_age'],
-                strtoupper((string) ($input['eligibility_occupation'] ?? 'ANY')),
                 strtoupper((string) ($input['eligibility_nationality'] ?? 'ANY')),
             )
             : EligibilityRules::publicElection();

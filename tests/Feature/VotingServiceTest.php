@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Models\Vote;
 use App\Models\VoterEnrollment;
 use App\Services\Voting\IntegrationException;
+use App\Services\Voting\VoteAccessDenied;
 use App\Services\Voting\VoteAlreadyExists;
 use App\Services\Voting\VoteService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -101,6 +102,114 @@ class VotingServiceTest extends TestCase
         );
     }
 
+    public function test_underage_voter_is_rejected(): void
+    {
+        [$voter, $candidate, $election] = $this->ballotFixture();
+        $this->fakeTeammateApis(
+            $voter,
+            $candidate,
+            $election,
+            $this->eligibilityRules(18),
+            ['dateOfBirth' => now()->subYears(18)->addDay()->toDateString(), 'nationality' => ['countryCode' => 'MY']],
+        );
+
+        $this->expectException(VoteAccessDenied::class);
+        $this->expectExceptionMessage('minimum age');
+        $this->app->make(VoteService::class)->cast($voter, $election->id, $candidate->id, 'VOTE-AGE-0001', now()->toAtomString());
+    }
+
+    public function test_wrong_nationality_is_rejected(): void
+    {
+        [$voter, $candidate, $election] = $this->ballotFixture();
+        $this->fakeTeammateApis(
+            $voter,
+            $candidate,
+            $election,
+            $this->eligibilityRules(null, 'MY'),
+            ['dateOfBirth' => null, 'nationality' => ['countryCode' => 'SG']],
+        );
+
+        $this->expectException(VoteAccessDenied::class);
+        $this->expectExceptionMessage('nationality requirement');
+        $this->app->make(VoteService::class)->cast($voter, $election->id, $candidate->id, 'VOTE-NATION-0001', now()->toAtomString());
+    }
+
+    public function test_any_nationality_accepts_an_adult_voter_from_another_country(): void
+    {
+        [$voter, $candidate, $election] = $this->ballotFixture();
+        $this->fakeTeammateApis(
+            $voter,
+            $candidate,
+            $election,
+            $this->eligibilityRules(18),
+            ['dateOfBirth' => '1990-01-01', 'nationality' => ['countryCode' => 'SG']],
+        );
+
+        $vote = $this->app->make(VoteService::class)->cast(
+            $voter,
+            $election->id,
+            $candidate->id,
+            'VOTE-ANY-NATION-0001',
+            now()->toAtomString(),
+        );
+
+        self::assertSame($voter->id, $vote->voter_id);
+    }
+
+    public function test_public_election_does_not_require_demographic_identity_data(): void
+    {
+        [$voter, $candidate, $election] = $this->ballotFixture();
+        $this->fakeTeammateApis(
+            $voter,
+            $candidate,
+            $election,
+            $this->eligibilityRules(null, null, 'PUBLIC'),
+            ['dateOfBirth' => null, 'nationality' => ['countryCode' => null]],
+        );
+
+        $vote = $this->app->make(VoteService::class)->cast(
+            $voter,
+            $election->id,
+            $candidate->id,
+            'VOTE-PUBLIC-0001',
+            now()->toAtomString(),
+        );
+
+        self::assertSame($voter->id, $vote->voter_id);
+    }
+
+    public function test_missing_required_identity_information_fails_closed(): void
+    {
+        [$voter, $candidate, $election] = $this->ballotFixture();
+        $this->fakeTeammateApis(
+            $voter,
+            $candidate,
+            $election,
+            $this->eligibilityRules(18, 'MY'),
+            ['dateOfBirth' => null, 'nationality' => ['countryCode' => null]],
+        );
+
+        $this->expectException(VoteAccessDenied::class);
+        $this->expectExceptionMessage('date of birth is unavailable');
+        $this->app->make(VoteService::class)->cast($voter, $election->id, $candidate->id, 'VOTE-MISSING-0001', now()->toAtomString());
+    }
+
+    public function test_missing_required_nationality_fails_closed(): void
+    {
+        [$voter, $candidate, $election] = $this->ballotFixture();
+        $this->fakeTeammateApis(
+            $voter,
+            $candidate,
+            $election,
+            $this->eligibilityRules(null, 'MY'),
+            ['dateOfBirth' => null, 'nationality' => ['countryCode' => null]],
+        );
+
+        $this->expectException(VoteAccessDenied::class);
+        $this->expectExceptionMessage('nationality is unavailable');
+        $this->app->make(VoteService::class)->cast($voter, $election->id, $candidate->id, 'VOTE-MISSING-NATION-0001', now()->toAtomString());
+    }
+
     public function test_voting_status_provider_returns_the_required_ifa_envelope_without_ballot_choice(): void
     {
         [$voter, $candidate, $election] = $this->ballotFixture();
@@ -128,10 +237,23 @@ class VotingServiceTest extends TestCase
         $this->assertIsString($response->json('timestamp'));
     }
 
-    private function fakeTeammateApis(User $voter, User $candidate, Election $election): void
-    {
+    /** @param array<string, mixed>|null $eligibility
+     * @param  array<string, mixed>|null  $identity
+     */
+    private function fakeTeammateApis(
+        User $voter,
+        User $candidate,
+        Election $election,
+        ?array $eligibility = null,
+        ?array $identity = null,
+    ): void {
+        $eligibility ??= $this->eligibilityRules(18, 'MY');
+        $identity ??= [
+            'dateOfBirth' => $voter->date_of_birth?->toDateString(),
+            'nationality' => ['countryCode' => $voter->nationality_country_code],
+        ];
         Http::preventStrayRequests();
-        Http::fake(function (Request $request) use ($voter, $candidate, $election) {
+        Http::fake(function (Request $request) use ($voter, $candidate, $election, $eligibility, $identity) {
             $requestId = (string) $request['requestID'];
 
             if (str_starts_with($request->url(), 'https://user.test/api/v1/voters/eligibility')) {
@@ -144,6 +266,8 @@ class VotingServiceTest extends TestCase
                         'voterId' => $voter->id,
                         'electionId' => $election->id,
                         'eligible' => true,
+                        'reasonCode' => 'APPROVED',
+                        'identity' => $identity,
                     ],
                 ]);
             }
@@ -159,7 +283,7 @@ class VotingServiceTest extends TestCase
                         'title' => $election->title,
                         'description' => $election->description ?? '',
                         'lifecycleState' => 'VOTING_OPEN',
-                        'eligibilityRules' => ['mode' => 'REGISTERED_VOTERS'],
+                        'eligibility' => $eligibility,
                         'votingAllowed' => true,
                         'votingPeriod' => [
                             'start' => $election->voting_start?->toAtomString(),
@@ -178,6 +302,20 @@ class VotingServiceTest extends TestCase
 
             return Http::response(['status' => 'E', 'timestamp' => now()->toAtomString()], 404);
         });
+    }
+
+    /** @return array<string, mixed> */
+    private function eligibilityRules(?int $minimumAge, ?string $countryCode = null, string $type = 'RESTRICTED'): array
+    {
+        return [
+            'type' => $type,
+            'minimumAge' => $type === 'PUBLIC' ? null : $minimumAge,
+            'nationality' => [
+                'restricted' => $type === 'RESTRICTED' && $countryCode !== null,
+                'countryCode' => $type === 'RESTRICTED' ? $countryCode : null,
+                'countryName' => $countryCode === 'MY' ? 'Malaysia' : ($countryCode === 'SG' ? 'Singapore' : null),
+            ],
+        ];
     }
 
     /** @return array{User, User, Election} */

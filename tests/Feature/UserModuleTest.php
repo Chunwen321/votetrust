@@ -36,6 +36,8 @@ final class UserModuleTest extends TestCase
             'full_name' => 'Chew Member',
             'email' => 'chew@example.test',
             'ic_number' => '010203101234',
+            'date_of_birth' => '2001-02-03 00:00:00',
+            'nationality_country_code' => 'MY',
             'account_status' => 'ACTIVE',
         ]);
     }
@@ -70,6 +72,8 @@ final class UserModuleTest extends TestCase
             'full_name' => 'Eligible User',
             'is_admin' => false,
             'account_status' => 'ACTIVE',
+            'date_of_birth' => '2000-05-10',
+            'nationality_country_code' => 'MY',
         ]);
         $election = Election::query()->create([
             'title' => 'Eligibility Test Election',
@@ -96,12 +100,14 @@ final class UserModuleTest extends TestCase
             ->assertJsonPath('requestID', 'request_1234')
             ->assertJsonPath('data.eligible', true)
             ->assertJsonPath('data.reasonCode', 'APPROVED')
+            ->assertJsonPath('data.identity.dateOfBirth', '2000-05-10')
+            ->assertJsonPath('data.identity.nationality.countryCode', 'MY')
             ->assertJsonStructure([
                 'status',
                 'message',
                 'requestID',
                 'timestamp',
-                'data' => ['voterId', 'electionId', 'eligible', 'reasonCode'],
+                'data' => ['voterId', 'electionId', 'eligible', 'reasonCode', 'identity'],
             ]);
 
         self::assertNotFalse(strtotime((string) $response->json('timestamp')));

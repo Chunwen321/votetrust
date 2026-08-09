@@ -9,6 +9,7 @@ namespace App\Services;
 use App\Models\Election;
 use App\Models\User;
 use App\Models\VoterEnrollment;
+use App\Support\CountryList;
 use Illuminate\Database\Eloquent\Collection;
 
 final class VoterService
@@ -52,7 +53,13 @@ final class VoterService
         return $counts;
     }
 
-    /** @return array{eligible:bool,reasonCode:string} */
+    /**
+     * @return array{
+     *     eligible:bool,
+     *     reasonCode:string,
+     *     identity:array{dateOfBirth:?string,nationality:array{countryCode:?string}}
+     * }
+     */
     public function eligibility(int $voterId, int $electionId): array
     {
         Election::query()->findOrFail($electionId);
@@ -62,24 +69,38 @@ final class VoterService
             ->where('user_id', $voterId)
             ->where('election_id', $electionId)
             ->first();
+        $identity = $this->identity($user);
 
         if (! $user instanceof User || ! $enrollment instanceof VoterEnrollment) {
-            return ['eligible' => false, 'reasonCode' => 'NO_ELIGIBILITY_RECORD'];
+            return ['eligible' => false, 'reasonCode' => 'NO_ELIGIBILITY_RECORD', 'identity' => $identity];
         }
 
         if ((bool) $user->is_admin) {
-            return ['eligible' => false, 'reasonCode' => 'ADMIN_ACCOUNT'];
+            return ['eligible' => false, 'reasonCode' => 'ADMIN_ACCOUNT', 'identity' => $identity];
         }
 
         if (($user->account_status ?? 'ACTIVE') !== 'ACTIVE') {
-            return ['eligible' => false, 'reasonCode' => 'ACCOUNT_INACTIVE'];
+            return ['eligible' => false, 'reasonCode' => 'ACCOUNT_INACTIVE', 'identity' => $identity];
         }
 
         $status = strtoupper((string) ($enrollment->status ?? 'PENDING'));
         if ($status !== 'APPROVED') {
-            return ['eligible' => false, 'reasonCode' => 'VOTER_'.$status];
+            return ['eligible' => false, 'reasonCode' => 'VOTER_'.$status, 'identity' => $identity];
         }
 
-        return ['eligible' => true, 'reasonCode' => 'APPROVED'];
+        return ['eligible' => true, 'reasonCode' => 'APPROVED', 'identity' => $identity];
+    }
+
+    /** @return array{dateOfBirth:?string,nationality:array{countryCode:?string}} */
+    private function identity(?User $user): array
+    {
+        $countryCode = strtoupper(trim((string) ($user?->nationality_country_code ?? '')));
+
+        return [
+            'dateOfBirth' => $user?->date_of_birth?->toDateString(),
+            'nationality' => [
+                'countryCode' => CountryList::isValidCode($countryCode) ? $countryCode : null,
+            ],
+        ];
     }
 }

@@ -15,6 +15,20 @@ class StoreElectionRequest extends FormRequest
         return $this->user() !== null;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $mode = strtoupper(trim((string) $this->input('eligibility_mode')));
+        $this->merge([
+            'eligibility_mode' => $mode,
+            'eligibility_minimum_age' => $mode === EligibilityRules::PUBLIC
+                ? null
+                : $this->input('eligibility_minimum_age'),
+            'eligibility_nationality' => $mode === EligibilityRules::PUBLIC
+                ? 'ANY'
+                : strtoupper(trim((string) $this->input('eligibility_nationality', 'ANY'))),
+        ]);
+    }
+
     /** @return array<string, mixed> */
     public function rules(): array
     {
@@ -22,8 +36,7 @@ class StoreElectionRequest extends FormRequest
             'title' => ['required', 'string', 'min:5', 'max:120'],
             'description' => ['required', 'string', 'min:20', 'max:2000'],
             'eligibility_mode' => ['required', Rule::in([EligibilityRules::PUBLIC, EligibilityRules::RESTRICTED])],
-            'eligibility_minimum_age' => ['nullable', 'integer', Rule::in(EligibilityRules::minimumAgeOptions())],
-            'eligibility_occupation' => ['nullable', Rule::in(array_keys(EligibilityRules::occupationOptions()))],
+            'eligibility_minimum_age' => ['nullable', 'integer', 'min:1', 'max:130'],
             'eligibility_nationality' => ['nullable', Rule::in(array_keys(EligibilityRules::nationalityOptions()))],
             'nomination_start' => ['required', 'date'],
             'nomination_end' => ['required', 'date', 'after:nomination_start'],
@@ -43,9 +56,8 @@ class StoreElectionRequest extends FormRequest
             }
 
             $age = $this->input('eligibility_minimum_age');
-            $occupation = strtoupper((string) $this->input('eligibility_occupation', 'ANY'));
             $nationality = strtoupper((string) $this->input('eligibility_nationality', 'ANY'));
-            if (($age === null || $age === '') && $occupation === 'ANY' && $nationality === 'ANY') {
+            if (($age === null || $age === '') && $nationality === 'ANY') {
                 $validator->errors()->add('eligibility_criteria', 'Select at least one eligibility requirement.');
             }
         });

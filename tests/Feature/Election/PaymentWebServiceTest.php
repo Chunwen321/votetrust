@@ -195,7 +195,6 @@ final class PaymentWebServiceTest extends TestCase
             'title' => 'Payment Boundary Election',
             'description' => 'An election used to verify that payment failures keep the lifecycle closed.',
             'eligibility_mode' => 'PUBLIC',
-            'eligibility_occupation' => 'ANY',
             'eligibility_nationality' => 'ANY',
             'nomination_start' => $now->addHour(),
             'nomination_end' => $now->addHours(2),

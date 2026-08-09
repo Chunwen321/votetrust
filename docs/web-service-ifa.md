@@ -25,7 +25,7 @@ Every response carries `status` (`S`, `F`, or `E`), `message`, the correlated `r
 | Function | `VoterEligibilityController::__invoke` |
 | Authentication | `X-User-Api-Key` or `X-Internal-Api-Key` |
 
-Request data: `voterId`, `electionId`, `requestID`, `timestamp`. Success data: `voterId`, `electionId`, boolean `eligible`, and enrolment `status`.
+Request data: `voterId`, `electionId`, `requestID`, `timestamp`. Success data contains `voterId`, `electionId`, boolean `eligible`, the enrolment `reasonCode`, and an internal `identity` object with nullable `dateOfBirth` plus `nationality.countryCode`. Voting uses those verified User-owned facts only when Election publishes a corresponding demographic restriction; missing required facts fail closed.
 
 ### Election availability and ballot — Low Wen Kai
 
@@ -38,6 +38,22 @@ Request data: `voterId`, `electionId`, `requestID`, `timestamp`. Success data: `
 | Functions | `ElectionAvailabilityController::index/show` |
 
 Both requests require `requestID` and `timestamp`. The list returns voting-open summaries. Detail returns lifecycle state, eligibility rules, permission booleans, periods, and an approved-only `ballot` containing `id`, `candidateId`, `name`, `position`, and `manifesto`.
+
+The detail response keeps both `eligibilityRules` and `eligibility` keys for consumer compatibility. Both now contain the same structure:
+
+```json
+{
+  "type": "RESTRICTED",
+  "minimumAge": 18,
+  "nationality": {
+    "restricted": true,
+    "countryCode": "MY",
+    "countryName": "Malaysia"
+  }
+}
+```
+
+Public elections return `minimumAge: null` and an unrestricted nationality with null country code/name. Country restrictions use ISO 3166-1 alpha-2 codes. Occupation is not an eligibility condition and is not published.
 
 ### Candidate and organisation information — Wong Shun Bin
 

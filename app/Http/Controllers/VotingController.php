@@ -8,6 +8,7 @@ use App\Models\Vote;
 use App\Services\Voting\IntegrationException;
 use App\Services\Voting\VoteAccessDenied;
 use App\Services\Voting\VoteAlreadyExists;
+use App\Services\Voting\VoterEligibilityAuthorizer;
 use App\Services\Voting\VoteService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -43,18 +44,17 @@ class VotingController extends Controller
         Request $request,
         int $election,
         VotingIntegration $integration,
+        VoterEligibilityAuthorizer $eligibilityAuthorizer,
     ): View {
         [$requestId, $timestamp] = $this->newEnvelope();
 
         try {
-            if (! $integration->voterIsEligible(
+            $voterEligibility = $integration->voterEligibility(
                 (int) $request->user()->getKey(),
                 $election,
                 $requestId,
                 $timestamp,
-            )) {
-                abort(403, 'You are not eligible to vote in this election.');
-            }
+            );
 
             $ballot = $integration->election($election, $requestId, $timestamp);
         } catch (IntegrationException) {
@@ -63,7 +63,16 @@ class VotingController extends Controller
             ]);
         }
 
-        abort_unless($ballot['votingAllowed'], 422, 'This election is not open for voting.');
+        abort_unless(
+            $ballot['status'] === 'VOTING_OPEN' && $ballot['votingAllowed'],
+            422,
+            'This election is not open for voting.',
+        );
+        try {
+            $eligibilityAuthorizer->assertEligible($voterEligibility, $ballot['eligibility']);
+        } catch (VoteAccessDenied $exception) {
+            abort(403, $exception->getMessage());
+        }
 
         return view('voting.ballot', [
             'ballot' => $ballot,

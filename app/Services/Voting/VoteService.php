@@ -15,10 +15,12 @@ final class VoteService
     public function __construct(
         BasicVoteService $core,
         VotingIntegration $integration,
+        VoterEligibilityAuthorizer $eligibilityAuthorizer,
     ) {
         $this->pipeline = new AuthorizationDecorator(
             new DuplicateVoteDecorator($core),
             $integration,
+            $eligibilityAuthorizer,
         );
     }
 
