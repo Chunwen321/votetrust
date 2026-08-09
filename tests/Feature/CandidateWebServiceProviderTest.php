@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\Candidacy;
-use App\Models\Candidate;
 use App\Models\Election;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -81,7 +80,7 @@ final class CandidateWebServiceProviderTest extends TestCase
             ->assertJsonValidationErrors('timestamp');
     }
 
-    /** @return array{Candidate, User, Election} */
+    /** @return array{User, User, Election} */
     private function candidateApplication(): array
     {
         $candidateUser = User::factory()->create([
@@ -94,11 +93,6 @@ final class CandidateWebServiceProviderTest extends TestCase
             'full_name' => 'Election Organisation',
             'email' => 'organisation@example.test',
         ]);
-        $candidate = Candidate::query()->create([
-            'user_id' => $candidateUser->getKey(),
-            'full_name' => 'Candidate Person',
-            'email' => 'candidate@example.test',
-        ]);
         $election = Election::query()->create([
             'organizer_id' => $organizer->getKey(),
             'title' => 'Student Council Election',
@@ -106,12 +100,12 @@ final class CandidateWebServiceProviderTest extends TestCase
         ]);
 
         Candidacy::query()->create([
-            'candidate_id' => $candidate->getKey(),
+            'user_id' => $candidateUser->getKey(),
             'election_id' => $election->getKey(),
             'status' => 'Pending',
             'registered_at' => now(),
         ]);
 
-        return [$candidate, $organizer, $election];
+        return [$candidateUser, $organizer, $election];
     }
 }

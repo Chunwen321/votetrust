@@ -64,7 +64,14 @@ final class ElectionService
     /** @param array<string, mixed> $input */
     public function create(User $user, array $input): Election
     {
-        $organizer = $this->requireOrganizer($user);
+        if ($this->isAdmin($user)) {
+            throw new AuthorizationException('A normal user account is required to create an election.');
+        }
+
+        // A normal user does not choose a permanent account role. Creating a
+        // first election simply gives that user an organiser record, while
+        // leaving their voter access for other elections unchanged.
+        $organizer = Organizer::query()->firstOrCreate(['user_id' => $user->getKey()]);
         $valid = $this->normalizeInput($input);
         $requestId = $this->newRequestId();
         $now = $this->clock->now();
@@ -333,20 +340,20 @@ final class ElectionService
     private function approvedBallot(Election $election): array
     {
         return Candidacy::query()
-            ->with('candidate.user')
+            ->with('user')
             ->where('election_id', $election->getKey())
             ->where('status', self::CANDIDACY_APPROVED)
             ->orderBy('position_sought')
             ->orderBy('id')
             ->get()
             ->map(static function (Candidacy $candidacy): array {
-                $profile = $candidacy->candidate;
-                $name = trim((string) ($profile?->full_name ?: $profile?->user?->display_name));
+                $candidate = $candidacy->user;
+                $name = trim((string) $candidate?->display_name);
 
                 return [
                     'id' => (int) $candidacy->getKey(),
-                    'candidateId' => (int) $candidacy->candidate_id,
-                    'name' => $name !== '' ? $name : 'Candidate '.$candidacy->candidate_id,
+                    'candidateId' => (int) $candidacy->user_id,
+                    'name' => $name !== '' ? $name : 'Candidate '.$candidacy->user_id,
                     'position' => (string) $candidacy->position_sought,
                     'manifesto' => (string) $candidacy->manifesto,
                 ];
@@ -411,7 +418,7 @@ final class ElectionService
                 }
                 $application->status = $status;
                 $application->save();
-                $changes[] = ['candidacy_id' => $application->getKey(), 'candidate_id' => $application->candidate_id, 'decision' => $status];
+                $changes[] = ['candidacy_id' => $application->getKey(), 'user_id' => $application->user_id, 'decision' => $status];
             }
 
             if ($changes === []) {

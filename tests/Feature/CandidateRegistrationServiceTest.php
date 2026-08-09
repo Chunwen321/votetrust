@@ -74,7 +74,7 @@ final class CandidateRegistrationServiceTest extends TestCase
         $this->assertSame($first->getKey(), $replacement->getKey());
         $this->assertSame('Pending', $replacement->status);
         $this->assertCount(1, $replacement->documents);
-        $this->assertDatabaseCount('payments', 2);
+        $this->assertDatabaseCount('payment', 2);
         Storage::disk('candidate-test')->assertMissing($oldPhoto);
         Storage::disk('candidate-test')->assertMissing($oldDocument);
         Storage::disk('candidate-test')->assertExists($replacement->profile_photo);

@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 // PIC: Wong Shun Bin — Candidate application deposit integration.
 class Payment extends Model
 {
+    protected $table = 'payment';
+
     protected $fillable = [
         'amount',
         'currency',

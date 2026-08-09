@@ -19,6 +19,7 @@ final class DashboardController extends Controller
         return view('admin.dashboard', [
             'counts' => $this->management->dashboardCounts(),
             'recentElections' => $this->management->recentElections(),
+            'pendingElectionApprovals' => $this->management->pendingElectionApprovals(),
         ]);
     }
 }

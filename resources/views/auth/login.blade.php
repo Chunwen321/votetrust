@@ -9,7 +9,7 @@
     <div class="auth-copy">
         <p class="eyebrow">VoteTrust member services</p>
         <h1>One secure identity for every election.</h1>
-        <p>Sign in to manage your profile and review the elections where you have been enrolled.</p>
+        <p>Sign in to manage your profile, vote in eligible elections, and organise elections from the same account.</p>
         <div class="trust-points">
             <span>Protected authentication</span>
             <span>Election-specific eligibility</span>

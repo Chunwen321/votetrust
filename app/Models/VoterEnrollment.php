@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 // PIC: Chew Zhexuan — User, Voter, and Admin module.
 class VoterEnrollment extends Model
 {
+    protected $table = 'voter';
+
     public const PENDING = 'PENDING';
 
     public const APPROVED = 'APPROVED';

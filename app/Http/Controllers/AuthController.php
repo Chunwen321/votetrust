@@ -69,7 +69,7 @@ final class AuthController extends Controller
 
         return redirect()->route('dashboard')->with(
             'success',
-            'Your user account is ready. An organiser can now enrol you for an election.'
+            'Your user account is ready. You can join elections as a voter or create one as an organiser.'
         );
     }
 

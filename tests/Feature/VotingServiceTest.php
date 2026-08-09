@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Contracts\VotingIntegration;
 use App\Models\Candidacy;
-use App\Models\Candidate;
 use App\Models\Election;
 use App\Models\User;
 use App\Models\Vote;
@@ -52,7 +51,7 @@ class VotingServiceTest extends TestCase
             $timestamp,
         );
 
-        $this->assertDatabaseHas('votes', [
+        $this->assertDatabaseHas('vote', [
             'id' => $vote->id,
             'voter_id' => $voter->id,
             'candidate_id' => $candidate->id,
@@ -323,7 +322,6 @@ class VotingServiceTest extends TestCase
     {
         $voter = User::factory()->create();
         $candidate = User::factory()->create();
-        Candidate::query()->create(['user_id' => $candidate->id]);
         $election = Election::query()->create([
             'title' => 'Open election',
             'status' => Election::VOTING_OPEN,
@@ -331,7 +329,7 @@ class VotingServiceTest extends TestCase
             'voting_end' => now()->addHour(),
         ]);
         Candidacy::query()->create([
-            'candidate_id' => $candidate->id,
+            'user_id' => $candidate->id,
             'election_id' => $election->id,
             'status' => Candidacy::APPROVED,
         ]);

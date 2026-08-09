@@ -51,8 +51,8 @@ final class CandidateRegistrationHttpTest extends TestCase
             ])
             ->assertRedirect(route('candidate.profile.show'));
 
-        $this->assertDatabaseHas('candidacies', [
-            'candidate_id' => $candidate->getKey(),
+        $this->assertDatabaseHas('candidacy', [
+            'user_id' => $candidate->getKey(),
             'election_id' => $election->getKey(),
             'status' => 'Pending',
         ]);
@@ -108,7 +108,7 @@ final class CandidateRegistrationHttpTest extends TestCase
         $this->assertSame('Cancelled', $candidacy->status);
         $this->assertNull($candidacy->profile_photo);
         $this->assertSame('Pending', $candidacy->payment->fresh()->status);
-        $this->assertDatabaseMissing('candidate_documents', ['candidacy_id' => $candidacy->getKey()]);
+        $this->assertDatabaseMissing('candidate_document', ['candidacy_id' => $candidacy->getKey()]);
         Storage::disk('candidate-test')->assertMissing($photoPath);
         Storage::disk('candidate-test')->assertMissing($documentPath);
     }

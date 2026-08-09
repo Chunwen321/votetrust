@@ -71,7 +71,7 @@
                     <input type="hidden" name="version" value="{{ $election->version }}">
                     <div class="election-table-wrap"><table class="election-table"><thead><tr><th>Candidate</th><th>Registered</th><th>Decision</th></tr></thead><tbody>
                     @foreach ($candidateSummary['applications'] as $application)
-                        @php $candidateName = $application->candidate?->user?->name ?? $application->candidate?->user?->username ?? 'Candidate #'.$application->candidate_id; @endphp
+                        @php $candidateName = $application->user?->display_name ?? 'Candidate #'.$application->user_id; @endphp
                         <tr><td>{{ $candidateName }}</td><td>{{ \Carbon\CarbonImmutable::parse($application->registered_at)->format('d M Y, H:i') }}</td><td><select name="decisions[{{ $application->getKey() }}]">@foreach (['Pending', 'Approved', 'Rejected'] as $status)<option value="{{ $status }}" @selected(strcasecmp($application->status, $status) === 0)>{{ $status }}</option>@endforeach</select></td></tr>
                     @endforeach
                     </tbody></table></div>

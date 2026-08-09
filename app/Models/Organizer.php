@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 // PIC: Low Wen Kai — Election Management Module.
 class Organizer extends Model
 {
+    protected $table = 'organizer';
+
     protected $primaryKey = 'user_id';
 
     public $incrementing = false;

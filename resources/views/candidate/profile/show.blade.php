@@ -1,11 +1,11 @@
 {{-- PIC: Wong Shun Bin — Candidate Registration profile and applications view. --}}
 @extends('candidate.layout')
 
-@section('title', 'My candidate profile')
+@section('title', 'My profile')
 
 @section('candidate-content')
     <div class="candidate-page-heading">
-        <p class="candidate-eyebrow">Candidate account</p>
+        <p class="candidate-eyebrow">User account</p>
         <h1>My profile</h1>
     </div>
 
@@ -16,13 +16,13 @@
             @method('PATCH')
 
             <label for="full_name">Full name</label>
-            <input id="full_name" name="full_name" value="{{ old('full_name', $candidate?->full_name) }}" maxlength="100" required>
+            <input id="full_name" name="full_name" value="{{ old('full_name', $user->full_name) }}" maxlength="100" required>
 
             <label for="email">Email address</label>
-            <input id="email" type="email" name="email" value="{{ old('email', $candidate?->email) }}" maxlength="150" required>
+            <input id="email" type="email" name="email" value="{{ old('email', $user->email) }}" maxlength="150" required>
 
             <label for="phone_number">Phone number</label>
-            <input id="phone_number" name="phone_number" value="{{ old('phone_number', $candidate?->phone_number) }}" maxlength="30">
+            <input id="phone_number" name="phone_number" value="{{ old('phone_number', $user->phone_number) }}" maxlength="30">
 
             <button class="candidate-button candidate-button--primary" type="submit">Update profile</button>
         </form>

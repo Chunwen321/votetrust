@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Candidacy;
-use App\Models\Candidate;
+use App\Models\User;
 use App\Services\CandidateRegistration\CandidateApiEnvelope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,16 +20,14 @@ final class CandidatePaymentInformationController extends Controller
         $requestId = (string) $request->query('requestID');
         $electionId = (int) $request->integer('electionId');
 
-        $candidateRecord = Candidate::query()
-            ->with('user')
-            ->find($candidate);
         $candidacy = Candidacy::query()
             ->with('election.organizer')
-            ->where('candidate_id', $candidate)
+            ->where('user_id', $candidate)
             ->where('election_id', $electionId)
             ->first();
+        $candidateUser = User::query()->find($candidate);
 
-        if (! $candidateRecord instanceof Candidate || ! $candidacy instanceof Candidacy) {
+        if (! $candidateUser instanceof User || ! $candidacy instanceof Candidacy) {
             return response()->json(CandidateApiEnvelope::failure(
                 $requestId,
                 'Candidate application not found.',
@@ -37,7 +35,6 @@ final class CandidatePaymentInformationController extends Controller
             ), 404);
         }
 
-        $candidateUser = $candidateRecord->user;
         $organizer = $candidacy->election?->organizer;
 
         if ($candidateUser === null || $organizer === null) {
@@ -50,9 +47,9 @@ final class CandidatePaymentInformationController extends Controller
 
         return response()->json(CandidateApiEnvelope::success($requestId, [
             'candidate' => [
-                'candidateId' => (int) $candidateRecord->getKey(),
-                'name' => (string) ($candidateRecord->full_name ?: $candidateUser->display_name),
-                'email' => (string) ($candidateRecord->email ?: $candidateUser->email),
+                'candidateId' => (int) $candidateUser->getKey(),
+                'name' => (string) $candidateUser->display_name,
+                'email' => (string) $candidateUser->email,
             ],
             'organisation' => [
                 'organisationId' => (int) $organizer->getKey(),

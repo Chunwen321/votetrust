@@ -27,13 +27,26 @@
                     <a href="{{ route('dashboard') }}" @class(['is-active' => request()->routeIs('dashboard')])>Dashboard</a>
                 @endif
                 @if (Route::has('elections.index'))
-                    <a href="{{ route('elections.index') }}" @class(['is-active' => request()->routeIs('elections.*')])>Elections</a>
-                @endif
-                @if (Route::has('candidate.applications.create'))
-                    <a href="{{ route('candidate.applications.create') }}" @class(['is-active' => request()->routeIs('candidate.*')])>Candidate</a>
-                @endif
-                @if (Route::has('voting.index'))
-                    <a href="{{ route('voting.index') }}" @class(['is-active' => request()->routeIs('voting.*')])>Vote</a>
+                    <details @class([
+                        'site-nav-dropdown',
+                        'is-active' => request()->routeIs('elections.*', 'voter.*', 'voting.*', 'candidate.*'),
+                    ])>
+                        <summary>Elections <span aria-hidden="true">⌄</span></summary>
+                        <div class="site-nav-dropdown__menu">
+                            <a href="{{ route('elections.index') }}">All my elections</a>
+                            <a href="{{ route('elections.index') }}#voting-elections">Voting elections</a>
+                            <a href="{{ route('elections.index') }}#organised-elections">Organised elections</a>
+                            @if (Route::has('elections.create') && ! auth()->user()->isAdmin())
+                                <a href="{{ route('elections.create') }}">Create an election</a>
+                            @endif
+                            @if (Route::has('candidate.applications.create'))
+                                <a href="{{ route('candidate.applications.create') }}">Candidate applications</a>
+                            @endif
+                            @if (Route::has('voting.index'))
+                                <a href="{{ route('voting.index') }}">Voting portal</a>
+                            @endif
+                        </div>
+                    </details>
                 @endif
                 @if (auth()->user()->isAdmin() && Route::has('admin.dashboard'))
                     <a href="{{ route('admin.dashboard') }}" @class(['is-active' => request()->routeIs('admin.*')])>Admin</a>
@@ -50,7 +63,7 @@
         <div class="account-nav">
             @auth
                 @if (Route::has('profile.show'))
-                    <a href="{{ route('profile.show') }}">{{ auth()->user()->display_name }}</a>
+                    <a href="{{ route('profile.show') }}" aria-label="Profile for {{ auth()->user()->display_name }}">Profile</a>
                 @else
                     <span>{{ auth()->user()->display_name }}</span>
                 @endif

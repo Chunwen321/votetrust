@@ -19,7 +19,7 @@ final class CandidatePaymentController extends Controller
         $candidacy = Candidacy::query()
             ->with('election')
             ->where('payment_id', $payment)
-            ->where('candidate_id', $userId)
+            ->where('user_id', $userId)
             ->firstOrFail();
 
         $paymentStatus = $paymentStatusClient->fetch($payment, $userId);

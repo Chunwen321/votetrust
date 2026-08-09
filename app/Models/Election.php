@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 // PIC: Low Wen Kai — Election Management Module.
 class Election extends Model
 {
+    protected $table = 'election';
+
     public const DRAFT = 'DRAFT';
 
     public const PENDING_PAYMENT = 'PENDING_PAYMENT';

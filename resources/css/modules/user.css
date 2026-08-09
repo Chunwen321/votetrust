@@ -129,6 +129,54 @@
 .user-module .status-not-voted { color: var(--user-warning); background: #fff7df; }
 .user-module .status-unavailable { color: var(--user-muted); background: var(--user-soft); }
 
+/* Normal-user election hub: one account can be a voter, organiser, or both. */
+.user-module .dashboard-role-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 28px; }
+.user-module .dashboard-role-card { display: grid; min-height: 162px; align-content: start; gap: 8px; padding: 22px; color: var(--user-ink); background: #fff; border: 1px solid var(--user-line); border-radius: 16px; box-shadow: 0 12px 32px rgb(24 43 68 / 6%); text-decoration: none; transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
+.user-module .dashboard-role-card:hover { border-color: #8dc9c3; box-shadow: 0 20px 38px rgb(24 43 68 / 11%); transform: translateY(-2px); }
+.user-module .dashboard-role-card__label { color: var(--user-teal); font-size: .78rem; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
+.user-module .dashboard-role-card strong { font-size: 2.45rem; line-height: 1; letter-spacing: -.05em; }
+.user-module .dashboard-role-card small { max-width: 26ch; color: var(--user-muted); font-size: .86rem; }
+.user-module .dashboard-role-card--create { color: #fff; background: linear-gradient(135deg, var(--user-teal-dark), var(--user-teal)); border-color: transparent; }
+.user-module .dashboard-role-card--create .dashboard-role-card__label,
+.user-module .dashboard-role-card--create small { color: rgb(255 255 255 / 82%); }
+.user-module .dashboard-role-card--create:hover { border-color: transparent; }
+.user-module .dashboard-collections { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.user-module .dashboard-collection { min-width: 0; padding: clamp(22px, 4vw, 30px); }
+.user-module .dashboard-collection .section-title { margin-bottom: 12px; }
+.user-module .dashboard-collection .section-title h2 { margin-bottom: 0; font-size: 1.25rem; }
+.user-module .dashboard-collection .empty-state { display: grid; justify-items: center; gap: 14px; }
+
+.user-module .election-hub { max-width: 1020px; margin-inline: auto; }
+.user-module .election-hub .page-heading { margin-bottom: 42px; }
+.user-module .election-hub .page-heading > div > p:last-child { max-width: 640px; color: var(--user-muted); font-size: 1.04rem; }
+.user-module .election-role-section { margin-bottom: 40px; scroll-margin-top: 100px; }
+.user-module .election-role-section .section-title { align-items: flex-end; margin-bottom: 16px; }
+.user-module .election-role-section .section-title h2 { margin-bottom: 6px; font-size: clamp(1.45rem, 3vw, 2rem); }
+.user-module .election-role-section .section-title p:last-child { max-width: 580px; margin-bottom: 0; color: var(--user-muted); }
+.user-module .section-count { flex: 0 0 auto; padding: 7px 10px; color: var(--user-teal-dark); background: var(--user-teal-soft); border-radius: 999px; font-size: .8rem; font-weight: 800; }
+.user-module .election-list { display: grid; gap: 12px; }
+.user-module .election-list-item { display: flex; align-items: center; justify-content: space-between; gap: 24px; min-height: 104px; padding: 18px 20px; }
+.user-module .election-list-item__main { min-width: 0; }
+.user-module .election-list-item__heading { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
+.user-module .election-list-item h3 { margin: 0; font-size: 1.05rem; overflow-wrap: anywhere; }
+.user-module .election-list-item p { margin: 8px 0 0; color: var(--user-muted); font-size: .88rem; }
+.user-module .election-list-item p .badge { margin-left: 3px; vertical-align: middle; }
+.user-module .election-list-item__action { display: flex; flex: 0 0 auto; align-items: center; justify-content: flex-end; }
+.user-module .item-note { color: var(--user-warning); font-size: .84rem; font-weight: 750; text-align: right; }
+.user-module .election-state { background: #edf3f6; color: #526376; }
+.user-module .election-state-voting-open,
+.user-module .election-state-nomination-open { color: var(--user-success); background: #ebf8f1; }
+.user-module .election-state-pending-payment,
+.user-module .election-state-pending-admin-approval { color: var(--user-warning); background: #fff7df; }
+.user-module .election-state-rejected,
+.user-module .election-state-cancelled { color: var(--user-danger); background: #fff0ee; }
+.user-module .election-state-closed { color: #6941c6; background: #f4f0ff; }
+.user-module .role-empty-state { display: flex; align-items: center; gap: 16px; padding: 28px; }
+.user-module .role-empty-state__icon { display: grid; flex: 0 0 42px; width: 42px; height: 42px; place-items: center; color: var(--user-teal-dark); background: var(--user-teal-soft); border-radius: 50%; font-size: 1.25rem; font-weight: 850; }
+.user-module .role-empty-state h3 { margin-bottom: 4px; }
+.user-module .role-empty-state p { margin-bottom: 0; color: var(--user-muted); }
+.user-module .role-empty-state--action .button { margin-left: auto; white-space: nowrap; }
+
 .user-module .profile-layout { display: grid; grid-template-columns: minmax(250px, .75fr) minmax(0, 1.25fr); gap: 22px; margin-bottom: 22px; }
 .user-module .profile-summary-card,
 .user-module .profile-form-card { padding: 28px; }
@@ -140,8 +188,20 @@
 
 .user-module .management-section { margin-top: 24px; scroll-margin-top: 100px; }
 .user-module .management-add-form { display: grid; grid-template-columns: minmax(240px, 1.5fr) minmax(160px, .7fr) auto; gap: 12px; align-items: end; margin-bottom: 24px; padding: 18px; background: var(--user-soft); border-radius: 14px; }
+.user-module .management-filter-form { display: grid; grid-template-columns: minmax(240px, 1.5fr) minmax(160px, .7fr) auto auto; gap: 12px; align-items: end; margin-bottom: 24px; padding: 18px; background: var(--user-soft); border-radius: 14px; }
 .user-module .row-action-form { display: flex; gap: 8px; align-items: center; }
 .user-module .row-action-form select { min-width: 120px; }
+.user-module .button-danger { background: var(--user-danger); }
+.user-module .button-danger:hover { background: #8f1d14; }
+.user-module .admin-action-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 28px; }
+.user-module .admin-action-card { display: flex; min-height: 206px; flex-direction: column; padding: 24px; text-decoration: none; transition: transform .15s ease, box-shadow .15s ease; }
+.user-module .admin-action-card:hover { transform: translateY(-2px); box-shadow: 0 22px 48px rgb(24 43 68 / 13%); }
+.user-module .admin-action-card p { color: var(--user-muted); }
+.user-module .admin-action-card .back-link { margin: auto 0 0; }
+.user-module .admin-table-actions,
+.user-module .section-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.user-module .section-actions .back-link { margin: 0; }
+.user-module .pagination-wrap { margin-top: 20px; }
 .user-module .alert { margin-bottom: 22px; padding: 13px 16px; border-radius: 11px; font-weight: 700; }
 .user-module .alert-success { color: var(--user-success); background: #ebf8f1; border: 1px solid #b7e2ca; }
 .user-module .alert-error { color: var(--user-danger); background: #fff0ee; border: 1px solid #f2c0ba; }
@@ -149,9 +209,12 @@
 @media (max-width: 900px) {
     .user-module .auth-grid { grid-template-columns: 1fr; min-height: auto; }
     .user-module .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .user-module .dashboard-collections { grid-template-columns: 1fr; }
     .user-module .profile-layout { grid-template-columns: 1fr; }
     .user-module .password-form { grid-template-columns: 1fr 1fr; }
     .user-module .management-add-form { grid-template-columns: 1fr 1fr; }
+    .user-module .management-filter-form { grid-template-columns: 1fr 1fr; }
+    .user-module .admin-action-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 620px) {
@@ -160,6 +223,12 @@
     .user-module .section-title { align-items: stretch; flex-direction: column; }
     .user-module .account-summary { width: 100%; }
     .user-module .metrics,
+    .user-module .dashboard-role-grid,
     .user-module .password-form,
     .user-module .management-add-form { grid-template-columns: 1fr; }
+    .user-module .management-filter-form { grid-template-columns: 1fr; }
+    .user-module .election-list-item,
+    .user-module .role-empty-state { align-items: stretch; flex-direction: column; }
+    .user-module .election-list-item__action { justify-content: flex-start; }
+    .user-module .role-empty-state--action .button { margin-left: 0; }
 }

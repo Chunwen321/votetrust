@@ -14,11 +14,6 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        Schema::create('candidates', function (Blueprint $table): void {
-            $table->foreignId('user_id')->primary()->constrained()->cascadeOnDelete();
-            $table->timestamps();
-        });
-
         Schema::create('payments', function (Blueprint $table): void {
             $table->id();
             $table->decimal('amount', 10, 2);
@@ -65,12 +60,12 @@ return new class extends Migration
 
         Schema::create('candidacies', function (Blueprint $table): void {
             $table->id();
-            $table->foreignId('candidate_id')->constrained('candidates', 'user_id')->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->foreignId('election_id')->constrained()->cascadeOnDelete();
             $table->string('status', 20)->default('Pending')->index();
             $table->timestamp('registered_at')->useCurrent();
             $table->timestamps();
-            $table->unique(['candidate_id', 'election_id']);
+            $table->unique(['user_id', 'election_id']);
         });
     }
 
@@ -79,7 +74,6 @@ return new class extends Migration
         Schema::dropIfExists('candidacies');
         Schema::dropIfExists('elections');
         Schema::dropIfExists('payments');
-        Schema::dropIfExists('candidates');
         Schema::dropIfExists('organizers');
     }
 };

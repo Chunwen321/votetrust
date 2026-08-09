@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 /**
  * PIC: Wong Shun Bin
@@ -22,7 +23,13 @@ final class UpdateCandidateProfileRequest extends FormRequest
     {
         return [
             'full_name' => ['required', 'string', 'min:2', 'max:100'],
-            'email' => ['required', 'string', 'email:rfc', 'max:150'],
+            'email' => [
+                'required',
+                'string',
+                'email:rfc',
+                'max:150',
+                Rule::unique('user', 'email')->ignore($this->user()?->getKey()),
+            ],
             'phone_number' => ['nullable', 'string', 'max:30', 'regex:/^[0-9+().\- ]+$/'],
         ];
     }

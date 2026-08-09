@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 // PIC: Wong Shun Bin — Candidate Registration application data.
 class Candidacy extends Model
 {
+    protected $table = 'candidacy';
+
     public const PENDING = 'Pending';
 
     public const APPROVED = 'Approved';
@@ -19,7 +21,7 @@ class Candidacy extends Model
     public const CANCELLED = 'Cancelled';
 
     protected $fillable = [
-        'candidate_id',
+        'user_id',
         'election_id',
         'status',
         'registered_at',
@@ -36,9 +38,9 @@ class Candidacy extends Model
         return ['registered_at' => 'datetime'];
     }
 
-    public function candidate(): BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(Candidate::class, 'candidate_id', 'user_id');
+        return $this->belongsTo(User::class);
     }
 
     public function election(): BelongsTo

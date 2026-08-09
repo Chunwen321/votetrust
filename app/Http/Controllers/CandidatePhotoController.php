@@ -18,7 +18,7 @@ final class CandidatePhotoController extends Controller
         Candidacy $candidacy,
         CandidateFileStorage $fileStorage,
     ): StreamedResponse {
-        abort_unless((int) $candidacy->candidate_id === (int) $request->user()?->getAuthIdentifier(), 403);
+        abort_unless((int) $candidacy->user_id === (int) $request->user()?->getAuthIdentifier(), 403);
         abort_if(! is_string($candidacy->profile_photo) || $candidacy->profile_photo === '', 404);
 
         return $fileStorage->inlinePhoto(

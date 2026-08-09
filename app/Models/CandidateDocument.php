@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 // PIC: Wong Shun Bin — Candidate Registration document storage.
 class CandidateDocument extends Model
 {
+    protected $table = 'candidate_document';
+
     public const CREATED_AT = 'uploaded_at';
 
     public const UPDATED_AT = null;
