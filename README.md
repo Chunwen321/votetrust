@@ -28,7 +28,7 @@ All requests carry `requestID` and an ISO-8601 `timestamp`. All responses carry 
 | Voting | `GET /api/v1/votes/status`, `GET /api/v1/elections/{id}/tally` | User eligibility and Election availability/ballot APIs |
 | Payment | Expected to provide election/candidate payment status | Candidate/organisation information endpoint above |
 
-The Payment service is an external teammate boundary until Puah Kaho Risky's module is added. Candidate and Election payment-sensitive operations deliberately report unavailable rather than trusting local payment-table state when that service is absent.
+The Payment service is an external teammate boundary until the Payment module is added. Candidate and Election payment-sensitive operations deliberately report unavailable rather than trusting local payment-table state when that service is absent.
 
 ## Requirements
 
