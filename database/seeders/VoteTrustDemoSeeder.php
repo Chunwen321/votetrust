@@ -140,6 +140,8 @@ class VoteTrustDemoSeeder extends Seeder
                     'full_name' => trim(preg_replace('/(?<!^)[A-Z]/', ' $0', $username)),
                     'email' => strtolower($username).'@votetrust.test',
                     'password' => Hash::make($password),
+                    'date_of_birth' => '2000-01-01',
+                    'nationality_country_code' => 'MY',
                     'is_admin' => $isAdmin,
                     'account_status' => 'ACTIVE',
                     'failed_login_attempts' => 0,

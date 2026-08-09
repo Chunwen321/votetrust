@@ -4,8 +4,7 @@
     $value = fn (string $key, mixed $fallback = '') => old($key, $election?->{$key} ?? ($defaults[$key] ?? $fallback));
     $mode = old('eligibility_mode', $eligibility->mode());
     $minimumAge = old('eligibility_minimum_age', $eligibility->minimumAge());
-    $occupation = old('eligibility_occupation', $eligibility->occupation());
-    $nationality = old('eligibility_nationality', $eligibility->nationality());
+    $nationality = old('eligibility_nationality', $eligibility->nationalityFormValue());
 @endphp
 
 <form class="election-card election-form" method="post" action="{{ $formAction }}" data-election-form>
@@ -42,13 +41,7 @@
                     <option value="{{ $age }}" @selected((string) $minimumAge === (string) $age)>{{ $age }} years or older</option>
                 @endforeach
             </select>
-
-            <label for="eligibility_occupation">Occupation</label>
-            <select id="eligibility_occupation" name="eligibility_occupation">
-                @foreach (\App\ValueObjects\EligibilityRules::occupationOptions() as $key => $label)
-                    <option value="{{ $key }}" @selected($occupation === $key)>{{ $label }}</option>
-                @endforeach
-            </select>
+            @error('eligibility_minimum_age') <small class="election-field-error">{{ $message }}</small> @enderror
 
             <label for="eligibility_nationality">Nationality</label>
             <select id="eligibility_nationality" name="eligibility_nationality">
@@ -56,6 +49,7 @@
                     <option value="{{ $key }}" @selected($nationality === $key)>{{ $label }}</option>
                 @endforeach
             </select>
+            @error('eligibility_nationality') <small class="election-field-error">{{ $message }}</small> @enderror
         </div>
         @error('eligibility_criteria') <small class="election-field-error">{{ $message }}</small> @enderror
     </fieldset>

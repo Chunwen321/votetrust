@@ -68,7 +68,6 @@ final class ElectionLifecycleTest extends TestCase
             'title' => 'Student Council Election',
             'description' => 'A sufficiently detailed election description for lifecycle testing.',
             'eligibility_mode' => 'PUBLIC',
-            'eligibility_occupation' => 'ANY',
             'eligibility_nationality' => 'ANY',
             'nomination_start' => $clock->now()->subDays(2),
             'nomination_end' => $clock->now()->subHour(),

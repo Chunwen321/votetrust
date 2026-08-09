@@ -3,6 +3,7 @@
 namespace App\Services\Voting;
 
 use App\Contracts\VotingIntegration;
+use App\Support\CountryList;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
@@ -50,6 +51,7 @@ final class ElectionVotingIntegration implements VotingIntegration
             'timestamp' => $timestamp,
         ]);
         $data = $body['data'] ?? null;
+        $eligibility = is_array($data) ? $this->eligibility($data['eligibility'] ?? $data['eligibilityRules'] ?? null) : null;
 
         if (! is_array($data)
             || (int) ($data['electionId'] ?? 0) !== $electionId
@@ -83,7 +85,8 @@ final class ElectionVotingIntegration implements VotingIntegration
             'id' => $electionId,
             'title' => $data['title'],
             'description' => is_string($data['description'] ?? null) ? $data['description'] : '',
-            'eligibilityRules' => $this->describeRules($data['eligibilityRules'] ?? []),
+            'eligibilityRules' => $this->describeRules($eligibility),
+            'eligibility' => $eligibility,
             'status' => strtoupper($data['lifecycleState']),
             'votingAllowed' => $data['votingAllowed'],
             'votingPeriod' => $this->period($data['votingPeriod']),
@@ -97,6 +100,15 @@ final class ElectionVotingIntegration implements VotingIntegration
         string $requestId,
         string $timestamp,
     ): bool {
+        return $this->voterEligibility($voterId, $electionId, $requestId, $timestamp)['eligible'];
+    }
+
+    public function voterEligibility(
+        int $voterId,
+        int $electionId,
+        string $requestId,
+        string $timestamp,
+    ): array {
         $body = $this->get('user', '/api/v1/voters/eligibility', [
             'voterId' => $voterId,
             'electionId' => $electionId,
@@ -108,11 +120,39 @@ final class ElectionVotingIntegration implements VotingIntegration
         if (! is_array($data)
             || (int) ($data['voterId'] ?? 0) !== $voterId
             || (int) ($data['electionId'] ?? 0) !== $electionId
-            || ! is_bool($data['eligible'] ?? null)) {
+            || ! is_bool($data['eligible'] ?? null)
+            || ! is_string($data['reasonCode'] ?? null)) {
             throw new IntegrationException('The User Module returned an invalid eligibility contract.');
         }
 
-        return $data['eligible'];
+        $identity = $data['identity'] ?? [];
+        if (! is_array($identity)) {
+            throw new IntegrationException('The User Module returned invalid voter identity data.');
+        }
+        $nationality = $identity['nationality'] ?? [];
+        if (! is_array($nationality)) {
+            throw new IntegrationException('The User Module returned invalid voter nationality data.');
+        }
+
+        $dateOfBirth = $identity['dateOfBirth'] ?? null;
+        if ($dateOfBirth !== null && ! $this->isDate((string) $dateOfBirth)) {
+            throw new IntegrationException('The User Module returned an invalid voter birth date.');
+        }
+
+        $countryCode = $nationality['countryCode'] ?? null;
+        if ($countryCode !== null) {
+            $countryCode = strtoupper((string) $countryCode);
+            if (! CountryList::isValidCode($countryCode)) {
+                throw new IntegrationException('The User Module returned an invalid voter nationality code.');
+            }
+        }
+
+        return [
+            'eligible' => $data['eligible'],
+            'reasonCode' => $data['reasonCode'],
+            'dateOfBirth' => $dateOfBirth,
+            'nationalityCountryCode' => $countryCode,
+        ];
     }
 
     /** @param array<string, int|string> $query
@@ -188,26 +228,99 @@ final class ElectionVotingIntegration implements VotingIntegration
         ];
     }
 
-    private function describeRules(mixed $rules): string
+    /**
+     * @return array{
+     *     type:string,
+     *     minimumAge:?int,
+     *     nationality:array{restricted:bool,countryCode:?string,countryName:?string,excludedCountryCode:?string}
+     * }
+     */
+    private function eligibility(mixed $rules): array
     {
-        if (is_string($rules)) {
-            return $rules;
+        if (! is_array($rules)) {
+            throw new IntegrationException('The Election Module returned invalid eligibility rules.');
         }
 
-        if (! is_array($rules) || $rules === []) {
-            return '';
+        $type = strtoupper((string) ($rules['type'] ?? ''));
+        if (! in_array($type, ['PUBLIC', 'RESTRICTED'], true)) {
+            throw new IntegrationException('The Election Module returned an invalid eligibility type.');
+        }
+
+        $minimumAge = $rules['minimumAge'] ?? null;
+        if ($minimumAge !== null && (! is_int($minimumAge) || $minimumAge < 0 || $minimumAge > 130)) {
+            throw new IntegrationException('The Election Module returned an invalid minimum age.');
+        }
+
+        $nationality = $rules['nationality'] ?? null;
+        if (! is_array($nationality) || ! is_bool($nationality['restricted'] ?? null)) {
+            throw new IntegrationException('The Election Module returned invalid nationality rules.');
+        }
+
+        $countryCode = $nationality['countryCode'] ?? null;
+        $excludedCountryCode = $nationality['excludedCountryCode'] ?? null;
+        if ($countryCode !== null && ! CountryList::isValidCode((string) $countryCode)) {
+            throw new IntegrationException('The Election Module returned an invalid nationality country code.');
+        }
+        if ($excludedCountryCode !== null && ! CountryList::isValidCode((string) $excludedCountryCode)) {
+            throw new IntegrationException('The Election Module returned an invalid excluded country code.');
+        }
+        if ($nationality['restricted'] && $countryCode === null && $excludedCountryCode === null) {
+            throw new IntegrationException('The Election Module returned an incomplete nationality restriction.');
+        }
+        if (! $nationality['restricted'] && ($countryCode !== null || $excludedCountryCode !== null)) {
+            throw new IntegrationException('The Election Module returned inconsistent nationality rules.');
+        }
+
+        $countryName = $nationality['countryName'] ?? null;
+        if ($countryName !== null && ! is_string($countryName)) {
+            throw new IntegrationException('The Election Module returned an invalid country name.');
+        }
+
+        if ($type === 'PUBLIC') {
+            $minimumAge = null;
+            $countryCode = null;
+            $countryName = null;
+            $excludedCountryCode = null;
+        }
+
+        return [
+            'type' => $type,
+            'minimumAge' => $minimumAge,
+            'nationality' => [
+                'restricted' => $type === 'RESTRICTED' && $nationality['restricted'],
+                'countryCode' => $countryCode,
+                'countryName' => $countryName,
+                'excludedCountryCode' => $excludedCountryCode,
+            ],
+        ];
+    }
+
+    /** @param array<string, mixed> $rules */
+    private function describeRules(array $rules): string
+    {
+        if ($rules['type'] === 'PUBLIC') {
+            return 'Public election - no voter restrictions';
         }
 
         $parts = [];
-        foreach ($rules as $name => $value) {
-            if ($value === null || $value === '' || $value === []) {
-                continue;
-            }
-
-            $label = ucfirst((string) preg_replace('/(?<!^)[A-Z]/', ' $0', (string) $name));
-            $parts[] = $label.': '.(is_array($value) ? implode(', ', $value) : (string) $value);
+        if ($rules['minimumAge'] !== null) {
+            $parts[] = 'Age '.$rules['minimumAge'].' or older';
+        }
+        if ($rules['nationality']['countryName'] !== null) {
+            $parts[] = 'Nationality: '.$rules['nationality']['countryName'];
         }
 
-        return implode('; ', $parts);
+        return $parts === [] ? 'Restricted election' : implode(' | ', $parts);
+    }
+
+    private function isDate(string $value): bool
+    {
+        try {
+            $date = CarbonImmutable::createFromFormat('!Y-m-d', $value);
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return $date !== false && $date->format('Y-m-d') === $value && ! $date->isFuture();
     }
 }

@@ -20,6 +20,8 @@ class User extends Authenticatable
         'username',
         'full_name',
         'ic_number',
+        'date_of_birth',
+        'nationality_country_code',
         'email',
         'password',
         'is_admin',
@@ -45,6 +47,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_admin' => 'boolean',
+            'date_of_birth' => 'date',
             'failed_login_attempts' => 'integer',
             'account_disabled_at' => 'datetime',
         ];

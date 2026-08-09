@@ -12,20 +12,19 @@ final class AuthorizationDecorator extends VoteServiceDecorator
     public function __construct(
         VoteCastingService $next,
         private readonly VotingIntegration $integration,
+        private readonly VoterEligibilityAuthorizer $eligibilityAuthorizer,
     ) {
         parent::__construct($next);
     }
 
     public function cast(VoteCommand $command): Vote
     {
-        if (! $this->integration->voterIsEligible(
+        $voterEligibility = $this->integration->voterEligibility(
             $command->voterId,
             $command->electionId,
             $command->requestId,
             $command->timestamp,
-        )) {
-            throw new VoteAccessDenied('You are not eligible to vote in this election.');
-        }
+        );
 
         $election = $this->integration->election(
             $command->electionId,
@@ -40,6 +39,8 @@ final class AuthorizationDecorator extends VoteServiceDecorator
         if ($election['status'] !== 'VOTING_OPEN' || ! $election['votingAllowed']) {
             throw new VoteAccessDenied('This election is not open for voting.');
         }
+
+        $this->eligibilityAuthorizer->assertEligible($voterEligibility, $election['eligibility']);
 
         $candidateIsApproved = collect($election['candidacies'])
             ->contains(fn (array $candidacy): bool => $candidacy['candidateId'] === $command->candidateId);

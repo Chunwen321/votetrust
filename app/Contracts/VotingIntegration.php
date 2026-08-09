@@ -14,6 +14,11 @@ interface VotingIntegration
      *     title:string,
      *     description:string,
      *     eligibilityRules:string,
+     *     eligibility:array{
+     *         type:string,
+     *         minimumAge:?int,
+     *         nationality:array{restricted:bool,countryCode:?string,countryName:?string,excludedCountryCode:?string}
+     *     },
      *     status:string,
      *     votingAllowed:bool,
      *     votingPeriod:array{start:?string,end:?string},
@@ -28,4 +33,19 @@ interface VotingIntegration
         string $requestId,
         string $timestamp,
     ): bool;
+
+    /**
+     * @return array{
+     *     eligible:bool,
+     *     reasonCode:string,
+     *     dateOfBirth:?string,
+     *     nationalityCountryCode:?string
+     * }
+     */
+    public function voterEligibility(
+        int $voterId,
+        int $electionId,
+        string $requestId,
+        string $timestamp,
+    ): array;
 }
