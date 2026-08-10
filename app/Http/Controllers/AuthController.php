@@ -11,6 +11,7 @@ use App\Http\Requests\RegisterRequest;
 use App\Models\User;
 use App\Security\Session\SessionTerminationStrategy;
 use App\Services\UserService;
+use App\Support\CountryList;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -30,7 +31,10 @@ final class AuthController extends Controller
             return redirect()->to($this->homeFor(Auth::user()));
         }
 
-        return view('auth.login');
+        return view('auth.login', [
+            'activePanel' => 'login',
+            'nationalityOptions' => array_diff_key(CountryList::options(), [CountryList::ANY => true]),
+        ]);
     }
 
     public function login(LoginRequest $request): RedirectResponse
@@ -58,7 +62,10 @@ final class AuthController extends Controller
             return redirect()->to($this->homeFor(Auth::user()));
         }
 
-        return view('auth.register');
+        return view('auth.login', [
+            'activePanel' => 'register',
+            'nationalityOptions' => array_diff_key(CountryList::options(), [CountryList::ANY => true]),
+        ]);
     }
 
     public function register(RegisterRequest $request): RedirectResponse

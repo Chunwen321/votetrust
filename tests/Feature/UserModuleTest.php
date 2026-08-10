@@ -24,6 +24,9 @@ final class UserModuleTest extends TestCase
             'full_name' => 'Chew   Member',
             'email' => 'CHEW@example.test',
             'ic_number' => '010203-10-1234',
+            'date_of_birth' => '2001-02-03',
+            'nationality_country_code' => 'MY',
+            'phone_number' => '+60 12-345 6789',
             'password' => 'Strong!Password123',
             'password_confirmation' => 'Strong!Password123',
         ]);
@@ -38,6 +41,7 @@ final class UserModuleTest extends TestCase
             'ic_number' => '010203101234',
             'date_of_birth' => '2001-02-03 00:00:00',
             'nationality_country_code' => 'MY',
+            'phone_number' => '+60 12-345 6789',
             'account_status' => 'ACTIVE',
         ]);
     }

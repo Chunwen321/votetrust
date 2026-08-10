@@ -31,19 +31,14 @@
                         'site-nav-dropdown',
                         'is-active' => request()->routeIs('elections.*', 'voter.*', 'voting.*', 'candidate.*'),
                     ])>
-                        <summary>Elections <span aria-hidden="true">⌄</span></summary>
+                        <summary>
+                            <span class="site-nav-dropdown__label">Elections</span>
+                            <span class="site-nav-dropdown__chevron" aria-hidden="true"></span>
+                        </summary>
                         <div class="site-nav-dropdown__menu">
-                            <a href="{{ route('elections.index') }}">All my elections</a>
-                            <a href="{{ route('elections.index') }}#voting-elections">Voting elections</a>
-                            <a href="{{ route('elections.index') }}#organised-elections">Organised elections</a>
-                            @if (Route::has('elections.create') && ! auth()->user()->isAdmin())
-                                <a href="{{ route('elections.create') }}">Create an election</a>
-                            @endif
+                            <a href="{{ route('elections.index') }}">Elections</a>
                             @if (Route::has('candidate.applications.create'))
                                 <a href="{{ route('candidate.applications.create') }}">Candidate applications</a>
-                            @endif
-                            @if (Route::has('voting.index'))
-                                <a href="{{ route('voting.index') }}">Voting portal</a>
                             @endif
                         </div>
                     </details>

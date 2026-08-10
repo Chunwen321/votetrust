@@ -33,10 +33,10 @@
             <strong>{{ $overview['organizedElections'] }}</strong>
             <small>Election{{ $overview['organizedElections'] === 1 ? '' : 's' }} you manage</small>
         </a>
-        <a class="dashboard-role-card dashboard-role-card--create" href="{{ route('elections.create') }}">
-            <span class="dashboard-role-card__label">Organise an election</span>
+        <a class="dashboard-role-card dashboard-role-card--create" href="{{ route('elections.index') }}#organised-elections">
+            <span class="dashboard-role-card__label">Election workspace</span>
             <strong aria-hidden="true">+</strong>
-            <small>Start a new election from this account</small>
+            <small>Create and manage elections from one place</small>
         </a>
     </section>
 
@@ -83,7 +83,7 @@
             @if ($organizedElections->isEmpty())
                 <div class="empty-state compact-empty">
                     <p>Have an election to run?</p>
-                    <a class="button button-small" href="{{ route('elections.create') }}">Create election</a>
+                    <a class="button button-small" href="{{ route('elections.index') }}#organised-elections">Open workspace</a>
                 </div>
             @else
                 <div class="activity-list">
