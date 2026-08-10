@@ -37,6 +37,17 @@ final class ElectionController extends Controller
         }
 
         $enrollments = $this->voters->enrollmentsForVoter((int) $user->getKey());
+        $candidateElections = Election::query()
+            ->whereIn('status', $this->publishedStatuses())
+            ->where(fn ($query) => $query
+                ->whereNull('organizer_id')
+                ->orWhere('organizer_id', '!=', $user->getKey()))
+            ->with(['candidacies' => fn ($query) => $query->where('user_id', $user->getKey())])
+            ->latest('updated_at')
+            ->get()
+            ->filter(fn (Election $election): bool => $this->isPublic($election)
+                || $election->candidacies->isNotEmpty())
+            ->values();
 
         return view('elections.index', [
             'user' => $user,
@@ -45,6 +56,7 @@ final class ElectionController extends Controller
                 ->where('organizer_id', $user->getKey())
                 ->latest('updated_at')
                 ->get(),
+            'candidateElections' => $candidateElections,
             'votingStatuses' => $this->voting->statusesForVoter(
                 (int) $user->getKey(),
                 $enrollments->pluck('election_id')->all(),
@@ -77,7 +89,29 @@ final class ElectionController extends Controller
 
     public function show(Request $request, int $election): View
     {
-        $record = $this->service->findOwned($request->user(), $election);
+        $record = Election::query()
+            ->with(['candidacies' => fn ($query) => $query->where('user_id', $request->user()->getKey())])
+            ->findOrFail($election);
+
+        if ((int) $record->organizer_id !== (int) $request->user()->getKey()) {
+            abort_unless(in_array($record->status, $this->publishedStatuses(), true), 404);
+
+            $candidacy = $record->candidacies->first();
+            abort_unless($this->isPublic($record) || $candidacy !== null, 404);
+
+            $now = CarbonImmutable::now();
+
+            return view('elections.details', [
+                'election' => $record,
+                'eligibility' => EligibilityRules::fromStored($record->eligibility_rules),
+                'candidacy' => $candidacy,
+                'canApply' => $this->isPublic($record)
+                    && $candidacy === null
+                    && $record->status === ElectionStatus::NOMINATION_OPEN->value
+                    && ($record->nomination_start === null || $record->nomination_start->lte($now))
+                    && ($record->nomination_end === null || $record->nomination_end->gte($now)),
+            ]);
+        }
 
         return $this->managementView($record, $request, false);
     }
@@ -157,5 +191,20 @@ final class ElectionController extends Controller
             'logs' => $this->service->transitionLogs($election),
             'isAdminView' => $isAdminView,
         ]);
+    }
+
+    /** @return list<string> */
+    private function publishedStatuses(): array
+    {
+        return [
+            ElectionStatus::NOMINATION_OPEN->value,
+            ElectionStatus::VOTING_OPEN->value,
+            ElectionStatus::CLOSED->value,
+        ];
+    }
+
+    private function isPublic(Election $election): bool
+    {
+        return EligibilityRules::fromStored($election->eligibility_rules)->mode() === EligibilityRules::PUBLIC;
     }
 }

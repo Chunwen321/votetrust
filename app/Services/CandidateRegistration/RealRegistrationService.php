@@ -7,6 +7,7 @@ use App\Models\Candidacy;
 use App\Models\CandidateDocument;
 use App\Models\Election;
 use App\Models\Payment;
+use App\ValueObjects\EligibilityRules;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -46,6 +47,12 @@ final class RealRegistrationService implements RegistrationService
                 if (! $election instanceof Election || ! $this->acceptsNominations($election)) {
                     throw ValidationException::withMessages([
                         'election_id' => 'This election is not accepting nominations.',
+                    ]);
+                }
+
+                if (EligibilityRules::fromStored($election->eligibility_rules)->mode() !== EligibilityRules::PUBLIC) {
+                    throw ValidationException::withMessages([
+                        'election_id' => 'This private election does not accept public candidate applications.',
                     ]);
                 }
 

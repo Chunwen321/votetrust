@@ -64,6 +64,52 @@
         @endif
     </section>
 
+    <section id="candidate-elections" class="election-role-section" aria-labelledby="candidate-elections-title">
+        <div class="section-title">
+            <div>
+                <p class="eyebrow">Candidate</p>
+                <h2 id="candidate-elections-title">Election opportunities</h2>
+                <p>View public elections you can stand in and private elections where you have been assigned as a candidate.</p>
+            </div>
+            <span class="section-count">{{ $candidateElections->count() }} election{{ $candidateElections->count() === 1 ? '' : 's' }}</span>
+        </div>
+
+        @if ($candidateElections->isEmpty())
+            <article class="card role-empty-state">
+                <div class="role-empty-state__icon" aria-hidden="true">i</div>
+                <div>
+                    <h3>No candidate elections available</h3>
+                    <p>Public nomination opportunities and private candidate assignments will appear here.</p>
+                </div>
+            </article>
+        @else
+            <div class="election-list" role="list">
+                @foreach ($candidateElections as $election)
+                    @php($candidacy = $election->candidacies->first())
+                    @php($isPublic = \App\ValueObjects\EligibilityRules::fromStored($election->eligibility_rules)->mode() === \App\ValueObjects\EligibilityRules::PUBLIC)
+                    <article class="card election-list-item" role="listitem">
+                        <div class="election-list-item__main">
+                            <div class="election-list-item__heading">
+                                <h3>{{ $election->title }}</h3>
+                                <span class="badge election-state election-state-{{ strtolower(str_replace('_', '-', $election->status)) }}">
+                                    {{ str($election->status)->replace('_', ' ')->lower()->headline() }}
+                                </span>
+                            </div>
+                            @if ($candidacy)
+                                <p>You have been assigned as a candidate. Status: <span class="badge status-{{ strtolower($candidacy->status) }}">{{ $candidacy->status }}</span></p>
+                            @elseif ($isPublic)
+                                <p>Public election &mdash; you can view the details and apply to become a candidate.</p>
+                            @endif
+                        </div>
+                        <div class="election-list-item__action">
+                            <a class="button button-quiet button-small" href="{{ route('elections.show', $election) }}">View election <span aria-hidden="true">&rarr;</span></a>
+                        </div>
+                    </article>
+                @endforeach
+            </div>
+        @endif
+    </section>
+
     <section id="organised-elections" class="election-role-section" aria-labelledby="organised-elections-title">
         <div class="section-title">
             <div>

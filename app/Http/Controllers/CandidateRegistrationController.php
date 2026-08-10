@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Contracts\RegistrationService;
 use App\Http\Requests\StoreCandidacyRequest;
 use App\Models\Election;
+use App\ValueObjects\EligibilityRules;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\View\View;
 
@@ -15,7 +17,7 @@ use Illuminate\View\View;
  */
 final class CandidateRegistrationController extends Controller
 {
-    public function create(): View
+    public function create(Request $request): View
     {
         $now = now();
         $elections = Election::query()
@@ -30,9 +32,14 @@ final class CandidateRegistrationController extends Controller
             })
             ->orderBy('nomination_end')
             ->orderBy('title')
-            ->get();
+            ->get()
+            ->filter(fn (Election $election): bool => EligibilityRules::fromStored($election->eligibility_rules)->mode() === EligibilityRules::PUBLIC)
+            ->values();
 
-        return view('candidate.registration.create', compact('elections'));
+        return view('candidate.registration.create', [
+            'elections' => $elections,
+            'selectedElectionId' => $request->integer('election_id') ?: null,
+        ]);
     }
 
     public function store(
