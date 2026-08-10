@@ -11,7 +11,10 @@
             <h1>My elections</h1>
             <p>See the elections where you can vote and the elections you organise, all in one place.</p>
         </div>
-        <a class="button" href="{{ route('elections.create') }}">Create an election</a>
+        <div class="election-hub__actions">
+            <a class="button button-quiet" href="{{ route('voting.index') }}">Open voting portal</a>
+            <a class="button" href="{{ route('elections.create') }}">Create an election</a>
+        </div>
     </section>
 
     <section id="voting-elections" class="election-role-section" aria-labelledby="voting-elections-title">

@@ -13,7 +13,7 @@
             <div class="home-actions">
                 @auth
                     <a class="button button--primary button--large" href="{{ route('dashboard') }}">Open my dashboard</a>
-                    <a class="button button--quiet button--large" href="{{ route('voting.index') }}">View open elections</a>
+                    <a class="button button--quiet button--large" href="{{ route('elections.index') }}#voting-elections">View open elections</a>
                 @else
                     <a class="button button--primary button--large" href="{{ route('register') }}">Create your account</a>
                     <a class="button button--quiet button--large" href="#how-it-works">See how it works</a>
