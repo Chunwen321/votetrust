@@ -6,9 +6,11 @@ use App\Models\Election;
 use App\Models\User;
 use App\Services\CandidateRegistration\RealRegistrationService;
 use App\Services\CandidateRegistration\RegistrationProxy;
+use App\ValueObjects\EligibilityRules;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 /**
@@ -79,6 +81,37 @@ final class CandidateRegistrationServiceTest extends TestCase
         Storage::disk('candidate-test')->assertMissing($oldDocument);
         Storage::disk('candidate-test')->assertExists($replacement->profile_photo);
         Storage::disk('candidate-test')->assertExists($replacement->documents->first()->stored_name);
+    }
+
+    public function test_a_private_election_rejects_a_direct_public_application(): void
+    {
+        Storage::fake('candidate-test');
+        config(['candidate.disk' => 'candidate-test']);
+        [$candidate, $election] = $this->candidateAndOpenElection();
+        $election->update([
+            'eligibility_rules' => EligibilityRules::restricted(18, 'MY')->toStorage(),
+        ]);
+
+        try {
+            $this->service()->apply(
+                $candidate->getKey(),
+                $election->getKey(),
+                $this->validInput(),
+                [],
+                UploadedFile::fake()->create('portrait.jpg', 100, 'image/jpeg'),
+            );
+            self::fail('A private election accepted a public candidate application.');
+        } catch (ValidationException $exception) {
+            self::assertSame(
+                'This private election does not accept public candidate applications.',
+                $exception->errors()['election_id'][0],
+            );
+        }
+
+        $this->assertDatabaseMissing('candidacy', [
+            'user_id' => $candidate->getKey(),
+            'election_id' => $election->getKey(),
+        ]);
     }
 
     private function service(): RegistrationProxy

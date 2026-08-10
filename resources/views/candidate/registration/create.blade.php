@@ -30,7 +30,7 @@
                 <label for="election_id">Election</label>
                 <select id="election_id" name="election_id" required>
                     @foreach ($elections as $election)
-                        <option value="{{ $election->getKey() }}" @selected((string) old('election_id') === (string) $election->getKey())>
+                        <option value="{{ $election->getKey() }}" @selected((string) old('election_id', $selectedElectionId) === (string) $election->getKey())>
                             {{ $election->title }}
                             @if ($election->nomination_end)
                                 — closes {{ $election->nomination_end->format('j M Y, g:i A') }}
