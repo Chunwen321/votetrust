@@ -32,12 +32,14 @@ final class RegistrationProxy implements RegistrationService
         $payload = [
             'position_sought' => trim((string) ($input['position_sought'] ?? '')),
             'manifesto' => trim((string) ($input['manifesto'] ?? '')),
-            'supporting_details' => trim((string) ($input['supporting_details'] ?? '')) ?: null,
+            'candidate_introduction' => trim((string) ($input['candidate_introduction'] ?? '')),
+            'qualifications' => trim((string) ($input['qualifications'] ?? '')) ?: null,
+            'reason_for_candidacy' => trim((string) ($input['reason_for_candidacy'] ?? '')),
             'profile_photo' => $photo,
             'documents' => array_values($documents),
         ];
 
-        /** @var array{position_sought: string, manifesto: string, supporting_details: string|null} $validated */
+        /** @var array{position_sought: string, manifesto: string, candidate_introduction: string, qualifications: string|null, reason_for_candidacy: string} $validated */
         $validated = Validator::make($payload, RegistrationRules::application())->validate();
 
         return $this->realService->apply(
@@ -46,7 +48,9 @@ final class RegistrationProxy implements RegistrationService
             [
                 'position_sought' => $validated['position_sought'],
                 'manifesto' => $validated['manifesto'],
-                'supporting_details' => $validated['supporting_details'] ?? null,
+                'candidate_introduction' => $validated['candidate_introduction'],
+                'qualifications' => $validated['qualifications'] ?? null,
+                'reason_for_candidacy' => $validated['reason_for_candidacy'],
             ],
             array_values($documents),
             $photo,

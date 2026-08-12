@@ -24,6 +24,8 @@ final class StoreCandidacyRequest extends FormRequest
         return [
             'election_id' => ['required', 'integer', 'exists:election,id'],
             ...RegistrationRules::application(),
+            'candidate_introduction' => ['required', 'string', 'min:20', 'max:1000'],
+            'reason_for_candidacy' => ['required', 'string', 'min:20', 'max:1000'],
         ];
     }
 
@@ -42,12 +44,16 @@ final class StoreCandidacyRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $supportingDetails = trim((string) $this->input('supporting_details', ''));
+        $introduction = trim((string) $this->input('candidate_introduction', ''));
+        $qualifications = trim((string) $this->input('qualifications', ''));
+        $reason = trim((string) $this->input('reason_for_candidacy', ''));
 
         $this->merge([
             'position_sought' => trim((string) $this->input('position_sought', '')),
             'manifesto' => trim((string) $this->input('manifesto', '')),
-            'supporting_details' => $supportingDetails !== '' ? $supportingDetails : null,
+            'candidate_introduction' => $introduction,
+            'qualifications' => $qualifications !== '' ? $qualifications : null,
+            'reason_for_candidacy' => $reason,
         ]);
     }
 }

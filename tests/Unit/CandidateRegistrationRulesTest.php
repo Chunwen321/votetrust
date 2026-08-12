@@ -20,7 +20,9 @@ final class CandidateRegistrationRulesTest extends TestCase
         $validator = Validator::make([
             'position_sought' => 'Student Representative',
             'manifesto' => str_repeat('A clear commitment to student representation. ', 2),
-            'supporting_details' => 'Previous committee experience.',
+            'candidate_introduction' => 'I am a second-year student who enjoys serving the student community.',
+            'qualifications' => 'Previous committee experience.',
+            'reason_for_candidacy' => 'I want to improve communication between students and their representatives.',
             'profile_photo' => UploadedFile::fake()->create('portrait.jpg', 100, 'image/jpeg'),
             'documents' => [
                 UploadedFile::fake()->create('statement.pdf', 100, 'application/pdf'),

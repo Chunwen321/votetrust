@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Candidacy;
 use App\Models\Election;
 use App\Models\User;
 use App\Services\CandidateRegistration\RealRegistrationService;
@@ -44,7 +45,7 @@ final class CandidateRegistrationServiceTest extends TestCase
         Storage::disk('candidate-test')->assertExists($candidacy->documents->first()->stored_name);
     }
 
-    public function test_cancelled_reapplication_reuses_the_record_and_removes_replaced_files(): void
+    public function test_rejected_reapplication_reuses_the_record_and_removes_replaced_files(): void
     {
         Storage::fake('candidate-test');
         config(['candidate.disk' => 'candidate-test']);
@@ -62,7 +63,7 @@ final class CandidateRegistrationServiceTest extends TestCase
         $oldPhoto = $first->profile_photo;
         $oldDocument = $first->documents->first()->stored_name;
         $first->payment->update(['status' => 'Failed']);
-        $first->update(['status' => 'Cancelled']);
+        $first->update(['status' => Candidacy::REJECTED]);
 
         $replacement = $service->apply(
             $candidate->getKey(),
@@ -138,14 +139,16 @@ final class CandidateRegistrationServiceTest extends TestCase
     }
 
     /**
-     * @return array{position_sought: string, manifesto: string, supporting_details: string}
+     * @return array{position_sought: string, manifesto: string, candidate_introduction: string, qualifications: string, reason_for_candidacy: string}
      */
     private function validInput(): array
     {
         return [
             'position_sought' => 'Student Representative',
             'manifesto' => str_repeat('A clear commitment to student representation. ', 2),
-            'supporting_details' => 'Previous committee experience.',
+            'candidate_introduction' => 'I am a second-year student who enjoys serving the student community.',
+            'qualifications' => 'Previous committee experience.',
+            'reason_for_candidacy' => 'I want to improve communication between students and their representatives.',
         ];
     }
 }

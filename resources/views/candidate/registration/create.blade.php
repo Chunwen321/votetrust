@@ -7,7 +7,7 @@
     <div class="candidate-page-heading">
         <p class="candidate-eyebrow">Nomination</p>
         <h1>Stand for election</h1>
-        <p>Submit your details and private supporting files for organizer review.</p>
+        <p>Introduce yourself and explain why you want to stand for election.</p>
     </div>
 
     @if ($elections->isEmpty())
@@ -46,17 +46,19 @@
                 <textarea id="manifesto" name="manifesto" minlength="50" maxlength="5000" required>{{ old('manifesto') }}</textarea>
                 <p class="candidate-help">Between 50 and 5,000 characters.</p>
 
-                <label for="supporting_details">Supporting details</label>
-                <textarea id="supporting_details" name="supporting_details" maxlength="3000">{{ old('supporting_details') }}</textarea>
+                <label for="candidate_introduction">Candidate Introduction</label>
+                <textarea id="candidate_introduction" name="candidate_introduction" minlength="20" maxlength="1000" required>{{ old('candidate_introduction') }}</textarea>
+                <p class="candidate-help">Briefly introduce yourself, such as your course, year, or department.</p>
 
-                <label for="documents">Supporting documents</label>
-                <input id="documents" type="file" name="documents[]" accept=".pdf,.jpg,.jpeg,.png" multiple>
-                <p class="candidate-help">
-                    Up to {{ (int) config('candidate.max_documents', 5) }} genuine PDF, JPG, or PNG files;
-                    {{ number_format((int) config('candidate.max_document_kilobytes', 5120) / 1024) }} MiB each.
-                </p>
+                <label for="qualifications">Qualifications / Experience</label>
+                <textarea id="qualifications" name="qualifications" maxlength="1000">{{ old('qualifications') }}</textarea>
+                <p class="candidate-help">Optional relevant experience, such as committee or club leadership.</p>
 
-                <label for="profile_photo">Candidate photo</label>
+                <label for="reason_for_candidacy">Reason For Candidacy</label>
+                <textarea id="reason_for_candidacy" name="reason_for_candidacy" minlength="20" maxlength="1000" required>{{ old('reason_for_candidacy') }}</textarea>
+                <p class="candidate-help">Explain why you want to stand for this position.</p>
+
+                <label for="profile_photo">Candidate Photo</label>
                 <input id="profile_photo" type="file" name="profile_photo" accept=".jpg,.jpeg,.png" required>
                 <p class="candidate-help">
                     Genuine JPG or PNG; at most
