@@ -14,7 +14,7 @@ interface ElectionState
 
     public function label(): string;
 
-    /** @return list<array{action:string,label:string,description:string,tone:string,audience:string,requiresPaymentReference:bool,requiresReason:bool}> */
+    /** @return list<array{action:string,label:string,description:string,tone:string,audience:string,requiresHostingFee:bool,requiresPaymentReference:bool,requiresReason:bool}> */
     public function actions(Election $election): array;
 
     public function canRegisterCandidate(Election $election, CarbonImmutable $now): bool;

@@ -7,7 +7,7 @@
     $nationality = old('eligibility_nationality', $eligibility->nationalityFormValue());
 @endphp
 
-<form class="election-card election-form" method="post" action="{{ $formAction }}" data-election-form>
+<form class="election-card election-form" method="post" action="{{ $formAction }}" data-election-form novalidate>
     @csrf
     @if ($election)
         @method('PUT')
@@ -18,11 +18,11 @@
         <legend>Election identity</legend>
         <label for="title">Title</label>
         <input id="title" name="title" maxlength="120" value="{{ $value('title') }}" required>
-        @error('title') <small class="election-field-error">{{ $message }}</small> @enderror
+        @error('title') <small class="election-field-error" data-server-error-for="title">{{ $message }}</small> @enderror
 
         <label for="description">Description</label>
         <textarea id="description" name="description" rows="5" maxlength="2000" required>{{ $value('description') }}</textarea>
-        @error('description') <small class="election-field-error">{{ $message }}</small> @enderror
+        @error('description') <small class="election-field-error" data-server-error-for="description">{{ $message }}</small> @enderror
     </fieldset>
 
     <fieldset>
@@ -31,7 +31,7 @@
             <label><input type="radio" name="eligibility_mode" value="PUBLIC" @checked($mode === 'PUBLIC')> Public</label>
             <label><input type="radio" name="eligibility_mode" value="RESTRICTED" @checked($mode === 'RESTRICTED')> Restricted</label>
         </div>
-        @error('eligibility_mode') <small class="election-field-error">{{ $message }}</small> @enderror
+        @error('eligibility_mode') <small class="election-field-error" data-server-error-for="eligibility_mode">{{ $message }}</small> @enderror
 
         <div class="election-criteria" data-eligibility-criteria @if ($mode !== 'RESTRICTED') hidden @endif>
             <label for="eligibility_minimum_age">Minimum age</label>
@@ -41,7 +41,7 @@
                     <option value="{{ $age }}" @selected((string) $minimumAge === (string) $age)>{{ $age }} years or older</option>
                 @endforeach
             </select>
-            @error('eligibility_minimum_age') <small class="election-field-error">{{ $message }}</small> @enderror
+            @error('eligibility_minimum_age') <small class="election-field-error" data-server-error-for="eligibility_minimum_age">{{ $message }}</small> @enderror
 
             <label for="eligibility_nationality">Nationality</label>
             <select id="eligibility_nationality" name="eligibility_nationality">
@@ -49,9 +49,9 @@
                     <option value="{{ $key }}" @selected($nationality === $key)>{{ $label }}</option>
                 @endforeach
             </select>
-            @error('eligibility_nationality') <small class="election-field-error">{{ $message }}</small> @enderror
+            @error('eligibility_nationality') <small class="election-field-error" data-server-error-for="eligibility_nationality">{{ $message }}</small> @enderror
         </div>
-        @error('eligibility_criteria') <small class="election-field-error">{{ $message }}</small> @enderror
+        @error('eligibility_criteria') <small class="election-field-error" data-server-error-for="eligibility_criteria">{{ $message }}</small> @enderror
     </fieldset>
 
     <fieldset>
@@ -70,17 +70,14 @@
                         $dateValue = $raw ? \Carbon\CarbonImmutable::parse($raw)->format('Y-m-d\TH:i') : '';
                     }
                 @endphp
-                <div><label for="{{ $field }}">{{ $label }}</label><input id="{{ $field }}" name="{{ $field }}" type="datetime-local" value="{{ $dateValue }}" required>@error($field) <small class="election-field-error">{{ $message }}</small> @enderror</div>
+                <div><label for="{{ $field }}">{{ $label }}</label><input id="{{ $field }}" name="{{ $field }}" type="datetime-local" value="{{ $dateValue }}" required>@error($field) <small class="election-field-error" data-server-error-for="{{ $field }}">{{ $message }}</small> @enderror</div>
             @endforeach
         </div>
     </fieldset>
 
     <fieldset>
         <legend>Hosting fee</legend>
-        <div class="election-field-grid">
-            <div><label for="hosting_fee">Amount</label><input id="hosting_fee" name="hosting_fee" type="number" min="1" max="10000" step="0.01" value="{{ $value('hosting_fee', '100.00') }}" required>@error('hosting_fee') <small class="election-field-error">{{ $message }}</small> @enderror</div>
-            <div><label for="currency">Currency</label><input id="currency" name="currency" maxlength="3" value="{{ $value('currency', 'MYR') }}" required>@error('currency') <small class="election-field-error">{{ $message }}</small> @enderror</div>
-        </div>
+        <p class="election-form-note">A VoteTrust administrator will review this configuration and send you a hosting fee quote. Payment is enabled only after you accept that quote.</p>
     </fieldset>
 
     <div class="election-form-actions">

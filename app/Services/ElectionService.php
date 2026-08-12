@@ -29,7 +29,9 @@ use Illuminate\Support\Facades\DB;
 
 final class ElectionService
 {
-    private const ADMIN_ACTIONS = ['approve', 'reject'];
+    private const ADMIN_ACTIONS = ['quote_fee', 'approve', 'return_for_payment', 'reject'];
+
+    private const ADMIN_API_ACTIONS = ['approve', 'reject'];
 
     private const CANDIDACY_PENDING = 'Pending';
 
@@ -79,6 +81,8 @@ final class ElectionService
         $election = new Election;
         $election->forceFill($valid + [
             'organizer_id' => $organizer->getKey(),
+            'hosting_fee' => null,
+            'currency' => 'MYR',
             'status' => ElectionStatus::DRAFT->value,
             'version' => 1,
             'transition_history_json' => [[
@@ -149,7 +153,7 @@ final class ElectionService
         array $input,
         string $requestId,
     ): Election {
-        if (! in_array($action, self::ADMIN_ACTIONS, true)) {
+        if (! in_array($action, self::ADMIN_API_ACTIONS, true)) {
             throw new AuthorizationException('The Admin API only accepts approval decisions.');
         }
 
@@ -544,8 +548,6 @@ final class ElectionService
             'nomination_end' => CarbonImmutable::parse($input['nomination_end'])->toDateTimeString(),
             'voting_start' => CarbonImmutable::parse($input['voting_start'])->toDateTimeString(),
             'voting_end' => CarbonImmutable::parse($input['voting_end'])->toDateTimeString(),
-            'hosting_fee' => number_format((float) $input['hosting_fee'], 2, '.', ''),
-            'currency' => strtoupper(trim((string) ($input['currency'] ?? 'MYR'))),
         ];
     }
 

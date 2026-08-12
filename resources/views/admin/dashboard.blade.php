@@ -23,9 +23,9 @@
 <section class="admin-action-grid" aria-label="Administrator tools">
     <a class="card admin-action-card" href="{{ route('admin.elections.index') }}">
         <span class="eyebrow">Election workflow</span>
-        <h2>Review election approvals</h2>
-        <p>{{ $counts['pending_election_approvals'] }} paid election{{ $counts['pending_election_approvals'] === 1 ? '' : 's' }} awaiting an administrator decision.</p>
-        <span class="back-link">Open approval workspace &rarr;</span>
+        <h2>Review election requests</h2>
+        <p>{{ $counts['pending_election_approvals'] }} election request{{ $counts['pending_election_approvals'] === 1 ? '' : 's' }} awaiting a fee quote or payment verification.</p>
+        <span class="back-link">Open election workspace &rarr;</span>
     </a>
     <a class="card admin-action-card" href="{{ route('admin.users.index') }}">
         <span class="eyebrow">Account access</span>
@@ -37,7 +37,7 @@
 
 @if($pendingElectionApprovals->isNotEmpty())
 <section class="card table-card">
-    <div class="section-title"><div><p class="eyebrow">Action required</p><h2>Election approvals awaiting review</h2></div><a class="back-link" href="{{ route('admin.elections.index') }}">View all &rarr;</a></div>
+    <div class="section-title"><div><p class="eyebrow">Action required</p><h2>Election requests awaiting review</h2></div><a class="back-link" href="{{ route('admin.elections.index') }}">View all &rarr;</a></div>
     <div class="activity-list">
         @foreach($pendingElectionApprovals as $election)
             <div class="activity-item">

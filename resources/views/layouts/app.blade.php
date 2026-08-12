@@ -88,11 +88,13 @@
         <div class="alert alert--error" role="alert">{{ session('error') }}</div>
     @endif
     @if ($errors->any())
-        <div class="alert alert--error" role="alert">
+        <div class="alert alert--error" role="alert" data-validation-summary>
             <strong>Please review the following:</strong>
             <ul>
-                @foreach ($errors->all() as $error)
-                    <li>{{ $error }}</li>
+                @foreach ($errors->getMessages() as $field => $messages)
+                    @foreach ($messages as $error)
+                        <li data-summary-error-for="{{ $field }}">{{ $error }}</li>
+                    @endforeach
                 @endforeach
             </ul>
         </div>

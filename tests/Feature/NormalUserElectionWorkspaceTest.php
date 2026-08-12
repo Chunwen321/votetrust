@@ -63,6 +63,13 @@ final class NormalUserElectionWorkspaceTest extends TestCase
 
         $this->assertDatabaseMissing('organizer', ['user_id' => $member->getKey()]);
 
+        $this->actingAs($member)
+            ->get(route('elections.create'))
+            ->assertOk()
+            ->assertSee('data-election-form novalidate', false)
+            ->assertDontSee('name="hosting_fee"', false)
+            ->assertSee('administrator will review this configuration');
+
         $response = $this->actingAs($member)->post(route('elections.store'), [
             'title' => 'New Community Election',
             'description' => 'A new election created by a normal user from the shared election workspace.',
@@ -71,8 +78,10 @@ final class NormalUserElectionWorkspaceTest extends TestCase
             'nomination_end' => now()->addDays(2)->toDateTimeString(),
             'voting_start' => now()->addDays(3)->toDateTimeString(),
             'voting_end' => now()->addDays(4)->toDateTimeString(),
-            'hosting_fee' => '100.00',
-            'currency' => 'MYR',
+            // These values are deliberately malicious/obsolete form fields.
+            // The organizer must not be able to establish the hosting quote.
+            'hosting_fee' => '9999.00',
+            'currency' => 'USD',
         ]);
 
         $election = Election::query()->where('title', 'New Community Election')->firstOrFail();
@@ -82,6 +91,8 @@ final class NormalUserElectionWorkspaceTest extends TestCase
         $this->assertDatabaseHas('election', [
             'id' => $election->getKey(),
             'organizer_id' => $member->getKey(),
+            'hosting_fee' => null,
+            'currency' => 'MYR',
             'status' => Election::DRAFT,
         ]);
         self::assertInstanceOf(Organizer::class, Organizer::query()->find($member->getKey()));

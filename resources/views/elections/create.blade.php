@@ -8,7 +8,7 @@
 <div class="election-shell election-form-shell">
     <a class="election-link" href="{{ route('elections.index') }}">&larr; All elections</a>
     <header class="election-page-header">
-        <div><p class="election-eyebrow">New election</p><h1>Create a draft</h1><p>Dates and eligibility can be edited until the draft is submitted for payment.</p></div>
+        <div><p class="election-eyebrow">New election</p><h1>Create a draft</h1><p>Dates and eligibility can be edited until the draft is submitted for an administrator fee quote.</p></div>
     </header>
     @include('elections._form', [
         'election' => null,
