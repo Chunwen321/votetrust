@@ -7,7 +7,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Election;
 use App\Services\AdminManagementService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,10 +17,10 @@ final class ParticipantController extends Controller
 {
     public function __construct(private readonly AdminManagementService $management) {}
 
-    public function show(Election $election): View
+    public function show(int $election): View
     {
         return view('admin.participants.show', [
-            'election' => $election,
+            'election' => $this->management->election($election),
             'voters' => $this->management->voters($election),
             'candidates' => $this->management->candidates($election),
             'availableVoters' => $this->management->availableVoters($election),
@@ -30,7 +29,7 @@ final class ParticipantController extends Controller
         ]);
     }
 
-    public function storeVoter(Request $request, Election $election): RedirectResponse
+    public function storeVoter(Request $request, int $election): RedirectResponse
     {
         $validated = $request->validate([
             'user_id' => ['required', 'integer', 'exists:user,id'],
@@ -46,7 +45,7 @@ final class ParticipantController extends Controller
         return $this->redirectTo($election, 'voters')->with('success', 'Voter enrolment saved.');
     }
 
-    public function updateVoter(Request $request, Election $election, int $user): RedirectResponse
+    public function updateVoter(Request $request, int $election, int $user): RedirectResponse
     {
         $validated = $request->validate([
             'status' => ['required', Rule::in(AdminManagementService::VOTER_STATUSES)],
@@ -61,7 +60,7 @@ final class ParticipantController extends Controller
         return $this->redirectTo($election, 'voters')->with('success', 'Voter status updated.');
     }
 
-    public function storeCandidate(Request $request, Election $election): RedirectResponse
+    public function storeCandidate(Request $request, int $election): RedirectResponse
     {
         $validated = $request->validate([
             'user_id' => ['required', 'integer', 'exists:user,id'],
@@ -76,7 +75,7 @@ final class ParticipantController extends Controller
         return $this->redirectTo($election, 'candidates')->with('success', 'Candidate entry saved.');
     }
 
-    public function updateCandidate(Request $request, Election $election, int $user): RedirectResponse
+    public function updateCandidate(Request $request, int $election, int $user): RedirectResponse
     {
         $validated = $request->validate([
             'status' => ['required', Rule::in(AdminManagementService::CANDIDATE_STATUSES)],
@@ -86,7 +85,7 @@ final class ParticipantController extends Controller
         return $this->redirectTo($election, 'candidates')->with('success', 'Candidate status updated.');
     }
 
-    private function redirectTo(Election $election, string $fragment): RedirectResponse
+    private function redirectTo(int $election, string $fragment): RedirectResponse
     {
         return redirect()->to(route('admin.participants.show', $election).'#'.$fragment);
     }

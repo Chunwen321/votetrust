@@ -34,7 +34,7 @@ final class UpdateProfileRequest extends FormRequest
                 'string',
                 'email',
                 'max:190',
-                Rule::unique('users', 'email')->ignore($this->user()?->getAuthIdentifier()),
+                Rule::unique('user', 'email')->ignore($this->user()?->getAuthIdentifier()),
             ],
         ];
     }

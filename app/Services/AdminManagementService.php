@@ -6,12 +6,13 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\Candidacy;
-use App\Models\Election;
 use App\Models\User;
 use App\Models\VoterEnrollment;
+use App\Services\User\CandidateModuleClient;
+use App\Services\User\ElectionModuleClient;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -26,52 +27,51 @@ final class AdminManagementService
     /** @var list<string> */
     public const ACCOUNT_STATUSES = ['ACTIVE', 'DISABLED'];
 
-    /** @return array{elections:int,active:int,voters:int,pending_candidates:int,members:int,disabled_members:int,pending_election_approvals:int} */
-    public function dashboardCounts(): array
+    public function __construct(
+        private readonly ElectionModuleClient $elections,
+        private readonly CandidateModuleClient $candidates,
+    ) {}
+
+    /**
+     * @return array{
+     *     counts:array{elections:int,active:int,voters:int,pending_candidates:int,members:int,disabled_members:int,pending_election_approvals:int},
+     *     recentElections:Collection<int, array{id:int,title:string,status:string,updatedAt:?string,organizerName:string}>,
+     *     pendingElectionApprovals:Collection<int, array{id:int,title:string,status:string,updatedAt:?string,organizerName:string}>
+     * }
+     */
+    public function dashboardOverview(): array
     {
+        $electionOverview = $this->elections->adminOverview();
+        $candidateMetrics = $this->candidates->metrics();
+
         return [
-            'elections' => Election::query()->count(),
-            'active' => Election::query()
-                ->whereIn('status', ['APPROVED', 'NOMINATION_OPEN', 'VOTING_OPEN'])
-                ->count(),
-            'voters' => VoterEnrollment::query()->where('status', 'APPROVED')->count(),
-            'pending_candidates' => Candidacy::query()
-                ->whereRaw('LOWER(status) = ?', ['pending'])
-                ->count(),
-            'members' => User::query()->where('is_admin', false)->count(),
-            'disabled_members' => User::query()
-                ->where('is_admin', false)
-                ->where('account_status', 'DISABLED')
-                ->count(),
-            'pending_election_approvals' => Election::query()
-                ->whereIn('status', [Election::PENDING_FEE_QUOTE, Election::PENDING_ADMIN_APPROVAL])
-                ->count(),
+            'counts' => [
+                'elections' => $electionOverview['counts']['elections'] ?? 0,
+                'active' => $electionOverview['counts']['active'] ?? 0,
+                'voters' => VoterEnrollment::query()->where('status', 'APPROVED')->count(),
+                'pending_candidates' => $candidateMetrics['pending'] ?? 0,
+                'members' => User::query()->where('is_admin', false)->count(),
+                'disabled_members' => User::query()->where('is_admin', false)->where('account_status', 'DISABLED')->count(),
+                'pending_election_approvals' => $electionOverview['counts']['pendingApprovals'] ?? 0,
+            ],
+            'recentElections' => $this->withOrganizerNames($electionOverview['recentElections'] ?? []),
+            'pendingElectionApprovals' => $this->withOrganizerNames($electionOverview['pendingApprovals'] ?? []),
         ];
     }
 
-    /** @return EloquentCollection<int, Election> */
-    public function recentElections(int $limit = 5): EloquentCollection
+    /** @return array{id:int,title:string,status:string,organizerUserId:?int,updatedAt:?string} */
+    public function election(int $electionId): array
     {
-        return Election::query()
-            ->orderByDesc('updated_at')
-            ->orderByDesc('id')
-            ->limit(max(1, $limit))
-            ->get();
-    }
+        $summary = $this->elections->summary($electionId);
+        if ($summary === null) {
+            throw ValidationException::withMessages(['election' => 'The Election Module could not find this election.']);
+        }
 
-    /** @return EloquentCollection<int, Election> */
-    public function pendingElectionApprovals(int $limit = 4): EloquentCollection
-    {
-        return Election::query()
-            ->with('organizer:id,name,username,full_name')
-            ->whereIn('status', [Election::PENDING_FEE_QUOTE, Election::PENDING_ADMIN_APPROVAL])
-            ->orderBy('updated_at')
-            ->limit(max(1, $limit))
-            ->get();
+        return $summary;
     }
 
     /** @return EloquentCollection<int, VoterEnrollment> */
-    public function voters(Election $election): EloquentCollection
+    public function voters(int $electionId): EloquentCollection
     {
         $voterTable = (new VoterEnrollment)->getTable();
         $userTable = (new User)->getTable();
@@ -79,75 +79,81 @@ final class AdminManagementService
         return VoterEnrollment::query()
             ->select([
                 "{$voterTable}.*",
-                "{$userTable}.username",
                 "{$userTable}.full_name",
                 "{$userTable}.email",
                 "{$userTable}.account_status",
             ])
             ->join($userTable, "{$userTable}.id", '=', "{$voterTable}.user_id")
-            ->where("{$voterTable}.election_id", $election->getKey())
+            ->where("{$voterTable}.election_id", $electionId)
             ->orderByRaw("CASE {$voterTable}.status WHEN 'PENDING' THEN 1 WHEN 'REJECTED' THEN 2 WHEN 'SUSPENDED' THEN 3 ELSE 4 END")
-            ->orderBy("{$userTable}.username")
+            ->orderBy("{$userTable}.full_name")
+            ->orderBy("{$userTable}.email")
             ->get();
     }
 
-    /** @return EloquentCollection<int, Candidacy> */
-    public function candidates(Election $election): EloquentCollection
+    /** @return Collection<int, object{user_id:int,status:string,full_name:?string,email:?string,account_status:?string}> */
+    public function candidates(int $electionId): Collection
     {
-        $candidacyTable = (new Candidacy)->getTable();
-        $userTable = (new User)->getTable();
+        $participants = $this->candidates->participants($electionId);
+        $users = User::query()->whereIn('id', array_column($participants, 'userId'))->get()->keyBy('id');
 
-        return Candidacy::query()
-            ->select([
-                "{$candidacyTable}.*",
-                "{$userTable}.username",
-                "{$userTable}.full_name",
-                "{$userTable}.email",
-                "{$userTable}.account_status",
-            ])
-            ->join($userTable, "{$userTable}.id", '=', "{$candidacyTable}.user_id")
-            ->where("{$candidacyTable}.election_id", $election->getKey())
-            ->orderByRaw("CASE LOWER({$candidacyTable}.status) WHEN 'pending' THEN 1 WHEN 'rejected' THEN 2 ELSE 3 END")
-            ->orderBy("{$userTable}.username")
-            ->get();
+        return collect($participants)
+            ->map(function (array $participant) use ($users): object {
+                $user = $users->get($participant['userId']);
+
+                return (object) [
+                    'user_id' => $participant['userId'],
+                    'status' => $participant['status'],
+                    'full_name' => $user?->full_name,
+                    'email' => $user?->email,
+                    'account_status' => $user?->account_status,
+                ];
+            })
+            ->sortBy(static fn (object $candidate): string => sprintf('%d-%s', match (strtolower($candidate->status)) {
+                'pending' => 1, 'rejected' => 2, default => 3
+            }, $candidate->full_name ?? ''))
+            ->values();
     }
 
     /** @return EloquentCollection<int, User> */
     public function eligibleUsers(): EloquentCollection
     {
         return User::query()
-            ->select(['id', 'username', 'full_name', 'email'])
+            ->select(['id', 'full_name', 'email'])
             ->where('is_admin', false)
             ->where('account_status', 'ACTIVE')
-            ->orderBy('username')
+            ->orderBy('full_name')
+            ->orderBy('email')
             ->get();
     }
 
     /** @return EloquentCollection<int, User> */
-    public function availableVoters(Election $election): EloquentCollection
+    public function availableVoters(int $electionId): EloquentCollection
     {
         return User::query()
-            ->select(['id', 'username', 'full_name', 'email'])
+            ->select(['id', 'full_name', 'email'])
             ->where('is_admin', false)
             ->where('account_status', 'ACTIVE')
             ->whereNotIn('id', VoterEnrollment::query()
                 ->select('user_id')
-                ->where('election_id', $election->getKey()))
-            ->orderBy('username')
+                ->where('election_id', $electionId))
+            ->orderBy('full_name')
+            ->orderBy('email')
             ->get();
     }
 
     /** @return EloquentCollection<int, User> */
-    public function availableCandidates(Election $election): EloquentCollection
+    public function availableCandidates(int $electionId): EloquentCollection
     {
+        $candidateIds = array_column($this->candidates->participants($electionId), 'userId');
+
         return User::query()
-            ->select(['id', 'username', 'full_name', 'email'])
+            ->select(['id', 'full_name', 'email'])
             ->where('is_admin', false)
             ->where('account_status', 'ACTIVE')
-            ->whereNotIn('id', Candidacy::query()
-                ->select('user_id')
-                ->where('election_id', $election->getKey()))
-            ->orderBy('username')
+            ->whereNotIn('id', $candidateIds)
+            ->orderBy('full_name')
+            ->orderBy('email')
             ->get();
     }
 
@@ -162,8 +168,7 @@ final class AdminManagementService
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($members) use ($search): void {
                     $members
-                        ->where('username', 'like', "%{$search}%")
-                        ->orWhere('full_name', 'like', "%{$search}%")
+                        ->where('full_name', 'like', "%{$search}%")
                         ->orWhere('email', 'like', "%{$search}%");
                 });
             })
@@ -171,7 +176,7 @@ final class AdminManagementService
                 $query->where('account_status', $status);
             })
             ->orderBy('full_name')
-            ->orderBy('username')
+            ->orderBy('email')
             ->paginate(15)
             ->withQueryString();
     }
@@ -192,83 +197,71 @@ final class AdminManagementService
     }
 
     /** @return array{voters:int,approved_voters:int,candidates:int,approved_candidates:int} */
-    public function participantCounts(Election $election): array
+    public function participantCounts(int $electionId): array
     {
-        $candidateQuery = Candidacy::query()->where('election_id', $election->getKey());
+        $candidates = $this->candidates->participants($electionId);
 
         return [
-            'voters' => VoterEnrollment::query()->where('election_id', $election->getKey())->count(),
+            'voters' => VoterEnrollment::query()->where('election_id', $electionId)->count(),
             'approved_voters' => VoterEnrollment::query()
-                ->where('election_id', $election->getKey())
+                ->where('election_id', $electionId)
                 ->where('status', 'APPROVED')
                 ->count(),
-            'candidates' => (clone $candidateQuery)->distinct()->count('user_id'),
-            'approved_candidates' => (clone $candidateQuery)
-                ->whereRaw('LOWER(status) = ?', ['approved'])
-                ->distinct()
-                ->count('user_id'),
+            'candidates' => count($candidates),
+            'approved_candidates' => count(array_filter($candidates, static fn (array $candidate): bool => strtolower($candidate['status']) === 'approved')),
         ];
     }
 
-    public function saveVoter(Election $election, int $userId, string $status, int $adminId): void
+    public function saveVoter(int $electionId, int $userId, string $status, int $adminId): void
     {
+        $this->election($electionId);
         $user = $this->eligibleUser($userId);
         $status = strtoupper(trim($status));
         $this->assertStatus($status, self::VOTER_STATUSES, 'voter');
 
         $enrollment = VoterEnrollment::query()->firstOrNew([
             'user_id' => $user->getKey(),
-            'election_id' => $election->getKey(),
+            'election_id' => $electionId,
         ]);
         $enrollment->status = $status;
         $enrollment->added_by = $adminId;
         $enrollment->save();
     }
 
-    public function changeVoterStatus(Election $election, int $userId, string $status, int $adminId): void
+    public function changeVoterStatus(int $electionId, int $userId, string $status, int $adminId): void
     {
         $status = strtoupper(trim($status));
         $this->assertStatus($status, self::VOTER_STATUSES, 'voter');
 
         $enrollment = VoterEnrollment::query()
             ->where('user_id', $userId)
-            ->where('election_id', $election->getKey())
+            ->where('election_id', $electionId)
             ->firstOrFail();
         $enrollment->status = $status;
         $enrollment->added_by = $adminId;
         $enrollment->save();
     }
 
-    public function saveCandidate(Election $election, int $userId, string $status): void
+    public function saveCandidate(int $electionId, int $userId, string $status): void
     {
+        $this->election($electionId);
         $user = $this->eligibleUser($userId);
         $status = ucfirst(strtolower(trim($status)));
         $this->assertStatus($status, self::CANDIDATE_STATUSES, 'candidate');
 
-        DB::transaction(function () use ($election, $user, $status): void {
-            $candidacy = Candidacy::query()->firstOrNew([
-                'user_id' => $user->getKey(),
-                'election_id' => $election->getKey(),
-            ]);
-            $candidacy->status = $status;
-            if (! $candidacy->exists) {
-                $candidacy->registered_at = now();
-            }
-            $candidacy->save();
-        });
+        if (! $this->candidates->saveParticipant($electionId, (int) $user->getKey(), $status)) {
+            throw ValidationException::withMessages(['candidate' => 'The Candidate Module could not save this participant.']);
+        }
     }
 
-    public function changeCandidateStatus(Election $election, int $candidateId, string $status): void
+    public function changeCandidateStatus(int $electionId, int $candidateId, string $status): void
     {
         $status = ucfirst(strtolower(trim($status)));
         $this->assertStatus($status, self::CANDIDATE_STATUSES, 'candidate');
 
-        $candidacy = Candidacy::query()
-            ->where('user_id', $candidateId)
-            ->where('election_id', $election->getKey())
-            ->firstOrFail();
-        $candidacy->status = $status;
-        $candidacy->save();
+        if (! $this->candidates->changeParticipantStatus($electionId, $candidateId, $status)) {
+            throw ValidationException::withMessages(['candidate' => 'The Candidate Module could not update this participant.']);
+        }
     }
 
     public function changeMemberAccountStatus(User $administrator, User $member, string $status): void
@@ -308,6 +301,28 @@ final class AdminManagementService
         }
 
         return $user;
+    }
+
+    /**
+     * @param  list<array{id:int,title:string,status:string,organizerUserId:?int,updatedAt:?string}>  $elections
+     * @return Collection<int, array{id:int,title:string,status:string,updatedAt:?string,organizerName:string}>
+     */
+    private function withOrganizerNames(array $elections): Collection
+    {
+        $organizerIds = array_values(array_filter(array_column($elections, 'organizerUserId'), static fn (mixed $id): bool => is_int($id) && $id > 0));
+        $organizers = User::query()->whereIn('id', $organizerIds)->get()->keyBy('id');
+
+        return collect($elections)->map(function (array $election) use ($organizers): array {
+            $organizer = $election['organizerUserId'] === null ? null : $organizers->get($election['organizerUserId']);
+
+            return [
+                'id' => $election['id'],
+                'title' => $election['title'],
+                'status' => $election['status'],
+                'updatedAt' => $election['updatedAt'],
+                'organizerName' => $organizer?->display_name ?? $organizer?->email ?? 'Unknown',
+            ];
+        });
     }
 
     /** @param list<string> $allowed */

@@ -8,96 +8,49 @@
     <section class="dashboard-hero">
         <div>
             <p class="eyebrow">Account dashboard</p>
-            <h1>Welcome back, {{ $user->full_name ?: $user->username }}.</h1>
+            <h1>Welcome back, {{ $user->display_name }}.</h1>
             <p>Use one VoteTrust account to vote in some elections and organise others.</p>
         </div>
         <div class="account-summary">
             <span>Account status</span>
             <strong>{{ str($user->account_status ?? 'ACTIVE')->lower()->headline() }}</strong>
+            <span class="account-summary__verification">Profile {{ $profileVerified ? 'verified' : 'verification required' }}</span>
+            @unless ($profileVerified)
+                <a href="{{ route('profile.verify') }}">Verify now</a>
+            @endunless
         </div>
     </section>
 
-    <section class="dashboard-role-grid" aria-label="Election overview">
-        <a class="dashboard-role-card" href="{{ route('elections.index') }}#voting-elections">
-            <span class="dashboard-role-card__label">Voting elections</span>
-            <strong>{{ $overview['votingElections'] }}</strong>
-            <small>Election{{ $overview['votingElections'] === 1 ? '' : 's' }} where you have voter access</small>
-        </a>
-        <a class="dashboard-role-card" href="{{ route('elections.index') }}#voting-elections">
-            <span class="dashboard-role-card__label">Ready to vote</span>
-            <strong>{{ $overview['readyToVote'] }}</strong>
-            <small>Open ballots awaiting your choice</small>
-        </a>
-        <a class="dashboard-role-card" href="{{ route('elections.index') }}#organised-elections">
-            <span class="dashboard-role-card__label">Organised elections</span>
-            <strong>{{ $overview['organizedElections'] }}</strong>
-            <small>Election{{ $overview['organizedElections'] === 1 ? '' : 's' }} you manage</small>
-        </a>
-        <a class="dashboard-role-card dashboard-role-card--create" href="{{ route('elections.index') }}#organised-elections">
-            <span class="dashboard-role-card__label">Election workspace</span>
-            <strong aria-hidden="true">+</strong>
-            <small>Create and manage elections from one place</small>
-        </a>
-    </section>
-
-    <section class="dashboard-collections" aria-label="Recent election activity">
-        <article class="card dashboard-collection">
-            <div class="section-title">
-                <div>
-                    <p class="eyebrow">Voter</p>
-                    <h2>Recent voting elections</h2>
-                </div>
-                <a class="back-link" href="{{ route('elections.index') }}#voting-elections">View all</a>
-            </div>
-            @if ($enrollments->isEmpty())
-                <div class="empty-state compact-empty"><p>You do not have voter access for an election yet.</p></div>
-            @else
-                <div class="activity-list">
-                    @foreach ($enrollments->take(3) as $enrollment)
-                        @php($votingStatus = $votingStatuses[(int) $enrollment->election_id] ?? null)
-                        <div class="activity-item">
-                            <div>
-                                <strong>{{ $enrollment->election_title }}</strong>
-                                <span>{{ str($enrollment->election_status)->replace('_', ' ')->lower()->headline() }}</span>
-                            </div>
-                            <div class="activity-statuses">
-                                <span class="badge status-{{ strtolower($enrollment->status) }}">{{ str($enrollment->status)->lower()->headline() }}</span>
-                                @if (($votingStatus['available'] ?? false) && ($votingStatus['hasVoted'] ?? false))
-                                    <span class="badge status-voted">Voted</span>
-                                @endif
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
-            @endif
+    <section class="dashboard-info-grid" aria-label="VoteTrust account overview">
+        <article class="dashboard-info-card dashboard-info-card--guide">
+            <p class="eyebrow">How VoteTrust works</p>
+            <h2>Clear election access, from enrolment to participation.</h2>
+            <p>Your account keeps your voter access and organiser workspace in one place. Each election is managed separately, so you only see the opportunities that apply to you.</p>
+            <ol class="dashboard-steps">
+                <li><span>1</span><div><strong>Access is assigned</strong><small>An election administrator enrols eligible voters.</small></div></li>
+                <li><span>2</span><div><strong>Review your elections</strong><small>See election status and when voting becomes available.</small></div></li>
+                <li><span>3</span><div><strong>Participate with confidence</strong><small>Vote once when an approved election opens.</small></div></li>
+            </ol>
+            <a class="button button-small" href="{{ route('elections.index') }}#voting-elections">Explore elections</a>
         </article>
 
-        <article class="card dashboard-collection">
-            <div class="section-title">
-                <div>
-                    <p class="eyebrow">Organiser</p>
-                    <h2>Recent organised elections</h2>
-                </div>
-                <a class="back-link" href="{{ route('elections.index') }}#organised-elections">View all</a>
-            </div>
-            @if ($organizedElections->isEmpty())
-                <div class="empty-state compact-empty">
-                    <p>Have an election to run?</p>
-                    <a class="button button-small" href="{{ route('elections.index') }}#organised-elections">Open workspace</a>
-                </div>
-            @else
-                <div class="activity-list">
-                    @foreach ($organizedElections->take(3) as $election)
-                        <div class="activity-item">
-                            <div>
-                                <strong>{{ $election->title }}</strong>
-                                <span>{{ str($election->status)->replace('_', ' ')->lower()->headline() }}</span>
-                            </div>
-                            <a class="button button-quiet button-small" href="{{ route('elections.show', $election) }}">Manage</a>
-                        </div>
-                    @endforeach
-                </div>
-            @endif
+        <article class="dashboard-info-card dashboard-info-card--activity">
+            <p class="eyebrow">Your election space</p>
+            <h2>Everything important, without the clutter.</h2>
+            <p>Keep track of your access, open ballots, and elections you organise from one trusted account.</p>
+            <dl class="dashboard-activity-stats">
+                <div><dt>Voter access</dt><dd>{{ $overview['votingElections'] }}</dd></div>
+                <div><dt>Ready to vote</dt><dd>{{ $overview['readyToVote'] }}</dd></div>
+                <div><dt>Organised</dt><dd>{{ $overview['organizedElections'] }}</dd></div>
+            </dl>
+            <p class="dashboard-info-card__note">
+                @if ($overview['readyToVote'] > 0)
+                    You have {{ $overview['readyToVote'] }} open election{{ $overview['readyToVote'] === 1 ? '' : 's' }} awaiting your vote.
+                @else
+                    We will show an election here when your voter access is approved and voting opens.
+                @endif
+            </p>
+            <a class="dashboard-info-link" href="{{ route('elections.index') }}">Open my elections <span aria-hidden="true">&rarr;</span></a>
         </article>
     </section>
 </div>

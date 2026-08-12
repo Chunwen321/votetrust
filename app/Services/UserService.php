@@ -24,20 +24,41 @@ final class UserService
     {
         return DB::transaction(function () use ($attributes): User {
             $fullName = $this->normaliseName((string) $attributes['full_name']);
-            $icNumber = Identity::normaliseIcNumber((string) $attributes['ic_number']);
+            $nationality = strtoupper((string) $attributes['nationality_country_code']);
+            $isMalaysian = $nationality === 'MY';
+            $icNumber = $isMalaysian ? Identity::normaliseIcNumber((string) ($attributes['ic_number'] ?? '')) : null;
+            $passportNumber = $isMalaysian ? null : Identity::normalisePassportNumber((string) ($attributes['passport_number'] ?? ''));
+            $dateOfBirth = $isMalaysian
+                ? Identity::dateOfBirthFromMalaysianIc((string) $icNumber)
+                : ($attributes['date_of_birth'] ?? null);
+
+            if (($isMalaysian && $dateOfBirth === null) || (! $isMalaysian && (! Identity::isValidPassportNumber((string) $passportNumber) || $dateOfBirth === null))) {
+                throw new \LogicException('Valid identity details are required to create an account.');
+            }
+
             $user = new User;
             $user->forceFill([
                 'name' => $fullName,
-                'username' => trim((string) $attributes['username']),
                 'full_name' => $fullName,
                 'ic_number' => $icNumber,
-                'date_of_birth' => (string) $attributes['date_of_birth'],
-                'nationality_country_code' => (string) $attributes['nationality_country_code'],
+                'passport_number' => $passportNumber,
+                'date_of_birth' => $dateOfBirth instanceof \DateTimeInterface ? $dateOfBirth->format('Y-m-d') : (string) $dateOfBirth,
+                'nationality_country_code' => $nationality,
                 'phone_number' => (string) $attributes['phone_number'],
                 'email' => mb_strtolower(trim((string) $attributes['email'])),
                 'password' => Hash::make((string) $attributes['password']),
                 'is_admin' => false,
                 'account_status' => 'ACTIVE',
+                'is_verified' => false,
+                'verified_at' => null,
+                'verification_reference' => null,
+                'verification_provider' => null,
+                'verification_session_id' => null,
+                'verification_status' => 'NOT_STARTED',
+                'verification_requested_at' => null,
+                'verification_consent_at' => null,
+                'verification_last_event_id' => null,
+                'verification_failure_reason' => null,
                 'failed_login_attempts' => 0,
                 'account_disabled_at' => null,
             ]);
@@ -47,9 +68,9 @@ final class UserService
         });
     }
 
-    public function authenticate(string $username, string $password, bool $remember = false): bool
+    public function authenticate(string $email, string $password, bool $remember = false): bool
     {
-        $user = User::query()->where('username', trim($username))->first();
+        $user = User::query()->where('email', mb_strtolower(trim($email)))->first();
         $passwordMatches = Hash::check($password, $user?->password ?? self::DUMMY_PASSWORD_HASH);
 
         if (! $user instanceof User) {
@@ -77,11 +98,30 @@ final class UserService
     public function updateProfile(User $user, array $attributes): User
     {
         $fullName = $this->normaliseName((string) $attributes['full_name']);
-        $user->forceFill([
+        $identityNameChanged = $user->full_name !== $fullName;
+        $updates = [
             'name' => $fullName,
             'full_name' => $fullName,
             'email' => mb_strtolower(trim((string) $attributes['email'])),
-        ])->save();
+        ];
+
+        // The verified name is part of the eKYC identity payload. A later name change requires a fresh check.
+        if ($identityNameChanged && ! $user->isAdmin()) {
+            $updates += [
+                'is_verified' => false,
+                'verified_at' => null,
+                'verification_reference' => null,
+                'verification_provider' => null,
+                'verification_session_id' => null,
+                'verification_status' => 'NOT_STARTED',
+                'verification_requested_at' => null,
+                'verification_consent_at' => null,
+                'verification_last_event_id' => null,
+                'verification_failure_reason' => null,
+            ];
+        }
+
+        $user->forceFill($updates)->save();
 
         return $user->refresh();
     }

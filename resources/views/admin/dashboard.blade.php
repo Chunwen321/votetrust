@@ -41,8 +41,8 @@
     <div class="activity-list">
         @foreach($pendingElectionApprovals as $election)
             <div class="activity-item">
-                <div><strong>{{ $election->title }}</strong><span>Organiser: {{ $election->organizer?->display_name ?? $election->organizer?->username ?? 'Unknown' }}</span></div>
-                <a class="button button-small" href="{{ route('admin.elections.show', $election) }}">Review</a>
+                <div><strong>{{ $election['title'] }}</strong><span>Organiser: {{ $election['organizerName'] }}</span></div>
+                <a class="button button-small" href="{{ route('admin.elections.show', $election['id']) }}">Review</a>
             </div>
         @endforeach
     </div>
@@ -60,10 +60,10 @@
                 <tbody>
                 @foreach($recentElections as $election)
                     <tr>
-                        <td><strong>{{ $election->title }}</strong><br><small>#{{ $election->getKey() }}</small></td>
-                        <td><span class="badge status-{{ strtolower($election->status) }}">{{ str_replace('_', ' ', $election->status) }}</span></td>
-                        <td>{{ optional($election->updated_at)->format('d M Y, g:i A') }}</td>
-                        <td><div class="admin-table-actions"><a class="button button-small" href="{{ route('admin.participants.show', $election) }}">Participants</a><a class="button button-small button-quiet" href="{{ route('admin.elections.show', $election) }}">Review</a></div></td>
+                        <td><strong>{{ $election['title'] }}</strong><br><small>#{{ $election['id'] }}</small></td>
+                        <td><span class="badge status-{{ strtolower($election['status']) }}">{{ str_replace('_', ' ', $election['status']) }}</span></td>
+                        <td>{{ $election['updatedAt'] ? \Carbon\CarbonImmutable::parse($election['updatedAt'])->format('d M Y, g:i A') : 'Unavailable' }}</td>
+                        <td><div class="admin-table-actions"><a class="button button-small" href="{{ route('admin.participants.show', $election['id']) }}">Participants</a><a class="button button-small button-quiet" href="{{ route('admin.elections.show', $election['id']) }}">Review</a></div></td>
                     </tr>
                 @endforeach
                 </tbody>

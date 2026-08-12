@@ -20,6 +20,16 @@ final class Identity
         return preg_match('/^\d{12}$/', self::normaliseIcNumber($icNumber)) === 1;
     }
 
+    public static function normalisePassportNumber(string $passportNumber): string
+    {
+        return strtoupper(preg_replace('/[\s-]+/', '', trim($passportNumber)) ?? '');
+    }
+
+    public static function isValidPassportNumber(string $passportNumber): bool
+    {
+        return preg_match('/^[A-Z0-9]{6,20}$/', self::normalisePassportNumber($passportNumber)) === 1;
+    }
+
     public static function dateOfBirthFromMalaysianIc(string $icNumber): ?CarbonImmutable
     {
         $normalised = self::normaliseIcNumber($icNumber);

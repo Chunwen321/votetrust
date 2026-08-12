@@ -9,6 +9,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="description" content="VoteTrust is a guided online election platform for organisers, candidates, and voters.">
+    <link rel="icon" type="image/png" href="{{ asset('img/votetrust-icon.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('img/votetrust-icon.png') }}">
     <title>@yield('title', 'VoteTrust') &middot; VoteTrust</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('head')
@@ -17,8 +19,8 @@
 <header class="site-header">
     <div class="site-header__inner">
         <a class="brand" href="{{ url('/') }}" aria-label="VoteTrust home">
-            <span class="brand__mark" aria-hidden="true">VT</span>
-            <span><strong>VoteTrust</strong><small>Trusted digital elections</small></span>
+            <img class="brand__logo" src="{{ asset('img/votetrust-logo.png') }}" alt="VoteTrust">
+            <span class="brand__tagline">Trusted digital elections</span>
         </a>
 
         <nav class="site-nav" aria-label="Primary navigation">
@@ -38,7 +40,11 @@
                         <div class="site-nav-dropdown__menu">
                             <a href="{{ route('elections.index') }}">Elections</a>
                             @if (Route::has('candidate.applications.create'))
-                                <a href="{{ route('candidate.applications.create') }}">Candidate applications</a>
+                                @if (auth()->user()->isVerified())
+                                    <a href="{{ route('candidate.applications.create') }}">Candidate applications</a>
+                                @else
+                                    <a href="{{ route('profile.verify') }}">Verify profile to apply</a>
+                                @endif
                             @endif
                         </div>
                     </details>

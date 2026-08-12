@@ -40,12 +40,12 @@ final class AuthController extends Controller
     public function login(LoginRequest $request): RedirectResponse
     {
         if (! $this->users->authenticate(
-            (string) $request->validated('username'),
+            (string) $request->validated('email'),
             (string) $request->validated('password'),
             $request->boolean('remember')
         )) {
             throw ValidationException::withMessages([
-                'username' => 'We could not sign you in with those details.',
+                'email' => 'We could not sign you in with those details.',
             ]);
         }
 
@@ -53,7 +53,7 @@ final class AuthController extends Controller
         $user = $request->user();
 
         return redirect()->intended($this->homeFor($user))
-            ->with('success', 'Welcome back, '.($user?->full_name ?: $user?->username).'.');
+            ->with('success', 'Welcome back, '.($user?->display_name ?: $user?->email).'.');
     }
 
     public function showRegister(): View|RedirectResponse
@@ -74,9 +74,9 @@ final class AuthController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
-        return redirect()->route('dashboard')->with(
+        return redirect()->route('profile.verify')->with(
             'success',
-            'Your user account is ready. You can join elections as a voter or create one as an organiser.'
+            'Your account is ready. Complete eKYC profile verification to unlock voting, candidate applications, and election management.'
         );
     }
 

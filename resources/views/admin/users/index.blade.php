@@ -25,7 +25,7 @@
         <div class="section-title"><div><p class="eyebrow">Directory</p><h2>Registered members</h2></div><p>{{ $users->total() }} matching accounts</p></div>
 
         <form method="get" action="{{ route('admin.users.index') }}" class="management-filter-form">
-            <label>Search<input type="search" name="search" value="{{ request('search') }}" placeholder="Name, username, or email"></label>
+            <label>Search<input type="search" name="search" value="{{ request('search') }}" placeholder="Name or email"></label>
             <label>Access status<select name="status"><option value="">All statuses</option>@foreach($accountStatuses as $status)<option value="{{ $status }}" @selected(request('status') === $status)>{{ ucfirst(strtolower($status)) }}</option>@endforeach</select></label>
             <button type="submit">Filter accounts</button>
             @if(request()->filled('search') || request()->filled('status'))
@@ -42,7 +42,7 @@
                     <tbody>
                     @foreach($users as $member)
                         <tr>
-                            <td><strong>{{ $member->display_name }}</strong><br><small>{{ '@'.$member->username }}</small></td>
+                            <td><strong>{{ $member->display_name }}</strong></td>
                             <td>{{ $member->email }}</td>
                             <td><span class="badge status-{{ strtolower($member->account_status) }}">{{ $member->account_status }}</span></td>
                             <td>{{ optional($member->updated_at)->format('d M Y, g:i A') }}</td>

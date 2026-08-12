@@ -9,7 +9,6 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\EligibilityRequest;
 use App\Services\VoterService;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 
 final class VoterEligibilityController extends Controller
@@ -21,17 +20,7 @@ final class VoterEligibilityController extends Controller
         $voterId = (int) $request->validated('voterId');
         $electionId = (int) $request->validated('electionId');
 
-        try {
-            $eligibility = $this->voters->eligibility($voterId, $electionId);
-        } catch (ModelNotFoundException) {
-            return response()->json([
-                'status' => 'E',
-                'message' => 'The election does not exist.',
-                'requestID' => (string) $request->validated('requestID'),
-                'timestamp' => now()->toAtomString(),
-                'errors' => [],
-            ], 404);
-        }
+        $eligibility = $this->voters->eligibility($voterId, $electionId);
 
         return response()->json([
             'status' => 'S',

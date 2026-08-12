@@ -19,9 +19,9 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
-        'username',
         'full_name',
         'ic_number',
+        'passport_number',
         'date_of_birth',
         'nationality_country_code',
         'phone_number',
@@ -29,6 +29,16 @@ class User extends Authenticatable
         'password',
         'is_admin',
         'account_status',
+        'is_verified',
+        'verified_at',
+        'verification_reference',
+        'verification_provider',
+        'verification_session_id',
+        'verification_status',
+        'verification_requested_at',
+        'verification_consent_at',
+        'verification_last_event_id',
+        'verification_failure_reason',
         'failed_login_attempts',
         'account_disabled_at',
     ];
@@ -50,7 +60,11 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_admin' => 'boolean',
+            'is_verified' => 'boolean',
             'date_of_birth' => 'date',
+            'verified_at' => 'datetime',
+            'verification_requested_at' => 'datetime',
+            'verification_consent_at' => 'datetime',
             'failed_login_attempts' => 'integer',
             'account_disabled_at' => 'datetime',
         ];
@@ -72,31 +86,13 @@ class User extends Authenticatable
         return (bool) $this->is_admin;
     }
 
+    public function isVerified(): bool
+    {
+        return (bool) $this->is_verified && $this->verified_at !== null;
+    }
+
     public function getDisplayNameAttribute(): string
     {
-        return $this->full_name ?: ($this->name ?: $this->username);
-    }
-
-    // PIC: Low Wen Kai — Election organizer relationship.
-    public function organizer()
-    {
-        return $this->hasOne(Organizer::class);
-    }
-
-    public function organizedElections()
-    {
-        return $this->hasMany(Election::class, 'organizer_id');
-    }
-
-    // PIC: Wong Shun Bin — Candidate registration relationship.
-    public function candidacies()
-    {
-        return $this->hasMany(Candidacy::class);
-    }
-
-    // PIC: Goh Chun Wen — Voting relationship.
-    public function votes()
-    {
-        return $this->hasMany(Vote::class, 'voter_id');
+        return $this->full_name ?: ($this->name ?: $this->email);
     }
 }

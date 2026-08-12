@@ -35,7 +35,6 @@ final class StoreCandidacyRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'position_sought.regex' => 'The position may contain letters, numbers, spaces, and common punctuation only.',
             'manifesto.min' => 'The manifesto must be at least 50 characters.',
             'profile_photo.mimetypes' => 'The candidate photo must be a genuine JPG or PNG image.',
             'documents.*.mimetypes' => 'Each supporting document must be a genuine PDF, JPG, or PNG file.',
@@ -49,7 +48,6 @@ final class StoreCandidacyRequest extends FormRequest
         $reason = trim((string) $this->input('reason_for_candidacy', ''));
 
         $this->merge([
-            'position_sought' => trim((string) $this->input('position_sought', '')),
             'manifesto' => trim((string) $this->input('manifesto', '')),
             'candidate_introduction' => $introduction,
             'qualifications' => $qualifications !== '' ? $qualifications : null,

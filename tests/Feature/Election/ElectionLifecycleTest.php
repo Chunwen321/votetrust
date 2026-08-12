@@ -70,8 +70,10 @@ final class ElectionLifecycleTest extends TestCase
 
         $election = $service->create($organizerUser, [
             'title' => 'Student Council Election',
+            'position_sought' => 'Student Council Representative',
             'description' => 'A sufficiently detailed election description for lifecycle testing.',
             'eligibility_mode' => 'PUBLIC',
+            'eligibility_minimum_age' => 18,
             'eligibility_nationality' => 'ANY',
             'nomination_start' => $clock->now()->subDays(2),
             'nomination_end' => $clock->now()->subHour(),
@@ -106,6 +108,7 @@ final class ElectionLifecycleTest extends TestCase
 
         $election = $service->transition($organizerUser, $election->getKey(), 'accept_fee', 'Correct!Pass1', ['version' => 3]);
         self::assertSame(ElectionStatus::PENDING_PAYMENT->value, $election->status);
+        self::assertSame('100.00', $election->hosting_fee);
 
         $election = $service->transition($organizerUser, $election->getKey(), 'submit_payment', 'Correct!Pass1', [
             'version' => 4,

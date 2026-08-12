@@ -25,6 +25,8 @@ Route::middleware(['auth', 'active.account'])->group(function (): void {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
     Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
+    Route::get('/profile/verify', [ProfileController::class, 'show'])->name('profile.verify');
+    Route::post('/profile/verify', [ProfileController::class, 'verify'])->name('profile.verify.store');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password.update');
 

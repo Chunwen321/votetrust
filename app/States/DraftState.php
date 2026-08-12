@@ -4,8 +4,10 @@
 
 namespace App\States;
 
+use App\Exceptions\BusinessRuleException;
 use App\Models\Election;
 use App\Services\TransitionContext;
+use App\ValueObjects\EligibilityRules;
 
 final class DraftState extends AbstractElectionState
 {
@@ -32,8 +34,14 @@ final class DraftState extends AbstractElectionState
         if ($this->cancel($lifecycle, $action, $context)) {
             return;
         }
+
         if ($action === 'submit_for_quote') {
             $election = $lifecycle->election();
+            if (EligibilityRules::fromStored($election->eligibility_rules)->mode() === EligibilityRules::PRIVATE
+                && $election->private_voter_list_uploaded_at === null) {
+                throw new BusinessRuleException('Upload a private voter spreadsheet or assign at least one voter before submitting this election for payment.');
+            }
+
             // Never trust a fee left on a legacy draft: only an administrator
             // may establish the hosting quote in the next state.
             $election->hosting_fee = null;

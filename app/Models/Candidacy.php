@@ -25,7 +25,6 @@ class Candidacy extends Model
         'election_id',
         'status',
         'registered_at',
-        'position_sought',
         'manifesto',
         'candidate_introduction',
         'qualifications',

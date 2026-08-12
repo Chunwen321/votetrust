@@ -9,29 +9,73 @@
     $backRoute = $isAdminView ? route('admin.elections.index') : route('elections.index');
     $transitionRoute = $isAdminView ? route('admin.elections.transition', $election) : route('elections.transition', $election);
     $eligibility = \App\ValueObjects\EligibilityRules::fromStored($election->eligibility_rules);
+    $isPrivateElection = $eligibility->mode() === \App\ValueObjects\EligibilityRules::PRIVATE;
+    $canManagePrivateVoters = ! $isAdminView
+        && $isPrivateElection
+        && in_array($election->status, [
+            \App\States\ElectionStatus::DRAFT->value,
+            \App\States\ElectionStatus::NOMINATION_OPEN->value,
+        ], true);
 @endphp
-<div class="election-shell">
-    <a class="election-link" href="{{ $backRoute }}">&larr; {{ $isAdminView ? 'Approval workspace' : 'All elections' }}</a>
-    <header class="election-page-header">
-        <div>
-            <div class="election-card-meta"><span class="election-status election-status-{{ strtolower(str_replace('_', '-', $election->status)) }}">{{ $availability['lifecycleLabel'] }}</span><span>#{{ $election->getKey() }}</span></div>
-            <h1>{{ $election->title }}</h1>
-            <p>{{ $election->description }}</p>
-        </div>
-        @if (! $isAdminView && $election->status === \App\States\ElectionStatus::DRAFT->value)
-            <a class="election-button" href="{{ route('elections.edit', $election) }}">Edit election</a>
-        @endif
-    </header>
+<div class="election-shell election-management">
+    <a class="election-link election-back-link" href="{{ $backRoute }}">&larr; {{ $isAdminView ? 'Approval workspace' : 'All elections' }}</a>
 
-    <section class="election-detail-grid">
-        <article class="election-card">
-            <h2>Lifecycle controls</h2>
+    <section class="election-workspace-hero">
+        <div class="election-workspace-hero-copy">
+            <div class="election-workspace-hero-meta">
+                <span class="election-status election-status-{{ strtolower(str_replace('_', '-', $election->status)) }}">{{ $availability['lifecycleLabel'] }}</span>
+                <span>Election #{{ $election->getKey() }}</span>
+            </div>
+            <h1>{{ $election->title }}</h1>
+            <p>{{ $election->description ?: 'Manage the election setup, private voter access, candidates, and lifecycle from one workspace.' }}</p>
+            <div class="election-workspace-tags">
+                <span>{{ $isPrivateElection ? 'Private voter list' : 'Public eligibility' }}</span>
+                <span>
+                    @if ($election->hosting_fee !== null)
+                        {{ $election->currency }} {{ number_format((float) $election->hosting_fee, 2) }} hosting fee
+                    @else
+                        Hosting fee pending administrator quote
+                    @endif
+                </span>
+            </div>
+        </div>
+
+        <div class="election-workspace-hero-side">
+            <div class="election-workspace-hero-actions">
+                @if (! $isAdminView && $election->status === \App\States\ElectionStatus::DRAFT->value)
+                    <a class="election-button election-button-light" href="{{ route('elections.edit', $election) }}">Edit election</a>
+                @endif
+                @if ($canManagePrivateVoters)
+                    <a class="election-button election-button-light" href="#private-voters">Add voters</a>
+                @endif
+            </div>
+            <dl class="election-workspace-hero-facts">
+                <div><dt>Nomination closes</dt><dd>{{ \Carbon\CarbonImmutable::parse($election->nomination_end)->format('d M, H:i') }}</dd></div>
+                <div><dt>Voting opens</dt><dd>{{ \Carbon\CarbonImmutable::parse($election->voting_start)->format('d M, H:i') }}</dd></div>
+            </dl>
+        </div>
+    </section>
+
+    <section class="election-workspace-grid">
+        <article class="election-card election-workspace-panel election-lifecycle-panel">
+            <div class="election-panel-heading">
+                <div>
+                    <span class="election-eyebrow">Election lifecycle</span>
+                    <h2>Move the election forward</h2>
+                    <p>Complete the next available step to keep the election on schedule.</p>
+                </div>
+                <span class="election-stage-indicator">{{ $availability['lifecycleLabel'] }}</span>
+            </div>
+
             @forelse ($actions as $action)
-                <form class="election-action" method="post" action="{{ $transitionRoute }}">
+                <form class="election-action election-stage-action" method="post" action="{{ $transitionRoute }}">
                     @csrf
                     <input type="hidden" name="action" value="{{ $action['action'] }}">
                     <input type="hidden" name="version" value="{{ $election->version }}">
-                    <div><h3>{{ $action['label'] }}</h3><p>{{ $action['description'] }}</p></div>
+                    <div class="election-action-copy">
+                        <h3>{{ $action['label'] }}</h3>
+                        <p>{{ $action['description'] }}</p>
+                    </div>
                     @if ($action['requiresHostingFee'])
                         <div class="election-field-grid">
                             <label>Hosting fee amount<input name="hosting_fee" type="number" min="1" max="10000" step="0.01" value="{{ old('hosting_fee') }}" required></label>
@@ -48,31 +92,107 @@
                     <button class="election-button {{ $action['tone'] === 'danger' ? 'election-button-danger' : ($action['tone'] === 'primary' ? 'election-button-primary' : '') }}" type="submit">{{ $action['label'] }}</button>
                 </form>
             @empty
-                <p>No lifecycle action is currently available.</p>
+                <div class="election-panel-empty">
+                    <strong>No action is due right now.</strong>
+                    <p>This election is currently {{ str($election->status)->replace('_', ' ')->lower() }}.</p>
+                </div>
             @endforelse
         </article>
 
-        <aside class="election-card">
-            <h2>Configuration</h2>
-            <dl class="election-facts election-facts-stacked">
-                <div><dt>Eligibility</dt><dd>{{ $eligibility->summary() }}</dd></div>
-                <div><dt>Nominations</dt><dd>{{ \Carbon\CarbonImmutable::parse($election->nomination_start)->format('d M Y, H:i') }} - {{ \Carbon\CarbonImmutable::parse($election->nomination_end)->format('d M Y, H:i') }}</dd></div>
-                <div><dt>Voting</dt><dd>{{ \Carbon\CarbonImmutable::parse($election->voting_start)->format('d M Y, H:i') }} - {{ \Carbon\CarbonImmutable::parse($election->voting_end)->format('d M Y, H:i') }}</dd></div>
-                <div><dt>Hosting fee</dt><dd>{{ $election->hosting_fee === null ? 'Awaiting administrator quote' : $election->currency.' '.number_format((float) $election->hosting_fee, 2) }}</dd></div>
-                <div><dt>Payment</dt><dd>@if ($availability['hostingPaymentVerified']) Verified by administrator @elseif ($election->payment_reference) Submitted for verification @elseif ($election->status === \App\States\ElectionStatus::PENDING_PAYMENT->value) Ready for payment @else Not yet available @endif</dd></div>
-                <div><dt>Admin approval</dt><dd>{{ $availability['administratorApproved'] ? 'Approved' : 'Required' }}</dd></div>
-                <div><dt>Version</dt><dd>{{ $election->version }}</dd></div>
+        <aside class="election-card election-workspace-panel election-configuration-panel">
+            <div class="election-panel-heading">
+                <div>
+                    <span class="election-eyebrow">Configuration</span>
+                    <h2>Election at a glance</h2>
+                </div>
+            </div>
+            <dl class="election-facts election-facts-stacked election-configuration-facts">
+                <div><dt>Voter eligibility</dt><dd>{{ $eligibility->summary() }}</dd></div>
+                <div><dt>Position</dt><dd>{{ $election->position_sought ?: 'Not recorded' }}</dd></div>
+                @if ($isPrivateElection)
+                    <div><dt>Approved voters</dt><dd>{{ $election->private_voter_count }} assigned{{ $election->private_voter_unmatched_count ? ', '.$election->private_voter_unmatched_count.' unmatched' : '' }}</dd></div>
+                @endif
+                <div><dt>Nominations</dt><dd>{{ \Carbon\CarbonImmutable::parse($election->nomination_start)->format('d M Y, H:i') }}<br><span>to {{ \Carbon\CarbonImmutable::parse($election->nomination_end)->format('d M Y, H:i') }}</span></dd></div>
+                <div><dt>Voting</dt><dd>{{ \Carbon\CarbonImmutable::parse($election->voting_start)->format('d M Y, H:i') }}<br><span>to {{ \Carbon\CarbonImmutable::parse($election->voting_end)->format('d M Y, H:i') }}</span></dd></div>
+                <div class="election-configuration-split"><dt>Hosting fee</dt><dd>{{ $election->hosting_fee === null ? 'Awaiting administrator quote' : $election->currency.' '.number_format((float) $election->hosting_fee, 2) }}</dd><dt>Payment</dt><dd>@if ($availability['hostingPaymentVerified']) Verified by administrator @elseif ($election->payment_reference) Submitted for verification @elseif ($election->status === \App\States\ElectionStatus::PENDING_PAYMENT->value) Ready for payment @elseif ($election->status === \App\States\ElectionStatus::PENDING_FEE_ACCEPTANCE->value) Awaiting quote acceptance @else Not yet available @endif</dd><dt>Approval</dt><dd>{{ $availability['administratorApproved'] ? 'Approved' : 'Required' }}</dd></div>
             </dl>
         </aside>
     </section>
 
+    @if (! $isAdminView && $isPrivateElection)
+        <section id="private-voters" class="election-card election-workspace-panel election-voter-panel {{ $canManagePrivateVoters ? '' : 'election-voter-panel-locked' }}">
+            <div class="election-panel-heading election-voter-panel-heading">
+                <div>
+                    <span class="election-eyebrow">Private voter access</span>
+                    <h2>{{ $canManagePrivateVoters ? 'Add voters to this election' : 'Private voter list' }}</h2>
+                    <p>
+                        @if ($canManagePrivateVoters)
+                            Add registered voters one at a time, or import a spreadsheet. Voter access locks automatically when voting begins.
+                        @else
+                            {{ $election->private_voter_count }} approved voter(s) are assigned. The list is locked after the nomination stage to protect the ballot.
+                        @endif
+                    </p>
+                </div>
+                <div class="election-voter-count">
+                    <strong data-private-voter-count>{{ $election->private_voter_count }}</strong>
+                    <span>approved voters</span>
+                </div>
+            </div>
+
+            @if ($election->private_voter_list_uploaded_at)
+                <p class="election-roster-update">Last updated {{ $election->private_voter_list_uploaded_at->format('d M Y, H:i') }}. {{ $election->private_voter_unmatched_count }} spreadsheet row(s) did not match a registered user.</p>
+            @endif
+
+            @if ($canManagePrivateVoters)
+                <div class="election-private-voter-tools">
+                    <section
+                        class="election-roster-method election-voter-directory"
+                        data-private-voter-directory
+                        data-directory-url="{{ route('elections.private-voters.directory', $election) }}"
+                        data-selection-url="{{ route('elections.private-voters.selection', ['election' => $election, 'user' => '__USER_ID__']) }}"
+                    >
+                        <span class="election-roster-method-kicker">Registered user directory</span>
+                        <h3>Choose voters from your members</h3>
+                        <p>Search by Malaysian IC or passport number, then tick a user to grant voter access. Changes save immediately.</p>
+                        <label class="election-directory-search" for="private-voter-search">
+                            <span>Search IC or passport number</span>
+                            <input id="private-voter-search" data-voter-search type="search" maxlength="30" autocomplete="off" placeholder="e.g. 050729145232">
+                        </label>
+                        <div class="election-directory-summary" data-voter-directory-summary aria-live="polite">Loading registered users…</div>
+                        <div class="election-directory-list" data-voter-directory-list aria-live="polite" aria-busy="true"></div>
+                        <button class="election-directory-load-more" data-voter-directory-more type="button" hidden>Load more users</button>
+                        <p class="election-help">Unticking a user removes only their voter assignment. Importing a spreadsheet never removes existing assigned voters.</p>
+                    </section>
+
+                    <form class="election-roster-method" method="post" action="{{ route('elections.private-voters.import', $election) }}" enctype="multipart/form-data">
+                        @csrf
+                        <span class="election-roster-method-kicker">Spreadsheet import</span>
+                        <h3>Import a voter list</h3>
+                        <p>Upload a CSV, XLSX, or XLS file with the exact headers <code>full_name</code> and <code>ic_number</code>. The identity column can contain IC or passport numbers.</p>
+                        <label for="voter_list">Voter spreadsheet<input id="voter_list" name="voter_list" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" required></label>
+                        <p class="election-help">For Excel files, set the <code>ic_number</code> column to <strong>Text</strong> so IC leading zeroes are retained. Existing assigned voters are skipped, and users omitted from a later import remain assigned.</p>
+                        @error('voter_list') <small class="election-field-error">{{ $message }}</small> @enderror
+                        <button class="election-button" type="submit">Import voters</button>
+                    </form>
+                </div>
+            @endif
+        </section>
+    @endif
+
     @if ($election->status === \App\States\ElectionStatus::NOMINATION_OPEN->value)
-        <section class="election-card">
-            <div class="election-page-header"><div><h2>Candidate review</h2><p>{{ $candidateSummary['approved'] }} approved, {{ $candidateSummary['pending'] }} pending, {{ $candidateSummary['rejected'] }} rejected.</p></div><span class="election-status">{{ $candidateSummary['ready'] ? 'Ballot ready' : 'Review required' }}</span></div>
+        <section class="election-card election-workspace-panel election-candidate-panel">
+            <div class="election-panel-heading">
+                <div>
+                    <span class="election-eyebrow">Candidate review</span>
+                    <h2>Build a complete ballot</h2>
+                    <p>{{ $candidateSummary['approved'] }} approved, {{ $candidateSummary['pending'] }} pending, {{ $candidateSummary['rejected'] }} rejected.</p>
+                </div>
+                <span class="election-status {{ $candidateSummary['ready'] ? 'election-status-nomination-open' : 'election-status-pending-payment' }}">{{ $candidateSummary['ready'] ? 'Ballot ready' : 'Review required' }}</span>
+            </div>
             @if ($candidateSummary['applications']->isEmpty())
-                <p>No candidate applications have been submitted.</p>
+                <div class="election-panel-empty"><strong>No candidate applications yet.</strong><p>Applications submitted during nominations will appear here for review.</p></div>
             @elseif (! $isAdminView)
-                <form method="post" action="{{ route('elections.candidates.review', $election) }}">
+                <form class="election-candidate-form" method="post" action="{{ route('elections.candidates.review', $election) }}">
                     @csrf
                     <input type="hidden" name="version" value="{{ $election->version }}">
                     <div class="election-table-wrap"><table class="election-table"><thead><tr><th>Candidate</th><th>Registered</th><th>Decision</th></tr></thead><tbody>
@@ -81,22 +201,24 @@
                         <tr><td>{{ $candidateName }}</td><td>{{ \Carbon\CarbonImmutable::parse($application->registered_at)->format('d M Y, H:i') }}</td><td><select name="decisions[{{ $application->getKey() }}]">@foreach (['Pending', 'Approved', 'Rejected'] as $status)<option value="{{ $status }}" @selected(strcasecmp($application->status, $status) === 0)>{{ $status }}</option>@endforeach</select></td></tr>
                     @endforeach
                     </tbody></table></div>
-                    <label>Current password<input name="current_password" type="password" autocomplete="current-password" required></label>
-                    <button class="election-button election-button-primary" type="submit">Save candidate decisions</button>
+                    <div class="election-candidate-actions"><label>Current password<input name="current_password" type="password" autocomplete="current-password" required></label><button class="election-button election-button-primary" type="submit">Save candidate decisions</button></div>
                 </form>
             @endif
         </section>
     @endif
 
-    <section class="election-card">
-        <h2>Audit trail</h2>
+    <section class="election-card election-workspace-panel election-audit-panel">
+        <div class="election-panel-heading">
+            <div><span class="election-eyebrow">Activity</span><h2>Election audit trail</h2><p>Every configuration and lifecycle change is recorded here.</p></div>
+            <span class="election-audit-version">Version {{ $election->version }}</span>
+        </div>
         @if ($logs === [])
-            <p>No lifecycle events recorded.</p>
+            <div class="election-panel-empty"><strong>No lifecycle events recorded.</strong><p>The first election action will appear here.</p></div>
         @else
             <div class="election-table-wrap"><table class="election-table"><thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Transition</th><th>Request</th></tr></thead><tbody>
             @foreach ($logs as $log)
                 @php $actor = $log->actor(); @endphp
-                <tr><td>{{ \Carbon\CarbonImmutable::parse($log->get('created_at'))->format('d M Y H:i') }}</td><td>{{ $actor?->name ?? $actor?->username ?? 'User #'.$log->get('actor_user_id') }}</td><td>{{ str($log->get('action'))->replace('_', ' ')->headline() }}</td><td><code>{{ $log->get('from_state') }}</code> &rarr; <code>{{ $log->get('to_state') }}</code></td><td><code>{{ $log->get('request_id') }}</code></td></tr>
+                <tr><td>{{ \Carbon\CarbonImmutable::parse($log->get('created_at'))->format('d M Y H:i') }}</td><td>{{ $actor?->name ?? $actor?->email ?? 'User #'.$log->get('actor_user_id') }}</td><td>{{ str($log->get('action'))->replace('_', ' ')->headline() }}</td><td><code>{{ $log->get('from_state') }}</code> &rarr; <code>{{ $log->get('to_state') }}</code></td><td><code>{{ $log->get('request_id') }}</code></td></tr>
             @endforeach
             </tbody></table></div>
         @endif

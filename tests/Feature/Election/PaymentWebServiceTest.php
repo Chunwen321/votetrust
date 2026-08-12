@@ -199,8 +199,10 @@ final class PaymentWebServiceTest extends TestCase
         $now = CarbonImmutable::now();
         $election = $service->create($organizer, [
             'title' => 'Payment Boundary Election',
+            'position_sought' => 'Council President',
             'description' => 'An election used to verify that payment failures keep the lifecycle closed.',
             'eligibility_mode' => 'PUBLIC',
+            'eligibility_minimum_age' => 18,
             'eligibility_nationality' => 'ANY',
             'nomination_start' => $now->addHour(),
             'nomination_end' => $now->addHours(2),

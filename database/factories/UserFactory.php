@@ -30,13 +30,15 @@ class UserFactory extends Factory
             // PIC: Chew Zhexuan — User module factory attributes.
             'name' => $name,
             'full_name' => $name,
-            'username' => fake()->unique()->userName(),
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'date_of_birth' => '2000-01-01',
             'nationality_country_code' => 'MY',
             'account_status' => 'ACTIVE',
+            'is_verified' => true,
+            'verified_at' => now(),
+            'verification_status' => 'APPROVED',
             'failed_login_attempts' => 0,
             'remember_token' => Str::random(10),
         ];
@@ -49,6 +51,25 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'email_verified_at' => null,
+        ]);
+    }
+
+    /**
+     * Indicate that the member still needs to complete profile eKYC verification.
+     */
+    public function unverifiedProfile(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'is_verified' => false,
+            'verified_at' => null,
+            'verification_reference' => null,
+            'verification_provider' => null,
+            'verification_session_id' => null,
+            'verification_status' => 'NOT_STARTED',
+            'verification_requested_at' => null,
+            'verification_consent_at' => null,
+            'verification_last_event_id' => null,
+            'verification_failure_reason' => null,
         ]);
     }
 }

@@ -72,8 +72,11 @@ final class NormalUserElectionWorkspaceTest extends TestCase
 
         $response = $this->actingAs($member)->post(route('elections.store'), [
             'title' => 'New Community Election',
+            'position_sought' => 'Community Representative',
             'description' => 'A new election created by a normal user from the shared election workspace.',
             'eligibility_mode' => 'PUBLIC',
+            'eligibility_minimum_age' => 18,
+            'eligibility_nationality' => 'ANY',
             'nomination_start' => now()->addDay()->toDateTimeString(),
             'nomination_end' => now()->addDays(2)->toDateTimeString(),
             'voting_start' => now()->addDays(3)->toDateTimeString(),

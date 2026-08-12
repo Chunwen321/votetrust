@@ -14,6 +14,7 @@ use App\Services\Voting\ElectionVotingIntegration;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -42,6 +43,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // ngrok forwards the local virtual-host name to Apache. Keep generated
+        // links on the public application URL instead of leaking that local host.
+        $publicUrl = (string) config('app.url');
+        $publicScheme = parse_url($publicUrl, PHP_URL_SCHEME);
+
+        if ($publicUrl !== '' && is_string($publicScheme)) {
+            URL::forceRootUrl($publicUrl);
+            URL::forceScheme($publicScheme);
+        }
+
         // PIC: Chew Zhexuan, Low Wen Kai, Wong Shun Bin, Goh Chun Wen - shared REST API throttle.
         RateLimiter::for('api', fn (Request $request): Limit => Limit::perMinute(60)
             ->by($request->user()?->getAuthIdentifier() ?? $request->ip()));

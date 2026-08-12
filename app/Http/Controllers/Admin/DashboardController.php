@@ -16,10 +16,12 @@ final class DashboardController extends Controller
 
     public function __invoke(): View
     {
+        $overview = $this->management->dashboardOverview();
+
         return view('admin.dashboard', [
-            'counts' => $this->management->dashboardCounts(),
-            'recentElections' => $this->management->recentElections(),
-            'pendingElectionApprovals' => $this->management->pendingElectionApprovals(),
+            'counts' => $overview['counts'],
+            'recentElections' => $overview['recentElections'],
+            'pendingElectionApprovals' => $overview['pendingElectionApprovals'],
         ]);
     }
 }

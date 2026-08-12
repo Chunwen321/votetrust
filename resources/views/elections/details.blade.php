@@ -15,6 +15,7 @@
                 <span>{{ $eligibility->mode() === \App\ValueObjects\EligibilityRules::PUBLIC ? 'Public election' : 'Private election' }}</span>
             </div>
             <h1>{{ $election->title }}</h1>
+            <p><strong>Position:</strong> {{ $election->position_sought ?: 'Not recorded' }}</p>
             <p>{{ $election->description }}</p>
         </div>
 
@@ -37,8 +38,15 @@
             <div class="role-empty-state__icon" aria-hidden="true">+</div>
             <div>
                 <h2>Public candidate opportunity</h2>
-                <p>{{ $canApply ? 'Nominations are open. You may apply to become a candidate.' : 'Candidate applications are not currently open.' }}</p>
+                @if (! auth()->user()->isVerified())
+                    <p>Verify your profile with eKYC before applying as a candidate.</p>
+                @else
+                    <p>{{ $canApply ? 'Nominations are open. You may apply to become a candidate.' : 'Candidate applications are not currently open.' }}</p>
+                @endif
             </div>
+            @if (! auth()->user()->isVerified())
+                <a class="button button-quiet button-small" href="{{ route('profile.verify') }}">Verify profile</a>
+            @endif
         </section>
     @endif
 

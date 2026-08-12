@@ -41,7 +41,6 @@ final class CandidateRegistrationHttpTest extends TestCase
         $this->actingAs($candidate)
             ->post(route('candidate.applications.store'), [
                 'election_id' => $election->getKey(),
-                'position_sought' => 'Student Representative',
                 'manifesto' => str_repeat('A clear commitment to student representation. ', 2),
                 'candidate_introduction' => 'I am a second-year student who enjoys serving the student community.',
                 'qualifications' => 'Previous committee experience.',
@@ -203,7 +202,6 @@ final class CandidateRegistrationHttpTest extends TestCase
             $candidate->getKey(),
             $election->getKey(),
             [
-                'position_sought' => 'Student Representative',
                 'manifesto' => str_repeat('A clear commitment to student representation. ', 2),
                 'candidate_introduction' => 'I am a second-year student who enjoys serving the student community.',
                 'qualifications' => 'Previous committee experience.',
@@ -224,6 +222,7 @@ final class CandidateRegistrationHttpTest extends TestCase
         $election = Election::query()->create([
             'organizer_id' => $organizer->getKey(),
             'title' => 'Student Council Election',
+            'position_sought' => 'Student Representative',
             'status' => 'NOMINATION_OPEN',
             'nomination_start' => now()->subDay(),
             'nomination_end' => now()->addDay(),

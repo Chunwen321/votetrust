@@ -18,13 +18,6 @@ final class RegistrationRules
         $maximumDocumentKilobytes = max(1, (int) config('candidate.max_document_kilobytes', 5120));
 
         return [
-            'position_sought' => [
-                'required',
-                'string',
-                'min:2',
-                'max:100',
-                'regex:/^[\p{L}\p{N} .,&()\/-]+$/u',
-            ],
             'manifesto' => ['required', 'string', 'min:50', 'max:5000'],
             'candidate_introduction' => ['required', 'string', 'min:20', 'max:1000'],
             'qualifications' => ['nullable', 'string', 'max:1000'],

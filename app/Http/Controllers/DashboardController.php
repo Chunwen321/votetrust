@@ -6,7 +6,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Models\Election;
+use App\Services\User\ElectionModuleClient;
 use App\Services\User\VotingParticipationClient;
 use App\Services\VoterService;
 use Illuminate\Http\RedirectResponse;
@@ -18,6 +18,7 @@ final class DashboardController extends Controller
     public function __construct(
         private readonly VoterService $voters,
         private readonly VotingParticipationClient $voting,
+        private readonly ElectionModuleClient $elections,
     ) {}
 
     public function __invoke(Request $request): View|RedirectResponse
@@ -32,16 +33,13 @@ final class DashboardController extends Controller
             (int) $user?->getAuthIdentifier(),
             $enrollments->pluck('election_id')->all(),
         );
-        $organizedElections = Election::query()
-            ->where('organizer_id', $user?->getAuthIdentifier())
-            ->latest('updated_at')
-            ->get();
+        $organizedElections = collect($this->elections->organizedBy((int) $user?->getAuthIdentifier()));
 
         $readyToVote = $enrollments->filter(function ($enrollment) use ($votingStatuses): bool {
             $votingStatus = $votingStatuses[(int) $enrollment->election_id] ?? null;
 
             return $enrollment->status === 'APPROVED'
-                && $enrollment->election_status === Election::VOTING_OPEN
+                && $enrollment->election_status === 'VOTING_OPEN'
                 && ($votingStatus['available'] ?? false)
                 && ! ($votingStatus['hasVoted'] ?? false);
         })->count();
@@ -56,6 +54,7 @@ final class DashboardController extends Controller
                 'readyToVote' => $readyToVote,
                 'organizedElections' => $organizedElections->count(),
             ],
+            'profileVerified' => $user?->isVerified() ?? false,
         ]);
     }
 }

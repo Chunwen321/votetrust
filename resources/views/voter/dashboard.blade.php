@@ -24,7 +24,7 @@
                     @php($votingStatus = $votingStatuses[(int) $enrollment->election_id] ?? null)
                     <tr>
                         <td><strong>{{ $enrollment->election_title }}</strong><br><small>Election #{{ $enrollment->election_id }}</small></td>
-                        <td>{{ str_replace('_', ' ', $enrollment->election_status) }}</td>
+                        <td>{{ $enrollment->election_status === 'UNAVAILABLE' ? 'Unavailable' : str_replace('_', ' ', $enrollment->election_status) }}</td>
                         <td><span class="badge status-{{ strtolower($enrollment->status) }}">{{ $enrollment->status }}</span></td>
                         <td>
                             @if($votingStatus && $votingStatus['available'])

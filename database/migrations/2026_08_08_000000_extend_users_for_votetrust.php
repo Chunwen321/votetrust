@@ -10,7 +10,6 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table): void {
-            $table->string('username', 50)->nullable()->unique();
             $table->string('full_name', 100)->nullable();
             $table->string('ic_number', 20)->nullable()->unique();
             $table->boolean('is_admin')->default(false);
@@ -23,10 +22,8 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table): void {
-            $table->dropUnique(['username']);
             $table->dropUnique(['ic_number']);
             $table->dropColumn([
-                'username',
                 'full_name',
                 'ic_number',
                 'is_admin',

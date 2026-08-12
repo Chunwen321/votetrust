@@ -10,6 +10,9 @@ final readonly class EligibilityRules
 {
     public const PUBLIC = 'PUBLIC';
 
+    public const PRIVATE = 'PRIVATE';
+
+    /** @deprecated Read only for elections created before the public/private split. */
     public const RESTRICTED = 'RESTRICTED';
 
     private const LEGACY_NON_MALAYSIAN = 'NON_MALAYSIAN';
@@ -19,28 +22,39 @@ final readonly class EligibilityRules
      */
     private function __construct(private array $rules, private ?string $legacySummary = null) {}
 
-    public static function publicElection(): self
-    {
-        return new self([
-            'type' => self::PUBLIC,
-            'minimumAge' => null,
-            'nationalityCountryCode' => null,
-            'excludedCountryCode' => null,
-        ]);
-    }
-
-    public static function restricted(?int $minimumAge, string $nationalityCountryCode): self
+    public static function publicElection(?int $minimumAge = null, string $nationalityCountryCode = CountryList::ANY): self
     {
         $countryCode = strtoupper(trim($nationalityCountryCode));
 
         return new self([
-            'type' => self::RESTRICTED,
+            'type' => self::PUBLIC,
             'minimumAge' => $minimumAge !== null && $minimumAge >= 1 && $minimumAge <= 130
                 ? $minimumAge
                 : null,
             'nationalityCountryCode' => CountryList::isValidCode($countryCode) ? $countryCode : null,
             'excludedCountryCode' => null,
         ]);
+    }
+
+    public static function privateElection(): self
+    {
+        return new self([
+            'type' => self::PRIVATE,
+            'minimumAge' => null,
+            'nationalityCountryCode' => null,
+            'excludedCountryCode' => null,
+        ]);
+    }
+
+    /**
+     * Legacy compatibility for stored/older PHP callers. Restricted elections
+     * were demographic public elections before the public/private split.
+     *
+     * @deprecated Use publicElection() or privateElection().
+     */
+    public static function restricted(?int $minimumAge, string $nationalityCountryCode): self
+    {
+        return self::publicElection($minimumAge, $nationalityCountryCode);
     }
 
     public static function fromStored(?string $stored): self
@@ -53,32 +67,34 @@ final readonly class EligibilityRules
         $decoded = json_decode($stored, true);
         if (is_array($decoded)) {
             $type = strtoupper((string) ($decoded['type'] ?? $decoded['mode'] ?? ''));
-            if (in_array($type, [self::PUBLIC, self::RESTRICTED], true)) {
-                if ($type === self::PUBLIC) {
-                    return self::publicElection();
-                }
+            if ($type === self::PRIVATE) {
+                return self::privateElection();
+            }
 
+            // RESTRICTED is an old name for a publicly accessible election
+            // with demographic requirements, not a roster-only election.
+            if (in_array($type, [self::PUBLIC, self::RESTRICTED], true)) {
                 $minimumAge = isset($decoded['minimumAge']) && is_numeric($decoded['minimumAge'])
                     ? (int) $decoded['minimumAge']
                     : null;
                 $countryCode = self::storedCountryCode($decoded);
                 if ($countryCode === self::LEGACY_NON_MALAYSIAN) {
                     return new self([
-                        'type' => self::RESTRICTED,
+                        'type' => self::PUBLIC,
                         'minimumAge' => $minimumAge,
                         'nationalityCountryCode' => null,
                         'excludedCountryCode' => 'MY',
                     ]);
                 }
 
-                return self::restricted($minimumAge, $countryCode);
+                return self::publicElection($minimumAge, $countryCode);
             }
         }
 
         // Plain-text legacy eligibility remains readable, but removed occupation
         // values are never interpreted as an authorization requirement.
         return new self([
-            'type' => self::RESTRICTED,
+            'type' => self::PUBLIC,
             'minimumAge' => null,
             'nationalityCountryCode' => null,
             'excludedCountryCode' => null,
@@ -129,7 +145,7 @@ final readonly class EligibilityRules
         $countryCode = $this->nationalityCountryCode();
         $excludedCountryCode = $this->rules['excludedCountryCode'];
         $nationality = [
-            'restricted' => $countryCode !== null || $excludedCountryCode !== null,
+            'restricted' => $this->mode() === self::PUBLIC && ($countryCode !== null || $excludedCountryCode !== null),
             'countryCode' => $countryCode,
             'countryName' => CountryList::name($countryCode),
         ];
@@ -141,7 +157,7 @@ final readonly class EligibilityRules
 
         return [
             'type' => $this->mode(),
-            'minimumAge' => $this->minimumAge(),
+            'minimumAge' => $this->mode() === self::PUBLIC ? $this->minimumAge() : null,
             'nationality' => $nationality,
         ];
     }
@@ -156,8 +172,8 @@ final readonly class EligibilityRules
         if ($this->legacySummary !== null) {
             return $this->legacySummary;
         }
-        if ($this->mode() === self::PUBLIC) {
-            return 'Public election - no voter restrictions';
+        if ($this->mode() === self::PRIVATE) {
+            return 'Private election - approved voter list only';
         }
 
         $criteria = [];
@@ -170,7 +186,7 @@ final readonly class EligibilityRules
             $criteria[] = 'Nationality: any country except '.CountryList::name($this->rules['excludedCountryCode']);
         }
 
-        return $criteria === [] ? 'Restricted election' : implode(' | ', $criteria);
+        return $criteria === [] ? 'Public election' : 'Public election | '.implode(' | ', $criteria);
     }
 
     /** @param array<string, mixed> $decoded */
