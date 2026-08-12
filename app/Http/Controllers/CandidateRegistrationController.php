@@ -20,8 +20,12 @@ final class CandidateRegistrationController extends Controller
     public function create(Request $request): View
     {
         $now = now();
+        $userId = (int) $request->user()?->getAuthIdentifier();
         $elections = Election::query()
             ->where('status', 'NOMINATION_OPEN')
+            ->whereDoesntHave('candidacies', fn ($query) => $query
+                ->where('user_id', $userId)
+                ->where('status', '!=', 'Rejected'))
             ->where(function ($query) use ($now): void {
                 $query->whereNull('nomination_start')
                     ->orWhere('nomination_start', '<=', $now);
@@ -58,7 +62,9 @@ final class CandidateRegistrationController extends Controller
             $request->safe()->only([
                 'position_sought',
                 'manifesto',
-                'supporting_details',
+                'candidate_introduction',
+                'qualifications',
+                'reason_for_candidacy',
             ]),
             $documents,
             $photo,

@@ -68,9 +68,9 @@ final class RealRegistrationService implements RegistrationService
                     ->lockForUpdate()
                     ->first();
 
-                if ($candidacy instanceof Candidacy && $candidacy->status !== 'Cancelled') {
+                if ($candidacy instanceof Candidacy && $candidacy->status !== Candidacy::REJECTED) {
                     throw ValidationException::withMessages([
-                        'election_id' => 'You already applied for this election.',
+                        'election_id' => 'You can only reapply for this election after your previous application is rejected.',
                     ]);
                 }
 
@@ -114,7 +114,9 @@ final class RealRegistrationService implements RegistrationService
                 $candidacy->registered_at = now();
                 $candidacy->position_sought = $input['position_sought'];
                 $candidacy->manifesto = $input['manifesto'];
-                $candidacy->supporting_details = $input['supporting_details'];
+                $candidacy->candidate_introduction = $input['candidate_introduction'];
+                $candidacy->qualifications = $input['qualifications'];
+                $candidacy->reason_for_candidacy = $input['reason_for_candidacy'];
                 $candidacy->profile_photo = $photoData['path'];
                 $candidacy->profile_photo_mime = $photoData['mime'];
                 $candidacy->save();

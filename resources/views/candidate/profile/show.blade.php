@@ -31,10 +31,12 @@
     <section class="candidate-card">
         <div class="candidate-section-heading">
             <h2>Applications</h2>
-            <a class="candidate-button" href="{{ route('candidate.applications.create') }}">New application</a>
+            @if ($canApply)
+                <a class="candidate-button" href="{{ route('candidate.applications.create') }}">New application</a>
+            @endif
         </div>
 
-        @forelse ($candidacies as $candidacy)
+        @forelse ($candidacies->take(1) as $candidacy)
             @php($paymentStatus = $paymentStatuses[$candidacy->getKey()] ?? null)
             <article class="candidate-application">
                 <div class="candidate-application__summary">
@@ -47,27 +49,37 @@
                     @endif
                     <div>
                         <h3>{{ $candidacy->election?->title ?? 'Election' }}</h3>
-                        <p><strong>Position:</strong> {{ $candidacy->position_sought }}</p>
-                        <p><strong>Application:</strong> {{ $candidacy->status }}</p>
-                        <p>
-                            <strong>Payment:</strong>
-                            {{ $paymentStatus?->displayStatus() ?? 'No payment reference' }}
-                            @if ($paymentStatus && ! $paymentStatus->available)
-                                (actions disabled)
-                            @endif
-                        </p>
+                        @if ($candidacy->status === \App\Models\Candidacy::APPROVED)
+                            <p><strong>Candidate Introduction:</strong> {{ $candidacy->candidate_introduction ?: 'Not provided' }}</p>
+                            <p><strong>Qualifications / Experience:</strong> {{ $candidacy->qualifications ?: 'Not provided' }}</p>
+                            <p><strong>Reason for Candidacy:</strong> {{ $candidacy->reason_for_candidacy ?: 'Not provided' }}</p>
+                        @else
+                            <p><strong>Position:</strong> {{ $candidacy->position_sought }}</p>
+                            <p><strong>Application:</strong> {{ $candidacy->status }}</p>
+                            <p>
+                                <strong>Payment:</strong>
+                                {{ $paymentStatus?->displayStatus() ?? 'No payment reference' }}
+                                @if ($paymentStatus && ! $paymentStatus->available)
+                                    (actions disabled)
+                                @endif
+                            </p>
+                        @endif
                     </div>
                 </div>
 
                 <details>
                     <summary>Application details</summary>
+                    <p><strong>Candidate Introduction:</strong></p>
+                    <p class="candidate-preserve-lines">{{ $candidacy->candidate_introduction ?: 'Not provided' }}</p>
+
+                    <p><strong>Qualifications / Experience:</strong></p>
+                    <p class="candidate-preserve-lines">{{ $candidacy->qualifications ?: 'Not provided' }}</p>
+
+                    <p><strong>Reason for Candidacy:</strong></p>
+                    <p class="candidate-preserve-lines">{{ $candidacy->reason_for_candidacy ?: 'Not provided' }}</p>
+
                     <p><strong>Manifesto:</strong></p>
                     <p class="candidate-preserve-lines">{{ $candidacy->manifesto }}</p>
-
-                    @if ($candidacy->supporting_details)
-                        <p><strong>Supporting details:</strong></p>
-                        <p class="candidate-preserve-lines">{{ $candidacy->supporting_details }}</p>
-                    @endif
 
                     @if ($candidacy->documents->isNotEmpty())
                         <p><strong>Private documents:</strong></p>

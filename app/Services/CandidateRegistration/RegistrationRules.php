@@ -26,7 +26,9 @@ final class RegistrationRules
                 'regex:/^[\p{L}\p{N} .,&()\/-]+$/u',
             ],
             'manifesto' => ['required', 'string', 'min:50', 'max:5000'],
-            'supporting_details' => ['nullable', 'string', 'max:3000'],
+            'candidate_introduction' => ['required', 'string', 'min:20', 'max:1000'],
+            'qualifications' => ['nullable', 'string', 'max:1000'],
+            'reason_for_candidacy' => ['required', 'string', 'min:20', 'max:1000'],
             'profile_photo' => [
                 'required',
                 'file',
