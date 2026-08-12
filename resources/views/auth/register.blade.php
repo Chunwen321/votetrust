@@ -21,10 +21,6 @@
         @csrf
         <h2>Create your account</h2>
 
-        <label for="username">Username</label>
-        <input id="username" name="username" value="{{ old('username') }}" maxlength="50" autocomplete="username" required>
-        @error('username')<small class="field-error">{{ $message }}</small>@enderror
-
         <label for="full-name">Full name</label>
         <input id="full-name" name="full_name" value="{{ old('full_name') }}" maxlength="100" autocomplete="name" required>
         @error('full_name')<small class="field-error">{{ $message }}</small>@enderror

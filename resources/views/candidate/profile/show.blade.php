@@ -49,12 +49,12 @@
                     @endif
                     <div>
                         <h3>{{ $candidacy->election?->title ?? 'Election' }}</h3>
+                        <p><strong>Position:</strong> {{ $candidacy->election?->position_sought ?? 'Not recorded' }}</p>
                         @if ($candidacy->status === \App\Models\Candidacy::APPROVED)
                             <p><strong>Candidate Introduction:</strong> {{ $candidacy->candidate_introduction ?: 'Not provided' }}</p>
                             <p><strong>Qualifications / Experience:</strong> {{ $candidacy->qualifications ?: 'Not provided' }}</p>
                             <p><strong>Reason for Candidacy:</strong> {{ $candidacy->reason_for_candidacy ?: 'Not provided' }}</p>
                         @else
-                            <p><strong>Position:</strong> {{ $candidacy->position_sought }}</p>
                             <p><strong>Application:</strong> {{ $candidacy->status }}</p>
                             <p>
                                 <strong>Payment:</strong>

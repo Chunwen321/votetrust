@@ -9,27 +9,28 @@ use PHPUnit\Framework\TestCase;
 
 final class EligibilityRulesTest extends TestCase
 {
-    public function test_public_election_has_no_age_or_nationality_restrictions(): void
+    public function test_public_election_can_store_age_and_nationality_restrictions(): void
     {
-        $rules = EligibilityRules::fromStored(EligibilityRules::publicElection()->toStorage());
+        $rules = EligibilityRules::fromStored(EligibilityRules::publicElection(18, 'MY')->toStorage());
 
         self::assertSame(EligibilityRules::PUBLIC, $rules->mode());
-        self::assertNull($rules->minimumAge());
-        self::assertFalse($rules->toArray()['nationality']['restricted']);
+        self::assertSame(18, $rules->minimumAge());
+        self::assertSame('MY', $rules->nationalityCountryCode());
+        self::assertTrue($rules->toArray()['nationality']['restricted']);
         self::assertStringNotContainsString('occupation', strtolower($rules->toStorage()));
     }
 
-    public function test_restricted_election_can_store_minimum_age_only(): void
+    public function test_public_election_can_store_minimum_age_only(): void
     {
-        $rules = EligibilityRules::fromStored(EligibilityRules::restricted(18, 'ANY')->toStorage());
+        $rules = EligibilityRules::fromStored(EligibilityRules::publicElection(18, 'ANY')->toStorage());
 
         self::assertSame(18, $rules->minimumAge());
         self::assertFalse($rules->toArray()['nationality']['restricted']);
     }
 
-    public function test_restricted_election_can_store_nationality_only(): void
+    public function test_public_election_can_store_nationality_only(): void
     {
-        $rules = EligibilityRules::fromStored(EligibilityRules::restricted(null, 'MY')->toStorage());
+        $rules = EligibilityRules::fromStored(EligibilityRules::publicElection(null, 'MY')->toStorage());
 
         self::assertNull($rules->minimumAge());
         self::assertSame([
@@ -39,13 +40,14 @@ final class EligibilityRulesTest extends TestCase
         ], $rules->toArray()['nationality']);
     }
 
-    public function test_restricted_election_can_store_age_and_nationality(): void
+    public function test_private_election_has_no_demographic_rules(): void
     {
-        $rules = EligibilityRules::fromStored(EligibilityRules::restricted(21, 'SG')->toStorage());
+        $rules = EligibilityRules::fromStored(EligibilityRules::privateElection()->toStorage());
 
-        self::assertSame(21, $rules->minimumAge());
-        self::assertSame('SG', $rules->nationalityCountryCode());
-        self::assertSame('Singapore', $rules->toArray()['nationality']['countryName']);
+        self::assertSame(EligibilityRules::PRIVATE, $rules->mode());
+        self::assertNull($rules->minimumAge());
+        self::assertNull($rules->nationalityCountryCode());
+        self::assertFalse($rules->toArray()['nationality']['restricted']);
     }
 
     public function test_iso_country_options_are_available(): void
@@ -70,6 +72,7 @@ final class EligibilityRulesTest extends TestCase
         ], JSON_THROW_ON_ERROR);
         $rules = EligibilityRules::fromStored($legacyJson);
 
+        self::assertSame(EligibilityRules::PUBLIC, $rules->mode());
         self::assertSame(18, $rules->minimumAge());
         self::assertSame('MY', $rules->nationalityCountryCode());
         self::assertArrayNotHasKey('occupation', $rules->toArray());

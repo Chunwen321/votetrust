@@ -24,8 +24,8 @@ class VoteTrustDemoSeeder extends Seeder
         DB::transaction(function (): void {
             $users = $this->seedUsers();
 
-            foreach (['OrganizerAdmin', 'LowWenKaiOrganizer'] as $username) {
-                Organizer::query()->firstOrCreate(['user_id' => $users[$username]->id]);
+            foreach (['OrganizerAdmin', 'LowWenKaiOrganizer'] as $accountKey) {
+                Organizer::query()->firstOrCreate(['user_id' => $users[$accountKey]->id]);
             }
 
             $payment = Payment::query()->updateOrCreate(
@@ -45,6 +45,7 @@ class VoteTrustDemoSeeder extends Seeder
                 ['title' => 'VoteTrust Student Council Election 2026'],
                 [
                     'organizer_id' => $users['LowWenKaiOrganizer']->id,
+                    'position_sought' => 'Student Council Representative',
                     'description' => 'A completed election containing stable sample votes for tally demonstrations.',
                     'eligibility_rules' => 'Active students verified by the User Module may participate.',
                     'nomination_start' => '2026-07-30 09:00:00',
@@ -67,14 +68,13 @@ class VoteTrustDemoSeeder extends Seeder
                 ],
             );
 
-            foreach (['CandidateAisha', 'CandidateDaniel'] as $username) {
+            foreach (['CandidateAisha', 'CandidateDaniel'] as $accountKey) {
                 Candidacy::query()->updateOrCreate(
-                    ['user_id' => $users[$username]->id, 'election_id' => $election->id],
+                    ['user_id' => $users[$accountKey]->id, 'election_id' => $election->id],
                     [
                         'status' => Candidacy::APPROVED,
-                        'position_sought' => 'Student Council Representative',
                         'manifesto' => 'A fair, transparent, and inclusive student council for every student.',
-                        'registered_at' => $username === 'CandidateAisha'
+                        'registered_at' => $accountKey === 'CandidateAisha'
                             ? '2026-07-31 10:00:00'
                             : '2026-07-31 10:05:00',
                     ],
@@ -121,18 +121,24 @@ class VoteTrustDemoSeeder extends Seeder
         ];
 
         $users = [];
-        foreach ($accounts as $username => [$password, $isAdmin]) {
-            $users[$username] = User::query()->updateOrCreate(
-                ['username' => $username],
+        foreach ($accounts as $accountKey => [$password, $isAdmin]) {
+            $email = strtolower($accountKey).'@votetrust.test';
+
+            $users[$accountKey] = User::query()->updateOrCreate(
+                ['email' => $email],
                 [
-                    'name' => $username,
-                    'full_name' => trim(preg_replace('/(?<!^)[A-Z]/', ' $0', $username)),
-                    'email' => strtolower($username).'@votetrust.test',
+                    'name' => $accountKey,
+                    'full_name' => trim(preg_replace('/(?<!^)[A-Z]/', ' $0', $accountKey)),
+                    'email' => $email,
                     'password' => Hash::make($password),
                     'date_of_birth' => '2000-01-01',
                     'nationality_country_code' => 'MY',
                     'is_admin' => $isAdmin,
                     'account_status' => 'ACTIVE',
+                    'is_verified' => true,
+                    'verified_at' => now(),
+                    'verification_provider' => 'SEEDED',
+                    'verification_status' => 'APPROVED',
                     'failed_login_attempts' => 0,
                     'account_disabled_at' => null,
                 ],

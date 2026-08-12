@@ -8,16 +8,22 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'active.account'])->group(function (): void {
     Route::get('/elections', [ElectionController::class, 'index'])->name('elections.index');
+    Route::get('/elections/{election}', [ElectionController::class, 'show'])->whereNumber('election')->name('elections.show');
+});
+
+Route::middleware(['auth', 'active.account', 'verified.profile'])->group(function (): void {
     Route::get('/elections/create', [ElectionController::class, 'create'])->name('elections.create');
     Route::post('/elections', [ElectionController::class, 'store'])->name('elections.store');
-    Route::get('/elections/{election}', [ElectionController::class, 'show'])->whereNumber('election')->name('elections.show');
     Route::get('/elections/{election}/edit', [ElectionController::class, 'edit'])->whereNumber('election')->name('elections.edit');
     Route::put('/elections/{election}', [ElectionController::class, 'update'])->whereNumber('election')->name('elections.update');
+    Route::get('/elections/{election}/private-voters', [ElectionController::class, 'privateVoterDirectory'])->whereNumber('election')->name('elections.private-voters.directory');
+    Route::post('/elections/{election}/private-voters', [ElectionController::class, 'importPrivateVoters'])->whereNumber('election')->name('elections.private-voters.import');
+    Route::patch('/elections/{election}/private-voters/{user}', [ElectionController::class, 'updatePrivateVoterSelection'])->whereNumber(['election', 'user'])->name('elections.private-voters.selection');
     Route::post('/elections/{election}/candidates', [ElectionController::class, 'reviewCandidates'])->whereNumber('election')->name('elections.candidates.review');
     Route::post('/elections/{election}/transition', [ElectionController::class, 'transition'])->whereNumber('election')->name('elections.transition');
 });
 
-Route::middleware(['auth', 'active.account', 'admin'])->prefix('admin')->name('admin.')->group(function (): void {
+Route::middleware(['auth', 'active.account', 'verified.profile', 'admin'])->prefix('admin')->name('admin.')->group(function (): void {
     Route::get('/elections', [AdminElectionController::class, 'index'])->name('elections.index');
     Route::get('/elections/{election}', [AdminElectionController::class, 'show'])->whereNumber('election')->name('elections.show');
     Route::post('/elections/{election}/transition', [AdminElectionController::class, 'transition'])->whereNumber('election')->name('elections.transition');

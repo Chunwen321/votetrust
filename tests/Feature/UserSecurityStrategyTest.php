@@ -63,14 +63,14 @@ final class UserSecurityStrategyTest extends TestCase
         $this->app->instance(LoginProtectionStrategy::class, $strategy);
 
         $user = User::factory()->create([
-            'username' => 'strategy.user',
+            'email' => 'strategy.user@example.test',
             'password' => Hash::make('Correct!Password123'),
             'account_status' => 'ACTIVE',
         ]);
         $users = $this->app->make(UserService::class);
 
-        self::assertFalse($users->authenticate('strategy.user', 'Wrong!Password123'));
-        self::assertTrue($users->authenticate('strategy.user', 'Correct!Password123'));
+        self::assertFalse($users->authenticate('strategy.user@example.test', 'Wrong!Password123'));
+        self::assertTrue($users->authenticate('strategy.user@example.test', 'Correct!Password123'));
         self::assertSame(2, $strategy->allowChecks);
         self::assertSame(1, $strategy->failures);
         self::assertSame(1, $strategy->successes);

@@ -90,7 +90,7 @@ final class CandidateRegistrationServiceTest extends TestCase
         config(['candidate.disk' => 'candidate-test']);
         [$candidate, $election] = $this->candidateAndOpenElection();
         $election->update([
-            'eligibility_rules' => EligibilityRules::restricted(18, 'MY')->toStorage(),
+            'eligibility_rules' => EligibilityRules::privateElection()->toStorage(),
         ]);
 
         try {
@@ -130,6 +130,7 @@ final class CandidateRegistrationServiceTest extends TestCase
         $election = Election::query()->create([
             'organizer_id' => $organizer->getKey(),
             'title' => 'Student Council Election',
+            'position_sought' => 'Student Representative',
             'status' => 'NOMINATION_OPEN',
             'nomination_start' => now()->subDay(),
             'nomination_end' => now()->addDay(),
@@ -139,12 +140,11 @@ final class CandidateRegistrationServiceTest extends TestCase
     }
 
     /**
-     * @return array{position_sought: string, manifesto: string, candidate_introduction: string, qualifications: string, reason_for_candidacy: string}
+     * @return array{manifesto: string, candidate_introduction: string, qualifications: string, reason_for_candidacy: string}
      */
     private function validInput(): array
     {
         return [
-            'position_sought' => 'Student Representative',
             'manifesto' => str_repeat('A clear commitment to student representation. ', 2),
             'candidate_introduction' => 'I am a second-year student who enjoys serving the student community.',
             'qualifications' => 'Previous committee experience.',

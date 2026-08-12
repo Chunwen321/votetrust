@@ -15,11 +15,18 @@ final class LoginRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'email' => mb_strtolower(trim((string) $this->input('email'))),
+        ]);
+    }
+
     /** @return array<string, list<string>> */
     public function rules(): array
     {
         return [
-            'username' => ['required', 'string', 'regex:/^[A-Za-z0-9_.-]{3,50}$/'],
+            'email' => ['required', 'string', 'email', 'max:190'],
             'password' => ['required', 'string'],
             'remember' => ['sometimes', 'boolean'],
         ];

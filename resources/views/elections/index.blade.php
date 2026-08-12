@@ -12,8 +12,12 @@
             <p>See the elections where you can vote and the elections you organise, all in one place.</p>
         </div>
         <div class="election-hub__actions">
-            <a class="button button-quiet" href="{{ route('voting.index') }}">Open voting portal</a>
-            <a class="button" href="{{ route('elections.create') }}">Create an election</a>
+            @if ($user->isVerified())
+                <a class="button button-quiet" href="{{ route('voting.index') }}">Open voting portal</a>
+                <a class="button" href="{{ route('elections.create') }}">Create an election</a>
+            @else
+                <a class="button" href="{{ route('profile.verify') }}">Verify profile to participate</a>
+            @endif
         </div>
     </section>
 
@@ -39,7 +43,7 @@
             <div class="election-list" role="list">
                 @foreach ($voterEnrollments as $enrollment)
                     @php($votingStatus = $votingStatuses[(int) $enrollment->election_id] ?? null)
-                    @php($canVote = $enrollment->status === 'APPROVED' && $enrollment->election_status === \App\Models\Election::VOTING_OPEN && ($votingStatus['available'] ?? false) && ! ($votingStatus['hasVoted'] ?? false))
+                    @php($canVote = $user->isVerified() && $enrollment->status === 'APPROVED' && $enrollment->election_status === \App\Models\Election::VOTING_OPEN && ($votingStatus['available'] ?? false) && ! ($votingStatus['hasVoted'] ?? false))
                     <article class="card election-list-item" role="listitem">
                         <div class="election-list-item__main">
                             <div class="election-list-item__heading">
@@ -51,7 +55,9 @@
                             <p>Voter access: <span class="badge status-{{ strtolower($enrollment->status) }}">{{ str($enrollment->status)->lower()->headline() }}</span></p>
                         </div>
                         <div class="election-list-item__action">
-                            @if ($canVote)
+                            @if (! $user->isVerified())
+                                <a class="button button-quiet button-small" href="{{ route('profile.verify') }}">Verify to vote</a>
+                            @elseif ($canVote)
                                 <a class="button button-small" href="{{ route('voting.ballot', $enrollment->election_id) }}">Open ballot</a>
                             @elseif (($votingStatus['available'] ?? false) && ($votingStatus['hasVoted'] ?? false))
                                 <span class="badge status-voted">Vote recorded</span>
@@ -120,7 +126,11 @@
                 <h2 id="organised-elections-title">Organised elections</h2>
                 <p>Create and manage elections without changing your account type.</p>
             </div>
-            <a class="button button-quiet button-small" href="{{ route('elections.create') }}">Organise an election</a>
+            @if ($user->isVerified())
+                <a class="button button-quiet button-small" href="{{ route('elections.create') }}">Organise an election</a>
+            @else
+                <a class="button button-quiet button-small" href="{{ route('profile.verify') }}">Verify to organise</a>
+            @endif
         </div>
 
         @if ($organizedElections->isEmpty())
@@ -130,7 +140,11 @@
                     <h3>Ready to organise?</h3>
                     <p>Set up an election in a few steps. You can still vote in other elections with this same account.</p>
                 </div>
-                <a class="button" href="{{ route('elections.create') }}">Create election</a>
+                @if ($user->isVerified())
+                    <a class="button" href="{{ route('elections.create') }}">Create election</a>
+                @else
+                    <a class="button" href="{{ route('profile.verify') }}">Verify profile</a>
+                @endif
             </article>
         @else
             <div class="election-list" role="list">

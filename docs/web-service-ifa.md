@@ -27,6 +27,21 @@ Every response carries `status` (`S`, `F`, or `E`), `message`, the correlated `r
 
 Request data: `voterId`, `electionId`, `requestID`, `timestamp`. Success data contains `voterId`, `electionId`, boolean `eligible`, the enrolment `reasonCode`, and an internal `identity` object with nullable `dateOfBirth` plus `nationality.countryCode`. Voting uses those verified User-owned facts only when Election publishes a corresponding demographic restriction; missing required facts fail closed.
 
+### Private voter roster — Chew Zhexuan
+
+| IFA item | Value |
+|---|---|
+| Protocol | REST/JSON (`POST`) |
+| Source | User/Voter module |
+| Target | Election module |
+| URLs | `/api/v1/voters/private-enrollments`; `/api/v1/voters/private-enrollments/manual` |
+| Functions | `PrivateVoterEnrollmentController::__invoke`; `ManualPrivateVoterEnrollmentController::__invoke` |
+| Authentication | `X-User-Api-Key` or `X-Internal-Api-Key` |
+
+The Election module parses an organiser CSV, XLSX, or XLS file in memory and sends only `electionId`, `organizerUserId`, and a `voters` array of `{row, fullName, identityNumber}` records. The file header remains `full_name,ic_number`; `ic_number` values may hold either a Malaysian IC or a passport number. The User/Voter provider normalises the identity number, requires an exact normalised full-name match for imports, and creates or replaces only its own `voter` records. Source files are never stored. The response returns `requested`, `assigned`, `removed`, `totalAssigned`, `unmatchedCount`, and safe row/reason diagnostics; Election stores only audit-safe counts.
+
+For an organiser's one-person assignment, Election calls the `/manual` endpoint with `electionId`, `organizerUserId`, and `identityNumber`. The provider returns only `assigned`, a safe `reasonCode`, and `totalAssigned`; it does not disclose a matched member's details. A successful manual assignment is preserved when a later spreadsheet replaces CSV/XLS/XLSX-derived rows.
+
 ### Election availability and ballot — Low Wen Kai
 
 | IFA item | Value |
@@ -43,7 +58,7 @@ The detail response keeps both `eligibilityRules` and `eligibility` keys for con
 
 ```json
 {
-  "type": "RESTRICTED",
+  "type": "PUBLIC",
   "minimumAge": 18,
   "nationality": {
     "restricted": true,
@@ -53,7 +68,7 @@ The detail response keeps both `eligibilityRules` and `eligibility` keys for con
 }
 ```
 
-Public elections return `minimumAge: null` and an unrestricted nationality with null country code/name. Country restrictions use ISO 3166-1 alpha-2 codes. Occupation is not an eligibility condition and is not published.
+`PUBLIC` elections can publish age and/or nationality requirements. `PRIVATE` elections return `minimumAge: null` and an unrestricted nationality object, then rely on the User/Voter provider's approved private-roster check. Country restrictions use ISO 3166-1 alpha-2 codes. Occupation is not an eligibility condition and is not published.
 
 ### Candidate and organisation information — Wong Shun Bin
 
@@ -86,6 +101,7 @@ Status request data: `voterId`, `electionId`, `requestID`, `timestamp`. It retur
 | Consumer (PIC) | Provider call | Purpose | Client implementation |
 |---|---|---|---|
 | User (Chew) | Voting `/api/v1/votes/status` | Display participation status without reading Voting-owned tables | `App\Services\User\VotingParticipationClient` |
+| Election (Low) | User/Voter private-enrolment endpoints | Match CSV/XLSX/XLS roster rows or manually assign a voter by IC/passport without writing User/Voter tables directly | `App\Services\VoterModuleClient` |
 | Election (Low) | `PAYMENT_API_URL` | Verify hosting payment before lifecycle transition | `App\Services\Payment\HttpPaymentGateway` |
 | Candidate (Wong) | Payment `/api/v1/payments/{paymentId}/status` | Display/authorize actions using authoritative candidate-deposit status | `App\Services\CandidateRegistration\PaymentStatusClient` |
 | Voting (Goh) | User eligibility plus Election list/detail | Authorize voter, election state, and approved ballot through teammate APIs | `App\Services\Voting\ElectionVotingIntegration` |

@@ -96,6 +96,7 @@ final class CandidateWebServiceProviderTest extends TestCase
         $election = Election::query()->create([
             'organizer_id' => $organizer->getKey(),
             'title' => 'Student Council Election',
+            'position_sought' => 'Student Council Representative',
             'status' => 'NOMINATION_OPEN',
         ]);
 

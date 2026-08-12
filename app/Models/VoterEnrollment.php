@@ -18,21 +18,25 @@ class VoterEnrollment extends Model
 
     public const SUSPENDED = 'SUSPENDED';
 
+    public const SOURCE_MANUAL = 'MANUAL';
+
+    public const SOURCE_ORGANIZER_MANUAL = 'ORGANIZER_MANUAL';
+
+    public const SOURCE_ORGANIZER_DIRECTORY = 'ORGANIZER_DIRECTORY';
+
+    public const SOURCE_PRIVATE_CSV = 'PRIVATE_CSV';
+
     protected $fillable = [
         'user_id',
         'election_id',
         'status',
+        'enrollment_source',
         'added_by',
     ];
 
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
-    }
-
-    public function election(): BelongsTo
-    {
-        return $this->belongsTo(Election::class);
     }
 
     public function addedBy(): BelongsTo

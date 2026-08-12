@@ -31,7 +31,7 @@ final class ElectionService
 {
     private const ADMIN_ACTIONS = ['quote_fee', 'approve', 'return_for_payment', 'reject'];
 
-    private const ADMIN_API_ACTIONS = ['approve', 'reject'];
+    private const ADMIN_API_ACTIONS = ['quote_fee', 'approve', 'return_for_payment', 'reject'];
 
     private const CANDIDACY_PENDING = 'Pending';
 
@@ -120,7 +120,19 @@ final class ElectionService
             }
 
             $expectedVersion = $this->assertExpectedVersion($election, $input['version'] ?? null);
-            $election->forceFill($this->normalizeInput($input));
+            $attributes = $this->normalizeInput($input);
+            $currentMode = EligibilityRules::fromStored($election->eligibility_rules)->mode();
+            $updatedMode = EligibilityRules::fromStored($attributes['eligibility_rules'])->mode();
+            if ($currentMode !== $updatedMode) {
+                // A roster belongs to a specific private-election definition.
+                // Switching modes always requires a fresh private roster before payment.
+                $attributes += [
+                    'private_voter_list_uploaded_at' => null,
+                    'private_voter_count' => 0,
+                    'private_voter_unmatched_count' => 0,
+                ];
+            }
+            $election->forceFill($attributes);
             $this->persistWithVersion($election, $expectedVersion);
 
             return $election->refresh();
@@ -154,7 +166,7 @@ final class ElectionService
         string $requestId,
     ): Election {
         if (! in_array($action, self::ADMIN_API_ACTIONS, true)) {
-            throw new AuthorizationException('The Admin API only accepts approval decisions.');
+            throw new AuthorizationException('The Admin API only accepts hosting-fee and approval actions.');
         }
 
         return $this->performTransition($admin, $electionId, $action, $input, $requestId);
@@ -245,6 +257,112 @@ final class ElectionService
         return Election::query()->findOrFail($electionId);
     }
 
+    /**
+     * Stores only the import summary. User/Voter owns the roster rows and has
+     * already processed them through its API before this method is called.
+     *
+     * @param  array{requested:int,assigned:int,skipped:int,removed:int,totalAssigned:int,unmatchedCount:int,unmatchedRows:list<array{row:int,reason:string}>}  $summary
+     */
+    public function recordPrivateRosterImport(User $user, int $electionId, array $summary): Election
+    {
+        return DB::transaction(function () use ($user, $electionId, $summary): Election {
+            $election = Election::query()->lockForUpdate()->find($electionId);
+            if (! $election instanceof Election) {
+                throw (new ModelNotFoundException)->setModel(Election::class, [$electionId]);
+            }
+            $this->assertOwnedBy($user, $election);
+            $this->assertPrivateRosterEditable($election);
+            if (EligibilityRules::fromStored($election->eligibility_rules)->mode() !== EligibilityRules::PRIVATE) {
+                throw new BusinessRuleException('Only a private election can receive a voter list.');
+            }
+
+            $expectedVersion = $this->assertExpectedVersion($election, $election->version);
+            $election->forceFill([
+                'private_voter_list_uploaded_at' => $this->clock->now(),
+                'private_voter_count' => $summary['totalAssigned'],
+                'private_voter_unmatched_count' => $summary['unmatchedCount'],
+            ]);
+            $requestId = $this->newRequestId();
+            $this->appendTransition($election, [
+                'actor_user_id' => $user->getKey(),
+                'request_id' => $requestId,
+                'action' => 'import_private_voter_list',
+                'from_state' => $election->status,
+                'to_state' => $election->status,
+                'metadata' => [
+                    'requested' => $summary['requested'],
+                    'assigned' => $summary['assigned'],
+                    'skipped' => $summary['skipped'],
+                    'unmatched' => $summary['unmatchedCount'],
+                ],
+                'created_at' => $this->clock->now()->toDateTimeString(),
+            ]);
+            $this->persistWithVersion($election, $expectedVersion);
+            $this->auditLogger->log('private_voter_list_imported', [
+                'election_id' => $electionId,
+                'actor_user_id' => $user->getKey(),
+                'request_id' => $requestId,
+                'assigned' => $summary['assigned'],
+                'skipped' => $summary['skipped'],
+                'unmatched' => $summary['unmatchedCount'],
+            ]);
+
+            return $election->refresh();
+        });
+    }
+
+    /**
+     * Records only a private-voter directory selection result. The User/Voter
+     * module owns the actual enrolment and identity data.
+     *
+     * @param  array{userId:int,assigned:bool,changed:bool,reasonCode:string,totalAssigned:int}  $selection
+     */
+    public function recordPrivateVoterSelection(User $user, int $electionId, array $selection): Election
+    {
+        return DB::transaction(function () use ($user, $electionId, $selection): Election {
+            $election = Election::query()->lockForUpdate()->find($electionId);
+            if (! $election instanceof Election) {
+                throw (new ModelNotFoundException)->setModel(Election::class, [$electionId]);
+            }
+            $this->assertOwnedBy($user, $election);
+            $this->assertPrivateRosterEditable($election);
+            if (EligibilityRules::fromStored($election->eligibility_rules)->mode() !== EligibilityRules::PRIVATE) {
+                throw new BusinessRuleException('Only a private election can receive voter assignments.');
+            }
+
+            $expectedVersion = $this->assertExpectedVersion($election, $election->version);
+            $election->forceFill([
+                'private_voter_list_uploaded_at' => $this->clock->now(),
+                'private_voter_count' => $selection['totalAssigned'],
+            ]);
+            $requestId = $this->newRequestId();
+            $action = $selection['assigned'] ? 'assign_private_voter' : 'remove_private_voter';
+            $this->appendTransition($election, [
+                'actor_user_id' => $user->getKey(),
+                'request_id' => $requestId,
+                'action' => $action,
+                'from_state' => $election->status,
+                'to_state' => $election->status,
+                'metadata' => [
+                    'result' => $selection['reasonCode'],
+                    'changed' => $selection['changed'],
+                    'total_assigned' => $selection['totalAssigned'],
+                ],
+                'created_at' => $this->clock->now()->toDateTimeString(),
+            ]);
+            $this->persistWithVersion($election, $expectedVersion);
+            $this->auditLogger->log($action, [
+                'election_id' => $electionId,
+                'actor_user_id' => $user->getKey(),
+                'request_id' => $requestId,
+                'changed' => $selection['changed'],
+                'total_assigned' => $selection['totalAssigned'],
+            ]);
+
+            return $election->refresh();
+        });
+    }
+
     /** @return list<array<string, mixed>> */
     public function actions(Election $election, User $actor): array
     {
@@ -269,6 +387,7 @@ final class ElectionService
         return [
             'electionId' => (int) $election->getKey(),
             'title' => (string) $election->title,
+            'positionSought' => (string) $election->position_sought,
             'description' => (string) $election->description,
             'lifecycleState' => $state->name(),
             'lifecycleLabel' => $state->label(),
@@ -316,6 +435,7 @@ final class ElectionService
                 return [
                     'electionId' => (int) $election->getKey(),
                     'title' => (string) $election->title,
+                    'positionSought' => (string) $election->position_sought,
                     'description' => (string) $election->description,
                     'lifecycleState' => ElectionStatus::VOTING_OPEN->value,
                     'eligibilityRules' => EligibilityRules::fromStored($election->eligibility_rules)->toArray(),
@@ -347,10 +467,9 @@ final class ElectionService
             ->with('user')
             ->where('election_id', $election->getKey())
             ->where('status', self::CANDIDACY_APPROVED)
-            ->orderBy('position_sought')
             ->orderBy('id')
             ->get()
-            ->map(static function (Candidacy $candidacy): array {
+            ->map(static function (Candidacy $candidacy) use ($election): array {
                 $candidate = $candidacy->user;
                 $name = trim((string) $candidate?->display_name);
 
@@ -358,7 +477,7 @@ final class ElectionService
                     'id' => (int) $candidacy->getKey(),
                     'candidateId' => (int) $candidacy->user_id,
                     'name' => $name !== '' ? $name : 'Candidate '.$candidacy->user_id,
-                    'position' => (string) $candidacy->position_sought,
+                    'position' => (string) $election->position_sought,
                     'manifesto' => (string) $candidacy->manifesto,
                 ];
             })
@@ -533,15 +652,16 @@ final class ElectionService
     private function normalizeInput(array $input): array
     {
         $mode = strtoupper(trim((string) ($input['eligibility_mode'] ?? EligibilityRules::PUBLIC)));
-        $rules = $mode === EligibilityRules::RESTRICTED
-            ? EligibilityRules::restricted(
+        $rules = $mode === EligibilityRules::PRIVATE
+            ? EligibilityRules::privateElection()
+            : EligibilityRules::publicElection(
                 ($input['eligibility_minimum_age'] ?? '') === '' ? null : (int) $input['eligibility_minimum_age'],
                 strtoupper((string) ($input['eligibility_nationality'] ?? 'ANY')),
-            )
-            : EligibilityRules::publicElection();
+            );
 
         return [
             'title' => trim((string) $input['title']),
+            'position_sought' => trim((string) $input['position_sought']),
             'description' => trim((string) $input['description']),
             'eligibility_rules' => $rules->toStorage(),
             'nomination_start' => CarbonImmutable::parse($input['nomination_start'])->toDateTimeString(),
@@ -609,6 +729,16 @@ final class ElectionService
     private function adminApproved(Election $election): bool
     {
         return (int) $election->approved_by > 0 && $election->approved_at !== null && $election->approved_at !== '';
+    }
+
+    private function assertPrivateRosterEditable(Election $election): void
+    {
+        if (! in_array($election->status, [
+            ElectionStatus::DRAFT->value,
+            ElectionStatus::NOMINATION_OPEN->value,
+        ], true)) {
+            throw new BusinessRuleException('Private voters can be managed while the election is a draft or nominations are open. The list locks when voting begins.');
+        }
     }
 
     private function newRequestId(): string

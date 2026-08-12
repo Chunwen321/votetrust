@@ -18,7 +18,6 @@ final class CandidateRegistrationRulesTest extends TestCase
         config(['candidate.max_documents' => 5]);
 
         $validator = Validator::make([
-            'position_sought' => 'Student Representative',
             'manifesto' => str_repeat('A clear commitment to student representation. ', 2),
             'candidate_introduction' => 'I am a second-year student who enjoys serving the student community.',
             'qualifications' => 'Previous committee experience.',
@@ -35,7 +34,6 @@ final class CandidateRegistrationRulesTest extends TestCase
     public function test_short_manifesto_and_executable_document_are_rejected(): void
     {
         $validator = Validator::make([
-            'position_sought' => 'President',
             'manifesto' => 'Too short.',
             'profile_photo' => UploadedFile::fake()->create('portrait.jpg', 100, 'image/jpeg'),
             'documents' => [

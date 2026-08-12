@@ -24,6 +24,14 @@ final class IdentityTest extends TestCase
         self::assertSame($expected, Identity::isValidIcNumber($value));
     }
 
+    public function test_it_normalises_and_validates_a_passport_number(): void
+    {
+        self::assertSame('E1234567', Identity::normalisePassportNumber('e-123 4567'));
+        self::assertTrue(Identity::isValidPassportNumber('e-123 4567'));
+        self::assertFalse(Identity::isValidPassportNumber('A12'));
+        self::assertFalse(Identity::isValidPassportNumber('passport!'));
+    }
+
     /** @return iterable<string, array{string, bool}> */
     public static function icNumbers(): iterable
     {

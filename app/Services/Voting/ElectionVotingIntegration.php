@@ -242,7 +242,7 @@ final class ElectionVotingIntegration implements VotingIntegration
         }
 
         $type = strtoupper((string) ($rules['type'] ?? ''));
-        if (! in_array($type, ['PUBLIC', 'RESTRICTED'], true)) {
+        if (! in_array($type, ['PUBLIC', 'PRIVATE'], true)) {
             throw new IntegrationException('The Election Module returned an invalid eligibility type.');
         }
 
@@ -276,7 +276,7 @@ final class ElectionVotingIntegration implements VotingIntegration
             throw new IntegrationException('The Election Module returned an invalid country name.');
         }
 
-        if ($type === 'PUBLIC') {
+        if ($type === 'PRIVATE') {
             $minimumAge = null;
             $countryCode = null;
             $countryName = null;
@@ -287,7 +287,7 @@ final class ElectionVotingIntegration implements VotingIntegration
             'type' => $type,
             'minimumAge' => $minimumAge,
             'nationality' => [
-                'restricted' => $type === 'RESTRICTED' && $nationality['restricted'],
+                'restricted' => $type === 'PUBLIC' && $nationality['restricted'],
                 'countryCode' => $countryCode,
                 'countryName' => $countryName,
                 'excludedCountryCode' => $excludedCountryCode,
@@ -298,8 +298,8 @@ final class ElectionVotingIntegration implements VotingIntegration
     /** @param array<string, mixed> $rules */
     private function describeRules(array $rules): string
     {
-        if ($rules['type'] === 'PUBLIC') {
-            return 'Public election - no voter restrictions';
+        if ($rules['type'] === 'PRIVATE') {
+            return 'Private election - approved voter list only';
         }
 
         $parts = [];
@@ -310,7 +310,7 @@ final class ElectionVotingIntegration implements VotingIntegration
             $parts[] = 'Nationality: '.$rules['nationality']['countryName'];
         }
 
-        return $parts === [] ? 'Restricted election' : implode(' | ', $parts);
+        return $parts === [] ? 'Public election' : 'Public election | '.implode(' | ', $parts);
     }
 
     private function isDate(string $value): bool

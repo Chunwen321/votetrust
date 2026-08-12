@@ -12,7 +12,7 @@ use Illuminate\Http\UploadedFile;
 interface RegistrationService
 {
     /**
-     * @param  array{position_sought: string, manifesto: string, candidate_introduction: string, qualifications: string|null, reason_for_candidacy: string}  $input
+     * @param  array{manifesto: string, candidate_introduction: string, qualifications: string|null, reason_for_candidacy: string}  $input
      * @param  list<UploadedFile>  $documents
      */
     public function apply(

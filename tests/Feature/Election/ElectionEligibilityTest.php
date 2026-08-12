@@ -28,7 +28,7 @@ final class ElectionEligibilityTest extends TestCase
             ->assertDontSee('Occupation');
     }
 
-    public function test_public_election_ignores_submitted_restrictions_and_occupation(): void
+    public function test_public_election_stores_submitted_restrictions_and_ignores_occupation(): void
     {
         $organizer = $this->organizer();
         $payload = $this->validPayload('Public Eligibility Election') + [
@@ -42,23 +42,24 @@ final class ElectionEligibilityTest extends TestCase
 
         $rules = EligibilityRules::fromStored(Election::query()->where('title', $payload['title'])->value('eligibility_rules'));
         self::assertSame(EligibilityRules::PUBLIC, $rules->mode());
-        self::assertNull($rules->minimumAge());
-        self::assertFalse($rules->toArray()['nationality']['restricted']);
+        self::assertSame(60, $rules->minimumAge());
+        self::assertSame('SG', $rules->nationalityCountryCode());
+        self::assertTrue($rules->toArray()['nationality']['restricted']);
         self::assertArrayNotHasKey('occupation', $rules->toArray());
     }
 
-    public function test_restricted_elections_store_age_nationality_or_both(): void
+    public function test_public_elections_store_age_nationality_or_both(): void
     {
         $organizer = $this->organizer();
         $cases = [
-            ['Age Restricted Election', 18, 'ANY', 18, null],
-            ['Nationality Restricted Election', null, 'MY', null, 'MY'],
-            ['Combined Restricted Election', 21, 'SG', 21, 'SG'],
+            ['Age Public Election', 18, 'ANY', 18, null],
+            ['Nationality Public Election', null, 'MY', null, 'MY'],
+            ['Combined Public Election', 21, 'SG', 21, 'SG'],
         ];
 
         foreach ($cases as [$title, $age, $country, $expectedAge, $expectedCountry]) {
             $payload = $this->validPayload($title) + [
-                'eligibility_mode' => 'RESTRICTED',
+                'eligibility_mode' => 'PUBLIC',
                 'eligibility_minimum_age' => $age,
                 'eligibility_nationality' => $country,
             ];
@@ -71,11 +72,11 @@ final class ElectionEligibilityTest extends TestCase
         }
     }
 
-    public function test_negative_or_missing_restricted_criteria_are_rejected(): void
+    public function test_negative_or_missing_public_criteria_are_rejected(): void
     {
         $organizer = $this->organizer();
         $negative = $this->validPayload('Invalid Negative Age Election') + [
-            'eligibility_mode' => 'RESTRICTED',
+            'eligibility_mode' => 'PUBLIC',
             'eligibility_minimum_age' => -1,
             'eligibility_nationality' => 'ANY',
         ];
@@ -85,7 +86,7 @@ final class ElectionEligibilityTest extends TestCase
             ->assertSessionHasErrors('eligibility_minimum_age');
 
         $missing = $this->validPayload('Missing Eligibility Criteria Election') + [
-            'eligibility_mode' => 'RESTRICTED',
+            'eligibility_mode' => 'PUBLIC',
             'eligibility_minimum_age' => null,
             'eligibility_nationality' => 'ANY',
         ];
@@ -108,13 +109,12 @@ final class ElectionEligibilityTest extends TestCase
     {
         return [
             'title' => $title,
+            'position_sought' => 'Community Representative',
             'description' => 'A sufficiently detailed description for eligibility configuration testing.',
             'nomination_start' => now()->addDay()->format('Y-m-d H:i:s'),
             'nomination_end' => now()->addDays(2)->format('Y-m-d H:i:s'),
             'voting_start' => now()->addDays(3)->format('Y-m-d H:i:s'),
             'voting_end' => now()->addDays(4)->format('Y-m-d H:i:s'),
-            'hosting_fee' => 100,
-            'currency' => 'MYR',
         ];
     }
 }

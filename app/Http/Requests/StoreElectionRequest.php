@@ -20,10 +20,10 @@ class StoreElectionRequest extends FormRequest
         $mode = strtoupper(trim((string) $this->input('eligibility_mode')));
         $this->merge([
             'eligibility_mode' => $mode,
-            'eligibility_minimum_age' => $mode === EligibilityRules::PUBLIC
+            'eligibility_minimum_age' => $mode === EligibilityRules::PRIVATE
                 ? null
                 : $this->input('eligibility_minimum_age'),
-            'eligibility_nationality' => $mode === EligibilityRules::PUBLIC
+            'eligibility_nationality' => $mode === EligibilityRules::PRIVATE
                 ? 'ANY'
                 : strtoupper(trim((string) $this->input('eligibility_nationality', 'ANY'))),
         ]);
@@ -34,8 +34,9 @@ class StoreElectionRequest extends FormRequest
     {
         return [
             'title' => ['required', 'string', 'min:5', 'max:120'],
+            'position_sought' => ['required', 'string', 'min:2', 'max:100', 'regex:/^[\p{L}\p{N} .,&()\/-]+$/u'],
             'description' => ['required', 'string', 'min:20', 'max:2000'],
-            'eligibility_mode' => ['required', Rule::in([EligibilityRules::PUBLIC, EligibilityRules::RESTRICTED])],
+            'eligibility_mode' => ['required', Rule::in([EligibilityRules::PUBLIC, EligibilityRules::PRIVATE])],
             'eligibility_minimum_age' => ['nullable', 'integer', 'min:1', 'max:130'],
             'eligibility_nationality' => ['nullable', Rule::in(array_keys(EligibilityRules::nationalityOptions()))],
             'nomination_start' => ['required', 'date'],
@@ -49,7 +50,7 @@ class StoreElectionRequest extends FormRequest
     public function withValidator($validator): void
     {
         $validator->after(function ($validator): void {
-            if (strtoupper((string) $this->input('eligibility_mode')) !== EligibilityRules::RESTRICTED) {
+            if (strtoupper((string) $this->input('eligibility_mode')) !== EligibilityRules::PUBLIC) {
                 return;
             }
 

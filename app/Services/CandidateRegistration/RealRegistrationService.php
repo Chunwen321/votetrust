@@ -50,6 +50,12 @@ final class RealRegistrationService implements RegistrationService
                     ]);
                 }
 
+                if (trim((string) $election->position_sought) === '') {
+                    throw ValidationException::withMessages([
+                        'election_id' => 'This election does not have a candidate position configured.',
+                    ]);
+                }
+
                 if (EligibilityRules::fromStored($election->eligibility_rules)->mode() !== EligibilityRules::PUBLIC) {
                     throw ValidationException::withMessages([
                         'election_id' => 'This private election does not accept public candidate applications.',
@@ -112,7 +118,6 @@ final class RealRegistrationService implements RegistrationService
                 $candidacy->payment_id = $payment->getKey();
                 $candidacy->status = 'Pending';
                 $candidacy->registered_at = now();
-                $candidacy->position_sought = $input['position_sought'];
                 $candidacy->manifesto = $input['manifesto'];
                 $candidacy->candidate_introduction = $input['candidate_introduction'];
                 $candidacy->qualifications = $input['qualifications'];

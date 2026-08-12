@@ -23,6 +23,8 @@ final class CandidateRegistrationController extends Controller
         $userId = (int) $request->user()?->getAuthIdentifier();
         $elections = Election::query()
             ->where('status', 'NOMINATION_OPEN')
+            ->whereNotNull('position_sought')
+            ->where('position_sought', '!=', '')
             ->whereDoesntHave('candidacies', fn ($query) => $query
                 ->where('user_id', $userId)
                 ->where('status', '!=', 'Rejected'))
@@ -60,7 +62,6 @@ final class CandidateRegistrationController extends Controller
             (int) $request->user()?->getAuthIdentifier(),
             (int) $request->integer('election_id'),
             $request->safe()->only([
-                'position_sought',
                 'manifesto',
                 'candidate_introduction',
                 'qualifications',

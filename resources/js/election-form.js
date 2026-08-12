@@ -5,6 +5,8 @@ document.querySelectorAll('[data-election-form]').forEach((form) => {
     const criteria = form.querySelector('[data-eligibility-criteria]');
     const fields = Array.from(form.querySelectorAll('input:not([type="hidden"]):not([type="radio"]), textarea, select'));
     const validationSummary = document.querySelector('[data-validation-summary]');
+    const publicHelp = form.querySelector('[data-public-help]');
+    const privateHelp = form.querySelector('[data-private-help]');
 
     const value = (name) => form.elements.namedItem(name)?.value.trim() ?? '';
 
@@ -124,7 +126,7 @@ document.querySelectorAll('[data-election-form]').forEach((form) => {
     };
 
     const criteriaMessage = () => {
-        if (selectedEligibilityMode() !== 'RESTRICTED') {
+        if (selectedEligibilityMode() !== 'PUBLIC') {
             return '';
         }
 
@@ -193,15 +195,15 @@ document.querySelectorAll('[data-election-form]').forEach((form) => {
 
     const updateEligibility = () => {
         const selected = form.querySelector('input[name="eligibility_mode"]:checked');
-        const restricted = selected?.value === 'RESTRICTED';
-        criteria.hidden = !restricted;
+        const isPublic = selected?.value === 'PUBLIC';
+        criteria.hidden = !isPublic;
+        if (publicHelp) publicHelp.hidden = !isPublic;
+        if (privateHelp) privateHelp.hidden = isPublic;
         criteria.querySelectorAll('select').forEach((control) => {
-            control.disabled = !restricted;
+            control.disabled = !isPublic;
         });
 
-        if (!restricted) {
-            validateCriteria();
-        }
+        validateCriteria();
     };
 
     choices.forEach((choice) => choice.addEventListener('change', () => {

@@ -30,7 +30,6 @@ final class RegistrationProxy implements RegistrationService
         }
 
         $payload = [
-            'position_sought' => trim((string) ($input['position_sought'] ?? '')),
             'manifesto' => trim((string) ($input['manifesto'] ?? '')),
             'candidate_introduction' => trim((string) ($input['candidate_introduction'] ?? '')),
             'qualifications' => trim((string) ($input['qualifications'] ?? '')) ?: null,
@@ -39,14 +38,13 @@ final class RegistrationProxy implements RegistrationService
             'documents' => array_values($documents),
         ];
 
-        /** @var array{position_sought: string, manifesto: string, candidate_introduction: string, qualifications: string|null, reason_for_candidacy: string} $validated */
+        /** @var array{manifesto: string, candidate_introduction: string, qualifications: string|null, reason_for_candidacy: string} $validated */
         $validated = Validator::make($payload, RegistrationRules::application())->validate();
 
         return $this->realService->apply(
             $userId,
             $electionId,
             [
-                'position_sought' => $validated['position_sought'],
                 'manifesto' => $validated['manifesto'],
                 'candidate_introduction' => $validated['candidate_introduction'],
                 'qualifications' => $validated['qualifications'] ?? null,

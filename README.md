@@ -109,4 +109,4 @@ npm.cmd run build
 
 Current verified result: **58 tests, 271 assertions**, production assets built, 47 routes registered, and `http://votetrust.test/` returns HTTP 200.
 
-See [docs/legacy-migration.md](docs/legacy-migration.md) for the detailed migration/cleanup map and [docs/web-service-ifa.md](docs/web-service-ifa.md) for the provider/consumer interface agreements.
+See [docs/legacy-migration.md](docs/legacy-migration.md) for the detailed migration/cleanup map, [docs/web-service-ifa.md](docs/web-service-ifa.md) for the provider/consumer interface agreements, and [docs/didit-ekyc-setup.md](docs/didit-ekyc-setup.md) to configure the hosted document/selfie eKYC flow.

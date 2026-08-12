@@ -31,7 +31,7 @@
                 <select id="election_id" name="election_id" required>
                     @foreach ($elections as $election)
                         <option value="{{ $election->getKey() }}" @selected((string) old('election_id', $selectedElectionId) === (string) $election->getKey())>
-                            {{ $election->title }}
+                            {{ $election->title }} — {{ $election->position_sought ?: 'Position pending setup' }}
                             @if ($election->nomination_end)
                                 — closes {{ $election->nomination_end->format('j M Y, g:i A') }}
                             @endif
@@ -39,8 +39,7 @@
                     @endforeach
                 </select>
 
-                <label for="position_sought">Position sought</label>
-                <input id="position_sought" name="position_sought" value="{{ old('position_sought') }}" maxlength="100" required>
+                <p class="candidate-help">The position is fixed by the election you choose above and cannot be changed in your application.</p>
 
                 <label for="manifesto">Manifesto</label>
                 <textarea id="manifesto" name="manifesto" minlength="50" maxlength="5000" required>{{ old('manifesto') }}</textarea>

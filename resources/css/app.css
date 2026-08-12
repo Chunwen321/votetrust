@@ -100,29 +100,18 @@ textarea {
 
 .brand {
     display: inline-flex;
-    gap: .7rem;
-    align-items: center;
+    flex-direction: column;
+    gap: .08rem;
+    align-items: flex-start;
 }
 
-.brand__mark {
-    display: grid;
-    width: 2.4rem;
-    height: 2.4rem;
-    place-items: center;
-    border-radius: .75rem;
-    background: linear-gradient(145deg, #123e99, #155eef 68%, #2878ff);
-    box-shadow: 0 8px 18px rgb(21 94 239 / 22%);
-    color: white;
-    font-weight: 850;
-    letter-spacing: -.04em;
-}
-
-.brand strong,
-.brand small {
+.brand__logo {
     display: block;
+    width: 144px;
+    height: auto;
 }
 
-.brand small {
+.brand__tagline {
     color: var(--muted);
     font-size: .72rem;
 }
@@ -1079,7 +1068,7 @@ th {
 }
 
 @media (max-width: 640px) {
-    .brand small,
+    .brand__tagline,
     .account-nav > a:not(.button),
     .account-nav > span {
         display: none;

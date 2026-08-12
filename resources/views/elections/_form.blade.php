@@ -20,6 +20,11 @@
         <input id="title" name="title" maxlength="120" value="{{ $value('title') }}" required>
         @error('title') <small class="election-field-error" data-server-error-for="title">{{ $message }}</small> @enderror
 
+        <label for="position_sought">Position sought</label>
+        <input id="position_sought" name="position_sought" maxlength="100" value="{{ $value('position_sought') }}" required>
+        <p class="election-help">Every candidate in this election applies for this fixed position.</p>
+        @error('position_sought') <small class="election-field-error">{{ $message }}</small> @enderror
+
         <label for="description">Description</label>
         <textarea id="description" name="description" rows="5" maxlength="2000" required>{{ $value('description') }}</textarea>
         @error('description') <small class="election-field-error" data-server-error-for="description">{{ $message }}</small> @enderror
@@ -29,11 +34,14 @@
         <legend>Voter eligibility</legend>
         <div class="election-choice-row">
             <label><input type="radio" name="eligibility_mode" value="PUBLIC" @checked($mode === 'PUBLIC')> Public</label>
-            <label><input type="radio" name="eligibility_mode" value="RESTRICTED" @checked($mode === 'RESTRICTED')> Restricted</label>
+            <label><input type="radio" name="eligibility_mode" value="PRIVATE" @checked($mode === 'PRIVATE')> Private</label>
         </div>
         @error('eligibility_mode') <small class="election-field-error" data-server-error-for="eligibility_mode">{{ $message }}</small> @enderror
 
-        <div class="election-criteria" data-eligibility-criteria @if ($mode !== 'RESTRICTED') hidden @endif>
+        <p class="election-help" data-public-help @if ($mode !== 'PUBLIC') hidden @endif>Public elections are open to verified VoteTrust users who meet at least one rule below.</p>
+        <p class="election-help" data-private-help @if ($mode !== 'PRIVATE') hidden @endif>Private elections use an organiser roster. After saving the draft, upload a CSV/XLSX/XLS file with names and IC/passport numbers, or assign voters individually by IC or passport number.</p>
+
+        <div class="election-criteria" data-eligibility-criteria @if ($mode !== 'PUBLIC') hidden @endif>
             <label for="eligibility_minimum_age">Minimum age</label>
             <select id="eligibility_minimum_age" name="eligibility_minimum_age">
                 <option value="">Any age</option>

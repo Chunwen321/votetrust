@@ -304,14 +304,14 @@ class VotingServiceTest extends TestCase
     }
 
     /** @return array<string, mixed> */
-    private function eligibilityRules(?int $minimumAge, ?string $countryCode = null, string $type = 'RESTRICTED'): array
+    private function eligibilityRules(?int $minimumAge, ?string $countryCode = null, string $type = 'PUBLIC'): array
     {
         return [
             'type' => $type,
-            'minimumAge' => $type === 'PUBLIC' ? null : $minimumAge,
+            'minimumAge' => $type === 'PUBLIC' ? $minimumAge : null,
             'nationality' => [
-                'restricted' => $type === 'RESTRICTED' && $countryCode !== null,
-                'countryCode' => $type === 'RESTRICTED' ? $countryCode : null,
+                'restricted' => $type === 'PUBLIC' && $countryCode !== null,
+                'countryCode' => $type === 'PUBLIC' ? $countryCode : null,
                 'countryName' => $countryCode === 'MY' ? 'Malaysia' : ($countryCode === 'SG' ? 'Singapore' : null),
             ],
         ];

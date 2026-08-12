@@ -17,7 +17,10 @@ final class VoterEligibilityAuthorizer
             throw new VoteAccessDenied('You are not eligible to vote in this election.');
         }
 
-        if ($rules['type'] === 'PUBLIC') {
+        // User/Voter has already confirmed the approved roster entry for a
+        // private election. Public elections additionally apply the Election
+        // Module's published age and nationality rules below.
+        if ($rules['type'] === 'PRIVATE') {
             return;
         }
 

@@ -45,7 +45,7 @@ final class ElectionDiscoveryTest extends TestCase
         $user = User::factory()->create(['is_admin' => false]);
         $election = $this->election(
             'Private Committee Election',
-            EligibilityRules::restricted(18, 'MY'),
+            EligibilityRules::privateElection(),
         );
 
         $this->actingAs($user)
@@ -68,7 +68,7 @@ final class ElectionDiscoveryTest extends TestCase
         $user = User::factory()->create(['is_admin' => false]);
         $election = $this->election(
             'Assigned Board Election',
-            EligibilityRules::restricted(21, 'MY'),
+            EligibilityRules::privateElection(),
         );
         Candidacy::query()->create([
             'user_id' => $user->getKey(),
@@ -95,6 +95,7 @@ final class ElectionDiscoveryTest extends TestCase
     {
         return Election::query()->create([
             'title' => $title,
+            'position_sought' => 'Student Representative',
             'description' => 'Enough election detail for a user to understand this candidate opportunity.',
             'eligibility_rules' => $eligibility->toStorage(),
             'status' => Election::NOMINATION_OPEN,
