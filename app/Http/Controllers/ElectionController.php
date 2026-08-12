@@ -74,8 +74,6 @@ final class ElectionController extends Controller
             'nomination_end' => $now->addDays(8)->format('Y-m-d\TH:i'),
             'voting_start' => $now->addDays(9)->format('Y-m-d\TH:i'),
             'voting_end' => $now->addDays(10)->format('Y-m-d\TH:i'),
-            'hosting_fee' => '100.00',
-            'currency' => 'MYR',
         ]]);
     }
 
@@ -84,7 +82,7 @@ final class ElectionController extends Controller
         $election = $this->service->create($request->user(), $request->validated());
 
         return redirect()->route('elections.show', $election)
-            ->with('success', 'Election draft created. Review it before submitting for payment.');
+            ->with('success', 'Election draft created. Review it before requesting an administrator fee quote.');
     }
 
     public function show(Request $request, int $election): View

@@ -163,7 +163,7 @@ final class PaymentWebServiceTest extends TestCase
         );
     }
 
-    public function test_unconfirmed_remote_payment_fails_closed_without_copying_payment_records(): void
+    public function test_admin_verification_of_unconfirmed_payment_fails_closed_without_copying_payment_records(): void
     {
         Http::fake(static function (Request $request) {
             return Http::response([
@@ -189,6 +189,12 @@ final class PaymentWebServiceTest extends TestCase
             'password' => Hash::make('Correct!Pass1'),
         ]);
         Organizer::query()->create(['user_id' => $organizer->getKey()]);
+        $admin = User::query()->create([
+            'name' => 'Payment Gate Administrator',
+            'email' => 'payment-gate-admin@example.test',
+            'password' => Hash::make('Admin!Pass1'),
+            'is_admin' => true,
+        ]);
         $service = new ElectionService;
         $now = CarbonImmutable::now();
         $election = $service->create($organizer, [
@@ -200,24 +206,32 @@ final class PaymentWebServiceTest extends TestCase
             'nomination_end' => $now->addHours(2),
             'voting_start' => $now->addHours(3),
             'voting_end' => $now->addHours(4),
-            'hosting_fee' => 100,
-            'currency' => 'MYR',
         ]);
         $election = $service->transition(
             $organizer,
             $election->getKey(),
-            'submit_for_payment',
+            'submit_for_quote',
             'Correct!Pass1',
             ['version' => 1],
         );
+        $election = $service->transition($admin, $election->getKey(), 'quote_fee', 'Admin!Pass1', [
+            'version' => 2,
+            'hosting_fee' => 100,
+            'currency' => 'MYR',
+        ]);
+        $election = $service->transition($organizer, $election->getKey(), 'accept_fee', 'Correct!Pass1', ['version' => 3]);
+        $election = $service->transition($organizer, $election->getKey(), 'submit_payment', 'Correct!Pass1', [
+            'version' => 4,
+            'payment_reference' => 'VT-HOST-PENDING-001',
+        ]);
 
         try {
             $service->transition(
-                $organizer,
+                $admin,
                 $election->getKey(),
-                'verify_payment',
-                'Correct!Pass1',
-                ['version' => 2, 'payment_reference' => 'VT-HOST-PENDING-001'],
+                'approve',
+                'Admin!Pass1',
+                ['version' => 5],
             );
             self::fail('An unconfirmed remote payment opened the next lifecycle state.');
         } catch (BusinessRuleException $exception) {
@@ -225,7 +239,7 @@ final class PaymentWebServiceTest extends TestCase
         }
 
         $election->refresh();
-        self::assertSame(ElectionStatus::PENDING_PAYMENT->value, $election->status);
+        self::assertSame(ElectionStatus::PENDING_ADMIN_APPROVAL->value, $election->status);
         self::assertNull($election->payment_verified_at);
         self::assertNull($election->payment_response_json);
         self::assertSame(0, DB::table('payment')->count());

@@ -74,6 +74,8 @@
 }
 
 .election-status-draft { background: var(--surface-subtle); }
+.election-status-pending-fee-quote,
+.election-status-pending-fee-acceptance,
 .election-status-pending-payment,
 .election-status-pending-admin-approval { background: var(--warning-soft); color: var(--warning); }
 .election-status-nomination-open,
@@ -136,12 +138,14 @@
 .election-form { display: grid; gap: 1.2rem; }
 .election-form fieldset { display: grid; gap: .65rem; padding: 1.1rem; border: 1px solid var(--border); border-radius: .9rem; background: var(--surface-subtle); }
 .election-form legend { padding: 0 .4rem; font-weight: 800; }
+.election-form-note { margin-bottom: 0; color: var(--muted); }
 .election-form label,
 .election-action label { display: grid; gap: .35rem; font-size: .85rem; font-weight: 700; }
 .election-form input,
 .election-form textarea,
 .election-form select,
 .election-action input,
+.election-action select,
 .election-table select,
 .election-card > form > label input {
     width: 100%;
@@ -160,11 +164,20 @@
 .election-field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
 .election-form-actions { display: flex; justify-content: flex-end; gap: .75rem; }
 .election-field-error { color: #ad2633; font-weight: 650; }
+.election-field-error[hidden] { display: none; }
+
+.election-form input[aria-invalid="true"],
+.election-form textarea[aria-invalid="true"],
+.election-form select[aria-invalid="true"] {
+    border-color: #bf3643;
+    outline: 3px solid rgb(191 54 67 / 12%);
+}
 
 .election-form input:focus,
 .election-form textarea:focus,
 .election-form select:focus,
 .election-action input:focus,
+.election-action select:focus,
 .election-table select:focus { border-color: var(--primary); outline: 3px solid rgb(21 94 239 / 14%); }
 
 .election-detail-grid {

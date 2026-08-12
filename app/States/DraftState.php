@@ -22,8 +22,8 @@ final class DraftState extends AbstractElectionState
     public function actions(Election $election): array
     {
         return [
-            ['action' => 'submit_for_payment', 'label' => 'Submit for hosting payment', 'description' => 'Locks the configuration and moves the election to payment verification.', 'tone' => 'primary', 'audience' => 'organizer', 'requiresPaymentReference' => false, 'requiresReason' => false],
-            ['action' => 'cancel', 'label' => 'Cancel election', 'description' => 'Permanently cancels this draft.', 'tone' => 'danger', 'audience' => 'organizer', 'requiresPaymentReference' => false, 'requiresReason' => true],
+            ['action' => 'submit_for_quote', 'label' => 'Request hosting fee quote', 'description' => 'Locks the configuration and sends the election to an administrator for pricing.', 'tone' => 'primary', 'audience' => 'organizer', 'requiresHostingFee' => false, 'requiresPaymentReference' => false, 'requiresReason' => false],
+            ['action' => 'cancel', 'label' => 'Cancel election', 'description' => 'Permanently cancels this draft.', 'tone' => 'danger', 'audience' => 'organizer', 'requiresHostingFee' => false, 'requiresPaymentReference' => false, 'requiresReason' => true],
         ];
     }
 
@@ -32,11 +32,13 @@ final class DraftState extends AbstractElectionState
         if ($this->cancel($lifecycle, $action, $context)) {
             return;
         }
-        if ($action === 'submit_for_payment') {
-            $lifecycle->moveTo(ElectionStatus::PENDING_PAYMENT->value, $action, [
-                'amount_due' => (float) $lifecycle->election()->hosting_fee,
-                'currency' => (string) $lifecycle->election()->currency,
-            ]);
+        if ($action === 'submit_for_quote') {
+            $election = $lifecycle->election();
+            // Never trust a fee left on a legacy draft: only an administrator
+            // may establish the hosting quote in the next state.
+            $election->hosting_fee = null;
+            $election->currency = 'MYR';
+            $lifecycle->moveTo(ElectionStatus::PENDING_FEE_QUOTE->value, $action);
 
             return;
         }

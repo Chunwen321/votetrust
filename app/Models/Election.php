@@ -14,6 +14,10 @@ class Election extends Model
 
     public const DRAFT = 'DRAFT';
 
+    public const PENDING_FEE_QUOTE = 'PENDING_FEE_QUOTE';
+
+    public const PENDING_FEE_ACCEPTANCE = 'PENDING_FEE_ACCEPTANCE';
+
     public const PENDING_PAYMENT = 'PENDING_PAYMENT';
 
     public const PENDING_ADMIN_APPROVAL = 'PENDING_ADMIN_APPROVAL';

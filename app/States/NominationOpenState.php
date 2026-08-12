@@ -24,8 +24,8 @@ final class NominationOpenState extends AbstractElectionState
     public function actions(Election $election): array
     {
         return [
-            ['action' => 'start_voting', 'label' => 'Open voting', 'description' => 'Requires a complete ballot and the configured voting time.', 'tone' => 'primary', 'audience' => 'organizer', 'requiresPaymentReference' => false, 'requiresReason' => false],
-            ['action' => 'cancel', 'label' => 'Cancel election', 'description' => 'Cancels the published election.', 'tone' => 'danger', 'audience' => 'organizer', 'requiresPaymentReference' => false, 'requiresReason' => true],
+            ['action' => 'start_voting', 'label' => 'Open voting', 'description' => 'Requires a complete ballot and the configured voting time.', 'tone' => 'primary', 'audience' => 'organizer', 'requiresHostingFee' => false, 'requiresPaymentReference' => false, 'requiresReason' => false],
+            ['action' => 'cancel', 'label' => 'Cancel election', 'description' => 'Cancels the published election.', 'tone' => 'danger', 'audience' => 'organizer', 'requiresHostingFee' => false, 'requiresPaymentReference' => false, 'requiresReason' => true],
         ];
     }
 

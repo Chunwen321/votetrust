@@ -42,8 +42,6 @@ class StoreElectionRequest extends FormRequest
             'nomination_end' => ['required', 'date', 'after:nomination_start'],
             'voting_start' => ['required', 'date', 'after_or_equal:nomination_end'],
             'voting_end' => ['required', 'date', 'after:voting_start'],
-            'hosting_fee' => ['required', 'numeric', 'min:1', 'max:10000'],
-            'currency' => ['required', 'string', 'regex:/^[A-Za-z]{3}$/'],
             'version' => ['nullable', 'integer', 'min:1'],
         ];
     }

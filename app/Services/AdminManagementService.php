@@ -44,7 +44,7 @@ final class AdminManagementService
                 ->where('account_status', 'DISABLED')
                 ->count(),
             'pending_election_approvals' => Election::query()
-                ->where('status', Election::PENDING_ADMIN_APPROVAL)
+                ->whereIn('status', [Election::PENDING_FEE_QUOTE, Election::PENDING_ADMIN_APPROVAL])
                 ->count(),
         ];
     }
@@ -64,7 +64,7 @@ final class AdminManagementService
     {
         return Election::query()
             ->with('organizer:id,name,username,full_name')
-            ->where('status', Election::PENDING_ADMIN_APPROVAL)
+            ->whereIn('status', [Election::PENDING_FEE_QUOTE, Election::PENDING_ADMIN_APPROVAL])
             ->orderBy('updated_at')
             ->limit(max(1, $limit))
             ->get();

@@ -32,6 +32,12 @@
                     <input type="hidden" name="action" value="{{ $action['action'] }}">
                     <input type="hidden" name="version" value="{{ $election->version }}">
                     <div><h3>{{ $action['label'] }}</h3><p>{{ $action['description'] }}</p></div>
+                    @if ($action['requiresHostingFee'])
+                        <div class="election-field-grid">
+                            <label>Hosting fee amount<input name="hosting_fee" type="number" min="1" max="10000" step="0.01" value="{{ old('hosting_fee') }}" required></label>
+                            <label>Currency<select name="currency" required><option value="MYR" @selected(old('currency', 'MYR') === 'MYR')>MYR</option><option value="USD" @selected(old('currency') === 'USD')>USD</option><option value="SGD" @selected(old('currency') === 'SGD')>SGD</option></select></label>
+                        </div>
+                    @endif
                     @if ($action['requiresPaymentReference'])
                         <label>Payment reference<input name="payment_reference" maxlength="64" required></label>
                     @endif
@@ -39,7 +45,7 @@
                         <label>Reason<input name="reason" maxlength="250" required></label>
                     @endif
                     <label>Current password<input name="current_password" type="password" autocomplete="current-password" required></label>
-                    <button class="election-button {{ $action['tone'] === 'danger' ? 'election-button-danger' : 'election-button-primary' }}" type="submit">{{ $action['label'] }}</button>
+                    <button class="election-button {{ $action['tone'] === 'danger' ? 'election-button-danger' : ($action['tone'] === 'primary' ? 'election-button-primary' : '') }}" type="submit">{{ $action['label'] }}</button>
                 </form>
             @empty
                 <p>No lifecycle action is currently available.</p>
@@ -52,8 +58,8 @@
                 <div><dt>Eligibility</dt><dd>{{ $eligibility->summary() }}</dd></div>
                 <div><dt>Nominations</dt><dd>{{ \Carbon\CarbonImmutable::parse($election->nomination_start)->format('d M Y, H:i') }} - {{ \Carbon\CarbonImmutable::parse($election->nomination_end)->format('d M Y, H:i') }}</dd></div>
                 <div><dt>Voting</dt><dd>{{ \Carbon\CarbonImmutable::parse($election->voting_start)->format('d M Y, H:i') }} - {{ \Carbon\CarbonImmutable::parse($election->voting_end)->format('d M Y, H:i') }}</dd></div>
-                <div><dt>Hosting fee</dt><dd>{{ $election->currency }} {{ number_format((float) $election->hosting_fee, 2) }}</dd></div>
-                <div><dt>Payment</dt><dd>{{ $availability['hostingPaymentVerified'] ? 'Verified' : 'Required' }}</dd></div>
+                <div><dt>Hosting fee</dt><dd>{{ $election->hosting_fee === null ? 'Awaiting administrator quote' : $election->currency.' '.number_format((float) $election->hosting_fee, 2) }}</dd></div>
+                <div><dt>Payment</dt><dd>@if ($availability['hostingPaymentVerified']) Verified by administrator @elseif ($election->payment_reference) Submitted for verification @elseif ($election->status === \App\States\ElectionStatus::PENDING_PAYMENT->value) Ready for payment @else Not yet available @endif</dd></div>
                 <div><dt>Admin approval</dt><dd>{{ $availability['administratorApproved'] ? 'Approved' : 'Required' }}</dd></div>
                 <div><dt>Version</dt><dd>{{ $election->version }}</dd></div>
             </dl>

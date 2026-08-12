@@ -23,7 +23,11 @@ final class AdminElectionController extends Controller
         }
 
         return view('admin.elections.index', [
-            'elections' => Election::query()->latest('updated_at')->paginate(20),
+            'elections' => Election::query()->with('organizer')->latest('updated_at')->paginate(20),
+            'adminActionCount' => Election::query()->whereIn('status', [
+                Election::PENDING_FEE_QUOTE,
+                Election::PENDING_ADMIN_APPROVAL,
+            ])->count(),
         ]);
     }
 
