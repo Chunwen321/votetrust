@@ -7,6 +7,8 @@ document.querySelectorAll('[data-election-form]').forEach((form) => {
     const validationSummary = document.querySelector('[data-validation-summary]');
     const publicHelp = form.querySelector('[data-public-help]');
     const privateHelp = form.querySelector('[data-private-help]');
+    const feePreview = form.querySelector('[data-hosting-fee-preview]');
+    const feeAmount = feePreview?.querySelector('[data-hosting-fee-amount]');
 
     const value = (name) => form.elements.namedItem(name)?.value.trim() ?? '';
 
@@ -199,6 +201,10 @@ document.querySelectorAll('[data-election-form]').forEach((form) => {
         criteria.hidden = !isPublic;
         if (publicHelp) publicHelp.hidden = !isPublic;
         if (privateHelp) privateHelp.hidden = isPublic;
+        if (feePreview && feeAmount) {
+            const amount = isPublic ? feePreview.dataset.publicFee : feePreview.dataset.privateFee;
+            feeAmount.textContent = `${feePreview.dataset.currency} ${amount}`;
+        }
         criteria.querySelectorAll('select').forEach((control) => {
             control.disabled = !isPublic;
         });

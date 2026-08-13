@@ -37,8 +37,8 @@ final class AdminElectionApprovalController extends Controller
             $envelope = $this->validator->validateEnvelope($payload);
             $requestId = $envelope['requestID'];
             $decision = strtoupper(trim((string) ($payload['decision'] ?? '')));
-            if (! in_array($decision, ['QUOTE_FEE', 'APPROVE', 'RETURN_FOR_PAYMENT', 'REJECT'], true)) {
-                throw ValidationException::withMessages(['decision' => 'Decision must be QUOTE_FEE, APPROVE, RETURN_FOR_PAYMENT, or REJECT.']);
+            if (! in_array($decision, ['APPROVE', 'RETURN_FOR_PAYMENT', 'REJECT'], true)) {
+                throw ValidationException::withMessages(['decision' => 'Decision must be APPROVE, RETURN_FOR_PAYMENT, or REJECT.']);
             }
             $adminId = filter_var($payload['adminUserID'] ?? null, FILTER_VALIDATE_INT);
             if ($adminId === false || $adminId < 1) {
@@ -54,8 +54,6 @@ final class AdminElectionApprovalController extends Controller
                 $election,
                 strtolower($decision),
                 [
-                    'hosting_fee' => $payload['hostingFee'] ?? null,
-                    'currency' => $payload['currency'] ?? null,
                     'reason' => $payload['reason'] ?? null,
                     'version' => $payload['version'] ?? null,
                 ],

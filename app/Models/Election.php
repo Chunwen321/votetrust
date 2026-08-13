@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\ValueObjects\EligibilityRules;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,10 +14,6 @@ class Election extends Model
     protected $table = 'election';
 
     public const DRAFT = 'DRAFT';
-
-    public const PENDING_FEE_QUOTE = 'PENDING_FEE_QUOTE';
-
-    public const PENDING_FEE_ACCEPTANCE = 'PENDING_FEE_ACCEPTANCE';
 
     public const PENDING_PAYMENT = 'PENDING_PAYMENT';
 
@@ -31,6 +28,22 @@ class Election extends Model
     public const REJECTED = 'REJECTED';
 
     public const CANCELLED = 'CANCELLED';
+
+    public static function hostingFeeForMode(string $mode): string
+    {
+        $amount = $mode === EligibilityRules::PRIVATE
+            ? config('election.hosting_fee.private', 120)
+            : config('election.hosting_fee.public', 100);
+
+        return number_format((float) $amount, 2, '.', '');
+    }
+
+    public function applyDefaultHostingFee(): void
+    {
+        $mode = EligibilityRules::fromStored($this->eligibility_rules)->mode();
+        $this->hosting_fee = self::hostingFeeForMode($mode);
+        $this->currency = strtoupper((string) config('election.hosting_fee.currency', 'MYR'));
+    }
 
     protected $fillable = [
         'organizer_id',

@@ -212,18 +212,12 @@ final class PaymentWebServiceTest extends TestCase
         $election = $service->transition(
             $organizer,
             $election->getKey(),
-            'submit_for_quote',
+            'submit_for_payment',
             'Correct!Pass1',
             ['version' => 1],
         );
-        $election = $service->transition($admin, $election->getKey(), 'quote_fee', 'Admin!Pass1', [
-            'version' => 2,
-            'hosting_fee' => 100,
-            'currency' => 'MYR',
-        ]);
-        $election = $service->transition($organizer, $election->getKey(), 'accept_fee', 'Correct!Pass1', ['version' => 3]);
         $election = $service->transition($organizer, $election->getKey(), 'submit_payment', 'Correct!Pass1', [
-            'version' => 4,
+            'version' => 2,
             'payment_reference' => 'VT-HOST-PENDING-001',
         ]);
 
@@ -233,7 +227,7 @@ final class PaymentWebServiceTest extends TestCase
                 $election->getKey(),
                 'approve',
                 'Admin!Pass1',
-                ['version' => 5],
+                ['version' => 3],
             );
             self::fail('An unconfirmed remote payment opened the next lifecycle state.');
         } catch (BusinessRuleException $exception) {

@@ -54,8 +54,7 @@ final class ElectionSummaryController extends Controller
         return $this->respond($request, function (): array {
             $recent = Election::query()->latest('updated_at')->limit(5)->get();
             $pending = Election::query()
-                ->whereIn('status', [Election::PENDING_FEE_QUOTE, Election::PENDING_ADMIN_APPROVAL])
-                ->orderByRaw('CASE WHEN status = ? THEN 0 ELSE 1 END', [Election::PENDING_FEE_QUOTE])
+                ->where('status', Election::PENDING_ADMIN_APPROVAL)
                 ->orderBy('updated_at')
                 ->limit(4)
                 ->get();
@@ -65,7 +64,7 @@ final class ElectionSummaryController extends Controller
                     'elections' => Election::query()->count(),
                     'active' => Election::query()->whereIn('status', ['APPROVED', 'NOMINATION_OPEN', 'VOTING_OPEN'])->count(),
                     'pendingApprovals' => Election::query()
-                        ->whereIn('status', [Election::PENDING_FEE_QUOTE, Election::PENDING_ADMIN_APPROVAL])
+                        ->where('status', Election::PENDING_ADMIN_APPROVAL)
                         ->count(),
                 ],
                 'recentElections' => $recent->map($this->summary(...))->values()->all(),

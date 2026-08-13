@@ -12,8 +12,6 @@ final class ElectionStateFactory
     {
         return match ($state) {
             ElectionStatus::DRAFT->value => new DraftState,
-            ElectionStatus::PENDING_FEE_QUOTE->value => new PendingFeeQuoteState,
-            ElectionStatus::PENDING_FEE_ACCEPTANCE->value => new PendingFeeAcceptanceState,
             ElectionStatus::PENDING_PAYMENT->value => new PendingPaymentState,
             ElectionStatus::PENDING_ADMIN_APPROVAL->value => new PendingAdminApprovalState,
             ElectionStatus::NOMINATION_OPEN->value => new NominationOpenState,

@@ -5,6 +5,9 @@
     $mode = old('eligibility_mode', $eligibility->mode());
     $minimumAge = old('eligibility_minimum_age', $eligibility->minimumAge());
     $nationality = old('eligibility_nationality', $eligibility->nationalityFormValue());
+    $feeCurrency = strtoupper((string) config('election.hosting_fee.currency', 'MYR'));
+    $publicFee = number_format((float) config('election.hosting_fee.public', 100), 2);
+    $privateFee = number_format((float) config('election.hosting_fee.private', 120), 2);
 @endphp
 
 <form class="election-card election-form" method="post" action="{{ $formAction }}" data-election-form novalidate>
@@ -85,7 +88,12 @@
 
     <fieldset>
         <legend>Hosting fee</legend>
-        <p class="election-form-note">A VoteTrust administrator will review this configuration and send you a hosting fee quote. Payment is enabled only after you accept that quote.</p>
+        <div class="election-fee-preview" data-hosting-fee-preview data-currency="{{ $feeCurrency }}" data-public-fee="{{ $publicFee }}" data-private-fee="{{ $privateFee }}">
+            <span>Fixed fee for the selected election type</span>
+            <strong data-hosting-fee-amount>{{ $feeCurrency }} {{ $mode === 'PRIVATE' ? $privateFee : $publicFee }}</strong>
+            <small>Public: {{ $feeCurrency }} {{ $publicFee }} &middot; Private: {{ $feeCurrency }} {{ $privateFee }}</small>
+        </div>
+        <p class="election-form-note">VoteTrust calculates this fee automatically. It cannot be changed by the organiser or administrator.</p>
     </fieldset>
 
     <div class="election-form-actions">

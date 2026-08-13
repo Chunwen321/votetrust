@@ -89,7 +89,7 @@ final class ElectionController extends Controller
         $election = $this->service->create($request->user(), $request->validated());
 
         return redirect()->route('elections.show', $election)
-            ->with('success', 'Election draft created. Review it before requesting an administrator fee quote.');
+            ->with('success', 'Election draft created. Review it before continuing to hosting payment.');
     }
 
     public function show(Request $request, int $election): View

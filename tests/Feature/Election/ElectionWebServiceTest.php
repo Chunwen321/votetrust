@@ -131,57 +131,6 @@ final class ElectionWebServiceTest extends TestCase
         self::assertSame(ElectionStatus::NOMINATION_OPEN->value, $election->refresh()->status);
     }
 
-    public function test_admin_approval_endpoint_can_set_a_hosting_fee_before_payment(): void
-    {
-        config()->set('election.admin_api_key', 'admin-contract-secret');
-        $now = CarbonImmutable::now();
-        $organizer = User::query()->create([
-            'name' => 'Fee Quote Organizer',
-            'email' => 'fee-quote-organizer@example.test',
-            'password' => Hash::make('Organizer!Pass1'),
-        ]);
-        $admin = User::query()->create([
-            'name' => 'Fee Quote Administrator',
-            'email' => 'fee-quote-admin@example.test',
-            'password' => Hash::make('Admin!Pass1'),
-            'is_admin' => true,
-        ]);
-        $election = Election::query()->create([
-            'organizer_id' => $organizer->getKey(),
-            'title' => 'Fee Quote API Election',
-            'position_sought' => 'Faculty Representative',
-            'description' => 'An election waiting for an administrator to quote its hosting fee.',
-            'eligibility_rules' => EligibilityRules::publicElection()->toStorage(),
-            'nomination_start' => $now->addDay(),
-            'nomination_end' => $now->addDays(2),
-            'voting_start' => $now->addDays(3),
-            'voting_end' => $now->addDays(4),
-            'status' => ElectionStatus::PENDING_FEE_QUOTE->value,
-            'version' => 1,
-            'transition_history_json' => [],
-        ]);
-
-        $this->withHeader('X-Admin-API-Key', 'admin-contract-secret')
-            ->postJson('/api/v1/elections/'.$election->getKey().'/approval', [
-                'requestID' => 'ADMIN-FEE-QUOTE-0001',
-                'timestamp' => $now->toAtomString(),
-                'decision' => 'QUOTE_FEE',
-                'hostingFee' => 150.50,
-                'currency' => 'MYR',
-                'adminUserID' => $admin->getKey(),
-                'version' => 1,
-            ])
-            ->assertOk()
-            ->assertJsonPath('status', 'S')
-            ->assertJsonPath('requestID', 'ADMIN-FEE-QUOTE-0001')
-            ->assertJsonPath('data.lifecycleState', ElectionStatus::PENDING_FEE_ACCEPTANCE->value);
-
-        $election->refresh();
-        self::assertSame(ElectionStatus::PENDING_FEE_ACCEPTANCE->value, $election->status);
-        self::assertSame('150.50', $election->hosting_fee);
-        self::assertSame('MYR', $election->currency);
-    }
-
     /** @return array{Election,Candidacy} */
     private function votingElection(CarbonImmutable $now): array
     {
