@@ -10,6 +10,29 @@ const createElement = (tag, className, text) => {
     return element;
 };
 
+document.querySelectorAll('[data-file-upload]').forEach((fileUpload) => {
+    const input = fileUpload.querySelector('input[type="file"]');
+    const fileName = fileUpload.querySelector('[data-file-name]');
+    const trigger = fileUpload.querySelector('[data-file-trigger]');
+
+    if (!input || !fileName) {
+        return;
+    }
+
+    input.addEventListener('change', () => {
+        fileName.textContent = input.files?.[0]?.name || 'No file chosen';
+    });
+
+    trigger?.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') {
+            return;
+        }
+
+        event.preventDefault();
+        input.click();
+    });
+});
+
 document.querySelectorAll('[data-private-voter-directory]').forEach((directory) => {
     const searchInput = directory.querySelector('[data-voter-search]');
     const list = directory.querySelector('[data-voter-directory-list]');

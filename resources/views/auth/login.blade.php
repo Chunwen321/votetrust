@@ -67,6 +67,7 @@
                 <div class="auth-field" data-identity-my @if (! $isMalaysianRegistration) hidden @endif>
                     <label for="ic-number">IC number</label>
                     <input id="ic-number" name="ic_number" value="{{ old('ic_number') }}" inputmode="numeric" maxlength="14" autocomplete="off" data-ic-number @required($isMalaysianRegistration) @disabled(! $isMalaysianRegistration)>
+                    <small>Hyphens are added automatically.</small>
                     @error('ic_number')<small class="field-error">{{ $message }}</small>@enderror
                 </div>
 
@@ -78,7 +79,7 @@
 
                 <div class="auth-field">
                     <label for="phone-number">Phone number</label>
-                    <input id="phone-number" name="phone_number" type="tel" value="{{ old('phone_number') }}" maxlength="30" autocomplete="tel" required>
+                    <input id="phone-number" name="phone_number" type="tel" value="{{ old('phone_number') }}" maxlength="30" autocomplete="tel" inputmode="tel" placeholder="e.g. +60 12-345 6789" data-phone-number required>
                     @error('phone_number')<small class="field-error">{{ $message }}</small>@enderror
                 </div>
 
@@ -113,7 +114,6 @@
                         <li data-password-rule="lower"><span class="password-requirements__icon" aria-hidden="true">○</span> A lowercase letter</li>
                         <li data-password-rule="number"><span class="password-requirements__icon" aria-hidden="true">○</span> A number</li>
                         <li data-password-rule="symbol"><span class="password-requirements__icon" aria-hidden="true">○</span> A symbol</li>
-                        <li data-password-rule="match"><span class="password-requirements__icon" aria-hidden="true">○</span> Passwords match</li>
                     </ul>
                     @error('password')<small class="field-error">{{ $message }}</small>@enderror
                 </div>
@@ -306,8 +306,16 @@
                 return input.disabled || (!Number.isNaN(Date.parse(value)) && value <= new Date().toISOString().slice(0, 10)) ? '' : 'Enter a valid date of birth.';
             case 'nationality_country_code':
                 return /^[A-Z]{2}$/.test(value) ? '' : 'Select your nationality.';
-            case 'phone_number':
-                return /^[0-9+().\- ]+$/.test(value) ? '' : 'Enter a valid phone number.';
+            case 'phone_number': {
+                const compactPhone = value.replace(/[().\-\s]/g, '');
+                const phoneDigits = compactPhone.startsWith('+')
+                    ? compactPhone.slice(1)
+                    : compactPhone.startsWith('00') ? compactPhone.slice(2) : compactPhone;
+
+                return /^(?:\+|00)?[0-9().\- ]+$/.test(value) && /^\d{7,15}$/.test(phoneDigits)
+                    ? ''
+                    : 'Enter 7 to 15 digits with an optional international prefix.';
+            }
             case 'password':
                 return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,}$/.test(value)
                     ? ''
@@ -400,7 +408,6 @@
     updateIdentityFields();
 
     const registerPassword = document.getElementById('register-password');
-    const passwordConfirmation = document.getElementById('password-confirmation');
     const passwordRequirements = document.querySelector('[data-password-requirements]');
 
     const updatePasswordRequirements = () => {
@@ -415,7 +422,6 @@
             lower: /[a-z]/.test(password),
             number: /\d/.test(password),
             symbol: /[^A-Za-z0-9]/.test(password),
-            match: password !== '' && password === passwordConfirmation?.value,
         };
 
         Object.entries(rules).forEach(([rule, met]) => {
@@ -430,7 +436,6 @@
     };
 
     registerPassword?.addEventListener('input', updatePasswordRequirements);
-    passwordConfirmation?.addEventListener('input', updatePasswordRequirements);
     updatePasswordRequirements();
 
     document.querySelectorAll('[data-password-toggle]').forEach((toggle) => {

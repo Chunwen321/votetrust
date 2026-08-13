@@ -8,6 +8,7 @@ namespace App\Http\Requests;
 
 use App\Support\CountryList;
 use App\Support\Identity;
+use Closure;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -64,7 +65,23 @@ final class RegisterRequest extends FormRequest
                 'date',
                 'before_or_equal:today',
             ],
-            'phone_number' => ['required', 'string', 'max:30', 'regex:/^[0-9+().\- ]+$/'],
+            'phone_number' => [
+                'required',
+                'string',
+                'max:30',
+                'regex:/^(?:\+|00)?[0-9().\- ]+$/',
+                static function (string $attribute, mixed $value, Closure $fail): void {
+                    $digits = preg_replace('/\D/', '', (string) $value) ?? '';
+
+                    if (str_starts_with(trim((string) $value), '00')) {
+                        $digits = substr($digits, 2);
+                    }
+
+                    if (strlen($digits) < 7 || strlen($digits) > 15) {
+                        $fail('The phone number must contain between 7 and 15 digits.');
+                    }
+                },
+            ],
             'password' => ['required', 'confirmed', Password::min(12)->mixedCase()->numbers()->symbols()],
         ];
     }

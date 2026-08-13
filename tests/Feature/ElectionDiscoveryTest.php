@@ -31,6 +31,11 @@ final class ElectionDiscoveryTest extends TestCase
             ->get(route('elections.show', $election))
             ->assertOk()
             ->assertSee('Public election')
+            ->assertSee('election-details-page', false)
+            ->assertSee('Nomination period')
+            ->assertSee('Voting period')
+            ->assertSee('Starts')
+            ->assertSee('Ends')
             ->assertSee('Become a candidate')
             ->assertSee(route('candidate.applications.create', ['election_id' => $election->getKey()]));
 

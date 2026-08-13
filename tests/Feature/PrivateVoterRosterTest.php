@@ -25,6 +25,20 @@ final class PrivateVoterRosterTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_a_verified_user_can_download_the_private_voter_csv_template(): void
+    {
+        $response = $this->actingAs(User::factory()->create())
+            ->get(route('elections.private-voters.template'))
+            ->assertOk()
+            ->assertDownload('votetrust-private-voter-template.csv');
+
+        $content = $response->streamedContent();
+
+        self::assertStringContainsString('full_name,ic_number', $content);
+        self::assertStringContainsString('050729-14-5232', $content);
+        self::assertStringContainsString('E1234567', $content);
+    }
+
     public function test_the_roster_reader_accepts_xlsx_with_ic_or_passport_values(): void
     {
         $spreadsheet = new Spreadsheet;
@@ -386,7 +400,15 @@ final class PrivateVoterRosterTest extends TestCase
             ->assertOk()
             ->assertSeeText('Add voters to this election')
             ->assertSeeText('Choose voters from your members')
-            ->assertSeeText('Import a voter list');
+            ->assertSeeText('Import a voter list')
+            ->assertSeeText('Download CSV template')
+            ->assertSeeText('Choose file')
+            ->assertSeeText('Nomination period')
+            ->assertSeeText('Voting period')
+            ->assertSee('data-file-upload', false)
+            ->assertSee('id="voter_list"', false)
+            ->assertSee('class="election-file-upload__native"', false)
+            ->assertSee('aria-required="true" hidden', false);
 
         $this->actingAs($organizer)
             ->getJson(route('elections.private-voters.directory', ['election' => $election, 'search' => '050729']))

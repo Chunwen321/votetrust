@@ -6,6 +6,7 @@ use App\Contracts\VotingIntegration;
 use App\Http\Requests\CastVoteRequest;
 use App\Models\Vote;
 use App\Services\Voting\IntegrationException;
+use App\Services\Voting\InvalidVoteRequest;
 use App\Services\Voting\VoteAccessDenied;
 use App\Services\Voting\VoteAlreadyExists;
 use App\Services\Voting\VoterEligibilityAuthorizer;
@@ -98,7 +99,7 @@ class VotingController extends Controller
                 (string) $request->validated('request_id'),
                 (string) $request->validated('timestamp'),
             );
-        } catch (VoteAlreadyExists|VoteAccessDenied $exception) {
+        } catch (InvalidVoteRequest|VoteAlreadyExists|VoteAccessDenied $exception) {
             return back()->withErrors(['vote' => $exception->getMessage()]);
         } catch (IntegrationException) {
             return back()->withErrors([
@@ -109,11 +110,14 @@ class VotingController extends Controller
         return redirect()->route('voting.receipt', $vote);
     }
 
-    public function receipt(Request $request, Vote $vote): View
+    public function receipt(Request $request, int $vote): View
     {
-        abort_unless($vote->voter_id === $request->user()->id, 403);
+        $ownedVote = Vote::query()
+            ->whereKey($vote)
+            ->where('voter_id', $request->user()->id)
+            ->firstOrFail();
 
-        return view('voting.success', ['vote' => $vote]);
+        return view('voting.success', ['vote' => $ownedVote]);
     }
 
     /** @return array{string,string} */

@@ -14,6 +14,7 @@ Route::middleware(['auth', 'active.account'])->group(function (): void {
 Route::middleware(['auth', 'active.account', 'verified.profile'])->group(function (): void {
     Route::get('/elections/create', [ElectionController::class, 'create'])->name('elections.create');
     Route::post('/elections', [ElectionController::class, 'store'])->name('elections.store');
+    Route::get('/elections/private-voters/template', [ElectionController::class, 'downloadPrivateVoterTemplate'])->name('elections.private-voters.template');
     Route::get('/elections/{election}/edit', [ElectionController::class, 'edit'])->whereNumber('election')->name('elections.edit');
     Route::put('/elections/{election}', [ElectionController::class, 'update'])->whereNumber('election')->name('elections.update');
     Route::get('/elections/{election}/private-voters', [ElectionController::class, 'privateVoterDirectory'])->whereNumber('election')->name('elections.private-voters.directory');

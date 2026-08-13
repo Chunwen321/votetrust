@@ -12,5 +12,7 @@ Route::middleware(['auth', 'active.account', 'verified.profile'])->prefix('votin
     Route::post('/elections/{election}/votes', [VotingController::class, 'cast'])
         ->whereNumber('election')
         ->name('cast');
-    Route::get('/receipts/{vote}', [VotingController::class, 'receipt'])->name('receipt');
+    Route::get('/receipts/{vote}', [VotingController::class, 'receipt'])
+        ->whereNumber('vote')
+        ->name('receipt');
 });

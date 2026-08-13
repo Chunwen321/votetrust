@@ -12,6 +12,10 @@
     $isPrivateElection = $eligibility->mode() === \App\ValueObjects\EligibilityRules::PRIVATE;
     $displayHostingFee = $election->hosting_fee ?? \App\Models\Election::hostingFeeForMode($eligibility->mode());
     $displayCurrency = $election->currency ?: strtoupper((string) config('election.hosting_fee.currency', 'MYR'));
+    $nominationStart = \Carbon\CarbonImmutable::parse($election->nomination_start);
+    $nominationEnd = \Carbon\CarbonImmutable::parse($election->nomination_end);
+    $votingStart = \Carbon\CarbonImmutable::parse($election->voting_start);
+    $votingEnd = \Carbon\CarbonImmutable::parse($election->voting_end);
     $canManagePrivateVoters = ! $isAdminView
         && $isPrivateElection
         && in_array($election->status, [
@@ -104,8 +108,36 @@
                 @if ($isPrivateElection)
                     <div><dt>Approved voters</dt><dd>{{ $election->private_voter_count }} assigned{{ $election->private_voter_unmatched_count ? ', '.$election->private_voter_unmatched_count.' unmatched' : '' }}</dd></div>
                 @endif
-                <div><dt>Nominations</dt><dd>{{ \Carbon\CarbonImmutable::parse($election->nomination_start)->format('d M Y, H:i') }}<br><span>to {{ \Carbon\CarbonImmutable::parse($election->nomination_end)->format('d M Y, H:i') }}</span></dd></div>
-                <div><dt>Voting</dt><dd>{{ \Carbon\CarbonImmutable::parse($election->voting_start)->format('d M Y, H:i') }}<br><span>to {{ \Carbon\CarbonImmutable::parse($election->voting_end)->format('d M Y, H:i') }}</span></dd></div>
+                <div class="election-configuration-period election-configuration-period-nomination">
+                    <dt><span aria-hidden="true"></span>Nomination period</dt>
+                    <dd>
+                        <time datetime="{{ $nominationStart->toIso8601String() }}">
+                            <small>Starts</small>
+                            <strong>{{ $nominationStart->format('d M Y') }}</strong>
+                            <span>{{ $nominationStart->format('H:i') }}</span>
+                        </time>
+                        <time datetime="{{ $nominationEnd->toIso8601String() }}">
+                            <small>Ends</small>
+                            <strong>{{ $nominationEnd->format('d M Y') }}</strong>
+                            <span>{{ $nominationEnd->format('H:i') }}</span>
+                        </time>
+                    </dd>
+                </div>
+                <div class="election-configuration-period election-configuration-period-voting">
+                    <dt><span aria-hidden="true"></span>Voting period</dt>
+                    <dd>
+                        <time datetime="{{ $votingStart->toIso8601String() }}">
+                            <small>Starts</small>
+                            <strong>{{ $votingStart->format('d M Y') }}</strong>
+                            <span>{{ $votingStart->format('H:i') }}</span>
+                        </time>
+                        <time datetime="{{ $votingEnd->toIso8601String() }}">
+                            <small>Ends</small>
+                            <strong>{{ $votingEnd->format('d M Y') }}</strong>
+                            <span>{{ $votingEnd->format('H:i') }}</span>
+                        </time>
+                    </dd>
+                </div>
                 <div class="election-configuration-split"><dt>Hosting fee</dt><dd>{{ $displayCurrency }} {{ number_format((float) $displayHostingFee, 2) }}</dd><dt>Payment</dt><dd>@if ($availability['hostingPaymentVerified']) Verified by administrator @elseif ($election->payment_reference) Submitted for verification @elseif ($election->status === \App\States\ElectionStatus::PENDING_PAYMENT->value) Ready for payment @else Not yet available @endif</dd><dt>Approval</dt><dd>{{ $availability['administratorApproved'] ? 'Approved' : 'Required' }}</dd></div>
             </dl>
         </aside>
@@ -161,10 +193,24 @@
                         <span class="election-roster-method-kicker">Spreadsheet import</span>
                         <h3>Import a voter list</h3>
                         <p>Upload a CSV, XLSX, or XLS file with the exact headers <code>full_name</code> and <code>ic_number</code>. The identity column can contain IC or passport numbers.</p>
-                        <label for="voter_list">Voter spreadsheet<input id="voter_list" name="voter_list" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" required></label>
+                        <div class="election-roster-template">
+                            <div>
+                                <strong>Start with the voter template</strong>
+                                <p>Open it in Excel, replace the example rows, and keep both column headers unchanged.</p>
+                            </div>
+                            <a class="election-button election-button-small" href="{{ route('elections.private-voters.template') }}" download>Download CSV template</a>
+                        </div>
+                        <div class="election-file-upload" data-file-upload>
+                            <span class="election-file-upload__title">Voter spreadsheet</span>
+                            <input id="voter_list" class="election-file-upload__native" name="voter_list" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" aria-required="true" hidden>
+                            <div class="election-file-upload__control">
+                                <label for="voter_list" tabindex="0" data-file-trigger>Choose file</label>
+                                <span data-file-name>No file chosen</span>
+                            </div>
+                        </div>
                         <p class="election-help">For Excel files, set the <code>ic_number</code> column to <strong>Text</strong> so IC leading zeroes are retained. Existing assigned voters are skipped, and users omitted from a later import remain assigned.</p>
                         @error('voter_list') <small class="election-field-error">{{ $message }}</small> @enderror
-                        <button class="election-button" type="submit">Import voters</button>
+                        <button class="election-button election-button-primary" type="submit">Import voters</button>
                     </form>
                 </div>
             @endif

@@ -93,7 +93,7 @@ textarea {
     grid-template-columns: auto 1fr auto;
     gap: 1.5rem;
     align-items: center;
-    width: min(1180px, calc(100% - 2rem));
+    width: min(1360px, calc(100% - 2.5rem));
     min-height: 72px;
     margin-inline: auto;
 }
@@ -109,11 +109,6 @@ textarea {
     display: block;
     width: 144px;
     height: auto;
-}
-
-.brand__tagline {
-    color: var(--muted);
-    font-size: .72rem;
 }
 
 .site-nav,
@@ -228,10 +223,10 @@ textarea {
 }
 
 .page-shell {
-    width: min(1120px, calc(100% - 2rem));
+    width: min(1360px, calc(100% - 2.5rem));
     min-height: calc(100vh - 150px);
     margin-inline: auto;
-    padding-block: clamp(2rem, 5vw, 3.5rem) 4rem;
+    padding-block: clamp(1.5rem, 3vw, 2.5rem) 3rem;
 }
 
 .page-heading {
@@ -1002,7 +997,7 @@ th {
     display: flex;
     justify-content: space-between;
     gap: 1rem;
-    width: min(1120px, calc(100% - 2rem));
+    width: min(1360px, calc(100% - 2.5rem));
     margin-inline: auto;
     padding-block: 1.25rem 2rem;
     border-top: 1px solid rgb(217 228 242 / 82%);
@@ -1068,13 +1063,13 @@ th {
 }
 
 @media (max-width: 640px) {
-    .brand__tagline,
     .account-nav > a:not(.button),
     .account-nav > span {
         display: none;
     }
 
     .page-shell {
+        width: min(100% - 1.25rem, 1360px);
         padding-top: 1.5rem;
     }
 

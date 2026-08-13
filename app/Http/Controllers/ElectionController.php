@@ -25,6 +25,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class ElectionController extends Controller
 {
@@ -182,6 +183,24 @@ final class ElectionController extends Controller
         } catch (BusinessRuleException $exception) {
             return back()->with('error', $exception->getMessage());
         }
+    }
+
+    public function downloadPrivateVoterTemplate(): StreamedResponse
+    {
+        return response()->streamDownload(static function (): void {
+            $output = fopen('php://output', 'wb');
+            if ($output === false) {
+                return;
+            }
+
+            fwrite($output, "\xEF\xBB\xBF");
+            fputcsv($output, ['full_name', 'ic_number']);
+            fputcsv($output, ['Nur Aisyah Binti Ali', '050729-14-5232']);
+            fputcsv($output, ['Aisha Rahman', 'E1234567']);
+            fclose($output);
+        }, 'votetrust-private-voter-template.csv', [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
     }
 
     public function privateVoterDirectory(Request $request, int $election): JsonResponse

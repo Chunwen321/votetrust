@@ -161,12 +161,13 @@ final class ElectionVotingIntegration implements VotingIntegration
     private function get(string $service, string $path, array $query): array
     {
         $baseUrl = rtrim((string) config("voting.services.{$service}.base_url"), '/');
-        if ($baseUrl === '') {
+        $apiKey = trim((string) config("voting.services.{$service}.api_key"));
+        if ($baseUrl === '' || $apiKey === '') {
             throw new IntegrationException("The {$service} web service is not configured.");
         }
 
         try {
-            $response = $this->client($service)->get($baseUrl.$path, $query);
+            $response = $this->client($service, $apiKey)->get($baseUrl.$path, $query);
         } catch (ConnectionException $exception) {
             throw new IntegrationException("The {$service} web service is unavailable.", previous: $exception);
         }
@@ -203,18 +204,12 @@ final class ElectionVotingIntegration implements VotingIntegration
         return $body;
     }
 
-    private function client(string $service): PendingRequest
+    private function client(string $service, string $apiKey): PendingRequest
     {
-        $request = Http::acceptJson()
+        return Http::acceptJson()
+            ->withHeaders(['X-Internal-Api-Key' => $apiKey])
             ->connectTimeout((int) config("voting.services.{$service}.connect_timeout_seconds", 2))
             ->timeout((int) config("voting.services.{$service}.timeout_seconds", 5));
-
-        $apiKey = (string) config("voting.services.{$service}.api_key");
-        if ($apiKey !== '') {
-            $request = $request->withHeaders(['X-Internal-Api-Key' => $apiKey]);
-        }
-
-        return $request;
     }
 
     /** @param array<string, mixed> $period

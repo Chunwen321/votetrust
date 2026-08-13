@@ -20,7 +20,6 @@
     <div class="site-header__inner">
         <a class="brand" href="{{ url('/') }}" aria-label="VoteTrust home">
             <img class="brand__logo" src="{{ asset('img/votetrust-logo.png') }}" alt="VoteTrust">
-            <span class="brand__tagline">Trusted digital elections</span>
         </a>
 
         <nav class="site-nav" aria-label="Primary navigation">
