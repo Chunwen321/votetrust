@@ -23,8 +23,8 @@ final class PendingPaymentState extends AbstractElectionState
     public function actions(Election $election): array
     {
         return [
-            ['action' => 'submit_payment', 'label' => 'Submit payment for verification', 'description' => 'After paying the accepted quote, send the payment reference to an administrator for verification.', 'tone' => 'primary', 'audience' => 'organizer', 'requiresHostingFee' => false, 'requiresPaymentReference' => true, 'requiresReason' => false],
-            ['action' => 'cancel', 'label' => 'Cancel election', 'description' => 'Cancels the unpaid election.', 'tone' => 'danger', 'audience' => 'organizer', 'requiresHostingFee' => false, 'requiresPaymentReference' => false, 'requiresReason' => true],
+            ['action' => 'submit_payment', 'label' => 'Submit payment for verification', 'description' => 'Pay the fixed hosting fee and send the payment reference to an administrator for verification.', 'tone' => 'primary', 'audience' => 'organizer', 'requiresPaymentReference' => true, 'requiresReason' => false],
+            ['action' => 'cancel', 'label' => 'Cancel election', 'description' => 'Cancels the unpaid election.', 'tone' => 'danger', 'audience' => 'organizer', 'requiresPaymentReference' => false, 'requiresReason' => true],
         ];
     }
 
@@ -43,6 +43,7 @@ final class PendingPaymentState extends AbstractElectionState
         }
 
         $election = $lifecycle->election();
+        $election->applyDefaultHostingFee();
         // The organizer supplies evidence of payment. Verification remains an
         // administrator-only responsibility in PendingAdminApprovalState.
         $election->payment_id = null;

@@ -10,6 +10,8 @@
     $transitionRoute = $isAdminView ? route('admin.elections.transition', $election) : route('elections.transition', $election);
     $eligibility = \App\ValueObjects\EligibilityRules::fromStored($election->eligibility_rules);
     $isPrivateElection = $eligibility->mode() === \App\ValueObjects\EligibilityRules::PRIVATE;
+    $displayHostingFee = $election->hosting_fee ?? \App\Models\Election::hostingFeeForMode($eligibility->mode());
+    $displayCurrency = $election->currency ?: strtoupper((string) config('election.hosting_fee.currency', 'MYR'));
     $canManagePrivateVoters = ! $isAdminView
         && $isPrivateElection
         && in_array($election->status, [
@@ -31,11 +33,7 @@
             <div class="election-workspace-tags">
                 <span>{{ $isPrivateElection ? 'Private voter list' : 'Public eligibility' }}</span>
                 <span>
-                    @if ($election->hosting_fee !== null)
-                        {{ $election->currency }} {{ number_format((float) $election->hosting_fee, 2) }} hosting fee
-                    @else
-                        Hosting fee pending administrator quote
-                    @endif
+                    {{ $displayCurrency }} {{ number_format((float) $displayHostingFee, 2) }} hosting fee
                 </span>
             </div>
         </div>
@@ -76,12 +74,6 @@
                         <h3>{{ $action['label'] }}</h3>
                         <p>{{ $action['description'] }}</p>
                     </div>
-                    @if ($action['requiresHostingFee'])
-                        <div class="election-field-grid">
-                            <label>Hosting fee amount<input name="hosting_fee" type="number" min="1" max="10000" step="0.01" value="{{ old('hosting_fee') }}" required></label>
-                            <label>Currency<select name="currency" required><option value="MYR" @selected(old('currency', 'MYR') === 'MYR')>MYR</option><option value="USD" @selected(old('currency') === 'USD')>USD</option><option value="SGD" @selected(old('currency') === 'SGD')>SGD</option></select></label>
-                        </div>
-                    @endif
                     @if ($action['requiresPaymentReference'])
                         <label>Payment reference<input name="payment_reference" maxlength="64" required></label>
                     @endif
@@ -114,7 +106,7 @@
                 @endif
                 <div><dt>Nominations</dt><dd>{{ \Carbon\CarbonImmutable::parse($election->nomination_start)->format('d M Y, H:i') }}<br><span>to {{ \Carbon\CarbonImmutable::parse($election->nomination_end)->format('d M Y, H:i') }}</span></dd></div>
                 <div><dt>Voting</dt><dd>{{ \Carbon\CarbonImmutable::parse($election->voting_start)->format('d M Y, H:i') }}<br><span>to {{ \Carbon\CarbonImmutable::parse($election->voting_end)->format('d M Y, H:i') }}</span></dd></div>
-                <div class="election-configuration-split"><dt>Hosting fee</dt><dd>{{ $election->hosting_fee === null ? 'Awaiting administrator quote' : $election->currency.' '.number_format((float) $election->hosting_fee, 2) }}</dd><dt>Payment</dt><dd>@if ($availability['hostingPaymentVerified']) Verified by administrator @elseif ($election->payment_reference) Submitted for verification @elseif ($election->status === \App\States\ElectionStatus::PENDING_PAYMENT->value) Ready for payment @elseif ($election->status === \App\States\ElectionStatus::PENDING_FEE_ACCEPTANCE->value) Awaiting quote acceptance @else Not yet available @endif</dd><dt>Approval</dt><dd>{{ $availability['administratorApproved'] ? 'Approved' : 'Required' }}</dd></div>
+                <div class="election-configuration-split"><dt>Hosting fee</dt><dd>{{ $displayCurrency }} {{ number_format((float) $displayHostingFee, 2) }}</dd><dt>Payment</dt><dd>@if ($availability['hostingPaymentVerified']) Verified by administrator @elseif ($election->payment_reference) Submitted for verification @elseif ($election->status === \App\States\ElectionStatus::PENDING_PAYMENT->value) Ready for payment @else Not yet available @endif</dd><dt>Approval</dt><dd>{{ $availability['administratorApproved'] ? 'Approved' : 'Required' }}</dd></div>
             </dl>
         </aside>
     </section>

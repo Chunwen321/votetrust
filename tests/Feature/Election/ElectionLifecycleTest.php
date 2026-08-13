@@ -15,7 +15,6 @@ use App\Services\ElectionService;
 use App\Services\Payment\PaymentResult;
 use App\States\ElectionStatus;
 use Carbon\CarbonImmutable;
-use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -81,50 +80,27 @@ final class ElectionLifecycleTest extends TestCase
             'voting_end' => $clock->now()->addHour(),
         ]);
         self::assertSame(ElectionStatus::DRAFT->value, $election->status);
-        self::assertNull($election->hosting_fee);
-
-        $election = $service->transition($organizerUser, $election->getKey(), 'submit_for_quote', 'Correct!Pass1', ['version' => 1]);
-        self::assertSame(ElectionStatus::PENDING_FEE_QUOTE->value, $election->status);
-
-        try {
-            $service->transition($organizerUser, $election->getKey(), 'quote_fee', 'Correct!Pass1', [
-                'version' => 2,
-                'hosting_fee' => 1,
-                'currency' => 'MYR',
-            ]);
-            self::fail('The organizer was allowed to set the hosting fee.');
-        } catch (AuthorizationException) {
-            self::assertSame(ElectionStatus::PENDING_FEE_QUOTE->value, $election->refresh()->status);
-            self::assertNull($election->hosting_fee);
-        }
-
-        $election = $service->transition($admin, $election->getKey(), 'quote_fee', 'Admin!Pass1', [
-            'version' => 2,
-            'hosting_fee' => 100,
-            'currency' => 'MYR',
-        ]);
-        self::assertSame(ElectionStatus::PENDING_FEE_ACCEPTANCE->value, $election->status);
         self::assertSame('100.00', $election->hosting_fee);
 
-        $election = $service->transition($organizerUser, $election->getKey(), 'accept_fee', 'Correct!Pass1', ['version' => 3]);
+        $election = $service->transition($organizerUser, $election->getKey(), 'submit_for_payment', 'Correct!Pass1', ['version' => 1]);
         self::assertSame(ElectionStatus::PENDING_PAYMENT->value, $election->status);
         self::assertSame('100.00', $election->hosting_fee);
 
         $election = $service->transition($organizerUser, $election->getKey(), 'submit_payment', 'Correct!Pass1', [
-            'version' => 4,
+            'version' => 2,
             'payment_reference' => 'VT-HOST-PAID-001',
         ]);
         self::assertSame(ElectionStatus::PENDING_ADMIN_APPROVAL->value, $election->status);
         self::assertNull($election->payment_verified_at);
         self::assertSame(0, $gateway->verificationCalls);
 
-        $election = $service->transition($admin, $election->getKey(), 'approve', 'Admin!Pass1', ['version' => 5]);
+        $election = $service->transition($admin, $election->getKey(), 'approve', 'Admin!Pass1', ['version' => 3]);
         self::assertSame(ElectionStatus::NOMINATION_OPEN->value, $election->status);
         self::assertNotNull($election->payment_verified_at);
         self::assertSame(1, $gateway->verificationCalls);
 
         try {
-            $service->transition($organizerUser, $election->getKey(), 'start_voting', 'Correct!Pass1', ['version' => 6]);
+            $service->transition($organizerUser, $election->getKey(), 'start_voting', 'Correct!Pass1', ['version' => 4]);
             self::fail('Voting opened without an approved candidate.');
         } catch (BusinessRuleException $exception) {
             self::assertStringContainsString('at least one candidate', $exception->getMessage());
@@ -141,19 +117,19 @@ final class ElectionLifecycleTest extends TestCase
             'status' => Candidacy::APPROVED,
         ]);
 
-        $election = $service->transition($organizerUser, $election->getKey(), 'start_voting', 'Correct!Pass1', ['version' => 6]);
+        $election = $service->transition($organizerUser, $election->getKey(), 'start_voting', 'Correct!Pass1', ['version' => 4]);
         self::assertSame(ElectionStatus::VOTING_OPEN->value, $election->status);
 
         try {
-            $service->transition($organizerUser, $election->getKey(), 'close_voting', 'Correct!Pass1', ['version' => 7]);
+            $service->transition($organizerUser, $election->getKey(), 'close_voting', 'Correct!Pass1', ['version' => 5]);
             self::fail('Voting closed before the configured end time.');
         } catch (BusinessRuleException $exception) {
             self::assertStringContainsString('before the configured voting end', $exception->getMessage());
         }
 
         $clock->current = $clock->now()->addHours(2);
-        $election = $service->transition($organizerUser, $election->getKey(), 'close_voting', 'Correct!Pass1', ['version' => 7]);
+        $election = $service->transition($organizerUser, $election->getKey(), 'close_voting', 'Correct!Pass1', ['version' => 5]);
         self::assertSame(ElectionStatus::CLOSED->value, $election->status);
-        self::assertCount(8, $service->transitionLogs($election));
+        self::assertCount(6, $service->transitionLogs($election));
     }
 }

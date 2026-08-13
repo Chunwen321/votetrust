@@ -68,7 +68,8 @@ final class NormalUserElectionWorkspaceTest extends TestCase
             ->assertOk()
             ->assertSee('data-election-form novalidate', false)
             ->assertDontSee('name="hosting_fee"', false)
-            ->assertSee('administrator will review this configuration');
+            ->assertSee('Public: MYR 100.00')
+            ->assertSee('Private: MYR 120.00');
 
         $response = $this->actingAs($member)->post(route('elections.store'), [
             'title' => 'New Community Election',
@@ -82,7 +83,7 @@ final class NormalUserElectionWorkspaceTest extends TestCase
             'voting_start' => now()->addDays(3)->toDateTimeString(),
             'voting_end' => now()->addDays(4)->toDateTimeString(),
             // These values are deliberately malicious/obsolete form fields.
-            // The organizer must not be able to establish the hosting quote.
+            // The organizer must not be able to override VoteTrust pricing.
             'hosting_fee' => '9999.00',
             'currency' => 'USD',
         ]);
@@ -94,10 +95,35 @@ final class NormalUserElectionWorkspaceTest extends TestCase
         $this->assertDatabaseHas('election', [
             'id' => $election->getKey(),
             'organizer_id' => $member->getKey(),
-            'hosting_fee' => null,
+            'hosting_fee' => '100.00',
             'currency' => 'MYR',
             'status' => Election::DRAFT,
         ]);
         self::assertInstanceOf(Organizer::class, Organizer::query()->find($member->getKey()));
+    }
+
+    public function test_private_election_uses_the_fixed_rm120_hosting_fee(): void
+    {
+        $member = User::factory()->create(['is_admin' => false, 'account_status' => 'ACTIVE']);
+
+        $this->actingAs($member)->post(route('elections.store'), [
+            'title' => 'Private Faculty Election',
+            'position_sought' => 'Faculty Representative',
+            'description' => 'A private election with a system-controlled hosting fee. ',
+            'eligibility_mode' => 'PRIVATE',
+            'nomination_start' => now()->addDay()->toDateTimeString(),
+            'nomination_end' => now()->addDays(2)->toDateTimeString(),
+            'voting_start' => now()->addDays(3)->toDateTimeString(),
+            'voting_end' => now()->addDays(4)->toDateTimeString(),
+            'hosting_fee' => '1.00',
+            'currency' => 'USD',
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('election', [
+            'title' => 'Private Faculty Election',
+            'hosting_fee' => '120.00',
+            'currency' => 'MYR',
+            'status' => Election::DRAFT,
+        ]);
     }
 }

@@ -438,6 +438,6 @@ final class PrivateVoterRosterTest extends TestCase
         $this->expectException(BusinessRuleException::class);
         $this->expectExceptionMessage('Upload a private voter spreadsheet or assign at least one voter');
 
-        $service->transition($organizer, $election->getKey(), 'submit_for_quote', 'password', ['version' => 1]);
+        $service->transition($organizer, $election->getKey(), 'submit_for_payment', 'password', ['version' => 1]);
     }
 }

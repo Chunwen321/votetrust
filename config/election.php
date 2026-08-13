@@ -24,6 +24,14 @@ return [
         'response_clock_skew_seconds' => (int) env('PAYMENT_API_RESPONSE_CLOCK_SKEW_SECONDS', 300),
     ],
 
+    // VoteTrust controls election hosting prices. They are derived from the
+    // stored election type and are never accepted from organizer input.
+    'hosting_fee' => [
+        'currency' => 'MYR',
+        'public' => 100,
+        'private' => 120,
+    ],
+
     'admin_api_key' => env('ADMIN_API_KEY'),
     'security_log_channel' => env('ELECTION_SECURITY_LOG_CHANNEL', 'stack'),
     'api_clock_skew_seconds' => (int) env('ELECTION_API_CLOCK_SKEW_SECONDS', 300),

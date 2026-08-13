@@ -6,10 +6,7 @@
 
 @section('content')
 @php
-    $reviewStatuses = [
-        \App\States\ElectionStatus::PENDING_FEE_QUOTE->value,
-        \App\States\ElectionStatus::PENDING_ADMIN_APPROVAL->value,
-    ];
+    $reviewStatuses = [\App\States\ElectionStatus::PENDING_ADMIN_APPROVAL->value];
     $pendingElections = collect($elections->items())->whereIn('status', $reviewStatuses);
     $otherElections = collect($elections->items())->whereNotIn('status', $reviewStatuses);
 @endphp
@@ -19,7 +16,7 @@
         <div class="admin-approvals__hero-copy">
             <p class="election-eyebrow">Administrator workspace</p>
             <h1>Election approvals</h1>
-            <p>Set hosting fees for new requests, then approve paid elections independently before nominations open.</p>
+            <p>Verify organizer hosting payments and approve elections before nominations open.</p>
         </div>
         <div class="admin-approvals__counter" aria-label="Election requests awaiting administrator action">
             <span>Awaiting review</span>
@@ -33,7 +30,7 @@
             <div>
                 <p class="election-eyebrow">Priority queue</p>
                 <h2 id="review-queue-heading">Ready for admin action</h2>
-                <p>Quote a hosting fee for new requests, or give the final approval after the organiser’s payment is verified.</p>
+                <p>Verify each submitted hosting payment, then give the final approval that opens nominations.</p>
             </div>
             <span class="admin-approvals__section-count">{{ $pendingApprovalCount }} {{ \Illuminate\Support\Str::plural('request', $pendingApprovalCount) }}</span>
         </div>
@@ -52,7 +49,8 @@
                         <p class="admin-approval-row__description">{{ $election->description ?: 'No election description was provided.' }}</p>
                         <dl class="admin-approval-row__facts">
                             <div><dt>Organiser</dt><dd>{{ $election->organizer?->display_name ?? $election->organizer?->name ?? $election->organizer?->email ?? 'Unknown' }}</dd></div>
-                            <div><dt>Payment</dt><dd>{{ $election->payment_verified_at ? 'Verified' : 'Not verified' }}</dd></div>
+                            <div><dt>Hosting fee</dt><dd>{{ $election->currency }} {{ number_format((float) $election->hosting_fee, 2) }}</dd></div>
+                            <div><dt>Payment</dt><dd>{{ $election->payment_verified_at ? 'Verified' : ($election->payment_reference ? 'Submitted for verification' : 'Not submitted') }}</dd></div>
                             <div><dt>Last updated</dt><dd>{{ $election->updated_at?->format('d M Y, g:i A') ?? 'Unavailable' }}</dd></div>
                         </dl>
                     </div>

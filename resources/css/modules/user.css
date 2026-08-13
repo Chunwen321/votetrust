@@ -285,8 +285,6 @@
 .user-module .election-state { background: #edf3f6; color: #526376; }
 .user-module .election-state-voting-open,
 .user-module .election-state-nomination-open { color: var(--user-success); background: #ebf8f1; }
-.user-module .election-state-pending-fee-quote,
-.user-module .election-state-pending-fee-acceptance,
 .user-module .election-state-pending-payment,
 .user-module .election-state-pending-admin-approval { color: var(--user-warning); background: #fff7df; }
 .user-module .election-state-rejected,

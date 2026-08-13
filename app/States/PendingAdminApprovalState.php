@@ -24,10 +24,10 @@ final class PendingAdminApprovalState extends AbstractElectionState
     public function actions(Election $election): array
     {
         return [
-            ['action' => 'approve', 'label' => 'Verify payment & approve', 'description' => 'Checks the submitted payment with VoteTrust, then opens nominations if it is confirmed.', 'tone' => 'primary', 'audience' => 'admin', 'requiresHostingFee' => false, 'requiresPaymentReference' => false, 'requiresReason' => false],
-            ['action' => 'return_for_payment', 'label' => 'Request payment resubmission', 'description' => 'Returns the election to the organizer so a corrected payment reference can be submitted.', 'tone' => 'secondary', 'audience' => 'admin', 'requiresHostingFee' => false, 'requiresPaymentReference' => false, 'requiresReason' => true],
-            ['action' => 'reject', 'label' => 'Reject election', 'description' => 'Rejects the election permanently.', 'tone' => 'danger', 'audience' => 'admin', 'requiresHostingFee' => false, 'requiresPaymentReference' => false, 'requiresReason' => true],
-            ['action' => 'cancel', 'label' => 'Withdraw election', 'description' => 'Withdraws the request while approval is pending.', 'tone' => 'danger', 'audience' => 'organizer', 'requiresHostingFee' => false, 'requiresPaymentReference' => false, 'requiresReason' => true],
+            ['action' => 'approve', 'label' => 'Verify payment & approve', 'description' => 'Checks the submitted payment with VoteTrust, then opens nominations if it is confirmed.', 'tone' => 'primary', 'audience' => 'admin', 'requiresPaymentReference' => false, 'requiresReason' => false],
+            ['action' => 'return_for_payment', 'label' => 'Request payment resubmission', 'description' => 'Returns the election to the organizer so a corrected payment reference can be submitted.', 'tone' => 'secondary', 'audience' => 'admin', 'requiresPaymentReference' => false, 'requiresReason' => true],
+            ['action' => 'reject', 'label' => 'Reject election', 'description' => 'Rejects the election permanently.', 'tone' => 'danger', 'audience' => 'admin', 'requiresPaymentReference' => false, 'requiresReason' => true],
+            ['action' => 'cancel', 'label' => 'Withdraw election', 'description' => 'Withdraws the request while approval is pending.', 'tone' => 'danger', 'audience' => 'organizer', 'requiresPaymentReference' => false, 'requiresReason' => true],
         ];
     }
 

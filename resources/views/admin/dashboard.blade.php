@@ -24,7 +24,7 @@
     <a class="card admin-action-card" href="{{ route('admin.elections.index') }}">
         <span class="eyebrow">Election workflow</span>
         <h2>Review election requests</h2>
-        <p>{{ $counts['pending_election_approvals'] }} election request{{ $counts['pending_election_approvals'] === 1 ? '' : 's' }} awaiting a fee quote or payment verification.</p>
+        <p>{{ $counts['pending_election_approvals'] }} paid election{{ $counts['pending_election_approvals'] === 1 ? '' : 's' }} awaiting payment verification and approval.</p>
         <span class="back-link">Open election workspace &rarr;</span>
     </a>
     <a class="card admin-action-card" href="{{ route('admin.users.index') }}">
