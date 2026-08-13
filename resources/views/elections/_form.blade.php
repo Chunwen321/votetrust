@@ -67,21 +67,55 @@
 
     <fieldset>
         <legend>Schedule</legend>
-        <div class="election-field-grid">
+        <div class="election-schedule">
             @foreach ([
-                'nomination_start' => 'Nomination starts',
-                'nomination_end' => 'Nomination ends',
-                'voting_start' => 'Voting starts',
-                'voting_end' => 'Voting ends',
-            ] as $field => $label)
-                @php
-                    $dateValue = old($field);
-                    if ($dateValue === null) {
-                        $raw = $election?->{$field} ?? ($defaults[$field] ?? '');
-                        $dateValue = $raw ? \Carbon\CarbonImmutable::parse($raw)->format('Y-m-d\TH:i') : '';
-                    }
-                @endphp
-                <div><label for="{{ $field }}">{{ $label }}</label><input id="{{ $field }}" name="{{ $field }}" type="datetime-local" value="{{ $dateValue }}" required>@error($field) <small class="election-field-error" data-server-error-for="{{ $field }}">{{ $message }}</small> @enderror</div>
+                [
+                    'class' => 'nomination',
+                    'step' => '01',
+                    'title' => 'Nomination period',
+                    'description' => 'Set when candidates can submit their applications.',
+                    'fields' => [
+                        'nomination_start' => 'Nomination starts',
+                        'nomination_end' => 'Nomination ends',
+                    ],
+                ],
+                [
+                    'class' => 'voting',
+                    'step' => '02',
+                    'title' => 'Voting period',
+                    'description' => 'Set when eligible voters can cast their votes.',
+                    'fields' => [
+                        'voting_start' => 'Voting starts',
+                        'voting_end' => 'Voting ends',
+                    ],
+                ],
+            ] as $phase)
+                <section class="election-schedule-phase election-schedule-phase--{{ $phase['class'] }}" aria-labelledby="{{ $phase['class'] }}-period-title">
+                    <header class="election-schedule-phase__header">
+                        <span class="election-schedule-phase__step" aria-hidden="true">{{ $phase['step'] }}</span>
+                        <div>
+                            <h3 id="{{ $phase['class'] }}-period-title">{{ $phase['title'] }}</h3>
+                            <p>{{ $phase['description'] }}</p>
+                        </div>
+                    </header>
+
+                    <div class="election-field-grid">
+                        @foreach ($phase['fields'] as $field => $label)
+                            @php
+                                $dateValue = old($field);
+                                if ($dateValue === null) {
+                                    $raw = $election?->{$field} ?? ($defaults[$field] ?? '');
+                                    $dateValue = $raw ? \Carbon\CarbonImmutable::parse($raw)->format('Y-m-d\TH:i') : '';
+                                }
+                            @endphp
+                            <div>
+                                <label for="{{ $field }}">{{ $label }}</label>
+                                <input id="{{ $field }}" name="{{ $field }}" type="datetime-local" value="{{ $dateValue }}" required>
+                                @error($field) <small class="election-field-error" data-server-error-for="{{ $field }}">{{ $message }}</small> @enderror
+                            </div>
+                        @endforeach
+                    </div>
+                </section>
             @endforeach
         </div>
     </fieldset>

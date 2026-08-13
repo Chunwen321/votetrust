@@ -21,12 +21,15 @@
         </div>
     </section>
 
-    <section id="voting-elections" class="election-role-section" aria-labelledby="voting-elections-title">
+    <section id="voting-elections" class="election-role-section election-role-section--voter" aria-labelledby="voting-elections-title">
         <div class="section-title">
-            <div>
-                <p class="eyebrow">Voter</p>
-                <h2 id="voting-elections-title">Voting elections</h2>
-                <p>Election access is granted separately for each election.</p>
+            <div class="election-role-heading">
+                <span class="election-role-heading__icon" aria-hidden="true">V</span>
+                <div>
+                    <p class="eyebrow">Your voter area</p>
+                    <h2 id="voting-elections-title">Voting elections</h2>
+                    <p>Election access is granted separately for each election.</p>
+                </div>
             </div>
             <span class="section-count">{{ $voterEnrollments->count() }} election{{ $voterEnrollments->count() === 1 ? '' : 's' }}</span>
         </div>
@@ -73,12 +76,15 @@
         @endif
     </section>
 
-    <section id="candidate-elections" class="election-role-section" aria-labelledby="candidate-elections-title">
+    <section id="candidate-elections" class="election-role-section election-role-section--candidate" aria-labelledby="candidate-elections-title">
         <div class="section-title">
-            <div>
-                <p class="eyebrow">Candidate</p>
-                <h2 id="candidate-elections-title">Election opportunities</h2>
-                <p>View public elections you can stand in and private elections where you have been assigned as a candidate.</p>
+            <div class="election-role-heading">
+                <span class="election-role-heading__icon" aria-hidden="true">C</span>
+                <div>
+                    <p class="eyebrow">Your candidate area</p>
+                    <h2 id="candidate-elections-title">Election opportunities</h2>
+                    <p>View public elections you can stand in and private elections where you have been assigned as a candidate.</p>
+                </div>
             </div>
             <span class="section-count">{{ $candidateElections->count() }} election{{ $candidateElections->count() === 1 ? '' : 's' }}</span>
         </div>
@@ -119,12 +125,15 @@
         @endif
     </section>
 
-    <section id="organised-elections" class="election-role-section" aria-labelledby="organised-elections-title">
+    <section id="organised-elections" class="election-role-section election-role-section--organiser" aria-labelledby="organised-elections-title">
         <div class="section-title">
-            <div>
-                <p class="eyebrow">Organiser</p>
-                <h2 id="organised-elections-title">Organised elections</h2>
-                <p>Create and manage elections without changing your account type.</p>
+            <div class="election-role-heading">
+                <span class="election-role-heading__icon" aria-hidden="true">O</span>
+                <div>
+                    <p class="eyebrow">Your organiser area</p>
+                    <h2 id="organised-elections-title">Organised elections</h2>
+                    <p>Create and manage elections without changing your account type.</p>
+                </div>
             </div>
             @if ($user->isVerified())
                 <a class="button button-quiet button-small" href="{{ route('elections.create') }}">Organise an election</a>

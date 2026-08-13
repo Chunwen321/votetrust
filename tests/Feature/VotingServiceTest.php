@@ -9,11 +9,13 @@ use App\Models\User;
 use App\Models\Vote;
 use App\Models\VoterEnrollment;
 use App\Services\Voting\IntegrationException;
+use App\Services\Voting\InvalidVoteRequest;
 use App\Services\Voting\VoteAccessDenied;
 use App\Services\Voting\VoteAlreadyExists;
 use App\Services\Voting\VoteService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -99,6 +101,75 @@ class VotingServiceTest extends TestCase
             'VOTE-TEST-STALE',
             now()->toAtomString(),
         );
+    }
+
+    public function test_service_validation_decorator_rejects_invalid_input_before_any_api_call(): void
+    {
+        [$voter, $candidate] = $this->ballotFixture();
+        Http::preventStrayRequests();
+
+        try {
+            $this->app->make(VoteService::class)->cast(
+                $voter,
+                0,
+                $candidate->id,
+                'invalid request id',
+                'not-a-timestamp',
+            );
+            self::fail('An invalid vote command was accepted.');
+        } catch (InvalidVoteRequest $exception) {
+            self::assertSame('The vote request contains an invalid identifier.', $exception->getMessage());
+        }
+
+        Http::assertNothingSent();
+        $this->assertDatabaseCount('vote', 0);
+    }
+
+    public function test_http_consumer_fails_closed_when_a_service_api_key_is_missing(): void
+    {
+        config(['voting.services.election.api_key' => '']);
+        Http::preventStrayRequests();
+
+        try {
+            $this->app->make(VotingIntegration::class)->openElections(
+                'VOTE-NO-KEY-0001',
+                now()->toAtomString(),
+            );
+            self::fail('The unsecured Election API request was sent.');
+        } catch (IntegrationException $exception) {
+            self::assertSame('The election web service is not configured.', $exception->getMessage());
+        }
+
+        Http::assertNothingSent();
+    }
+
+    public function test_a_locked_vote_submission_is_rejected_without_creating_a_second_vote(): void
+    {
+        [$voter, $candidate, $election] = $this->ballotFixture();
+        $this->fakeTeammateApis($voter, $candidate, $election);
+        config(['voting.lock_wait_seconds' => 0]);
+        $lock = Cache::lock("voting:cast:{$voter->id}:{$election->id}", 10);
+        self::assertTrue($lock->get());
+
+        try {
+            $this->app->make(VoteService::class)->cast(
+                $voter,
+                $election->id,
+                $candidate->id,
+                'VOTE-LOCK-0001',
+                now()->toAtomString(),
+            );
+            self::fail('A simultaneous vote submission acquired an occupied voter/election lock.');
+        } catch (VoteAlreadyExists $exception) {
+            self::assertSame(
+                'A vote submission is already being processed for this election.',
+                $exception->getMessage(),
+            );
+        } finally {
+            $lock->release();
+        }
+
+        $this->assertDatabaseCount('vote', 0);
     }
 
     public function test_underage_voter_is_rejected(): void
@@ -234,6 +305,152 @@ class VotingServiceTest extends TestCase
             ->assertJsonMissingPath('data.candidateId');
 
         $this->assertIsString($response->json('timestamp'));
+    }
+
+    public function test_tally_provider_releases_counts_only_after_the_election_is_closed(): void
+    {
+        [$voter, $candidate, $election] = $this->ballotFixture();
+        Vote::query()->create([
+            'voter_id' => $voter->id,
+            'candidate_id' => $candidate->id,
+            'election_id' => $election->id,
+            'cast_at' => now(),
+        ]);
+        Http::preventStrayRequests();
+        Http::fake([
+            "https://election.test/api/v1/elections/{$election->id}/availability*" => Http::response([
+                'status' => 'S',
+                'message' => 'Election availability retrieved.',
+                'requestID' => 'TALLY-TEST-0001',
+                'timestamp' => now()->toAtomString(),
+                'data' => [
+                    'electionId' => $election->id,
+                    'title' => $election->title,
+                    'lifecycleState' => 'CLOSED',
+                    'eligibility' => $this->eligibilityRules(null),
+                    'votingAllowed' => false,
+                    'votingPeriod' => ['start' => null, 'end' => null],
+                    'ballot' => [[
+                        'id' => 1,
+                        'candidateId' => $candidate->id,
+                        'name' => $candidate->display_name,
+                    ]],
+                ],
+            ]),
+        ]);
+
+        $response = $this->withHeader('X-Internal-Api-Key', 'voting-provider-key')
+            ->getJson("/api/v1/elections/{$election->id}/tally?".http_build_query([
+                'requestID' => 'TALLY-TEST-0001',
+                'timestamp' => now()->toAtomString(),
+            ]));
+
+        $response->assertOk()
+            ->assertJsonPath('data.electionId', $election->id)
+            ->assertJsonPath('data.tally.0.candidateId', $candidate->id)
+            ->assertJsonPath('data.tally.0.votes', 1);
+
+        Http::assertSent(fn (Request $request): bool => $request->hasHeader(
+            'X-Internal-Api-Key',
+            'election-consumer-key',
+        ));
+    }
+
+    public function test_tally_provider_does_not_release_counts_before_the_election_closes(): void
+    {
+        [$voter, $candidate, $election] = $this->ballotFixture();
+        Vote::query()->create([
+            'voter_id' => $voter->id,
+            'candidate_id' => $candidate->id,
+            'election_id' => $election->id,
+            'cast_at' => now(),
+        ]);
+        $this->fakeTeammateApis($voter, $candidate, $election);
+
+        $this->withHeader('X-Internal-Api-Key', 'voting-provider-key')
+            ->getJson("/api/v1/elections/{$election->id}/tally?".http_build_query([
+                'requestID' => 'TALLY-OPEN-0001',
+                'timestamp' => now()->toAtomString(),
+            ]))
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Votes can only be tallied after the election closes.')
+            ->assertJsonMissingPath('data.tally');
+    }
+
+    public function test_voting_api_rejects_unauthenticated_and_malformed_requests_before_controller_logic(): void
+    {
+        $query = http_build_query([
+            'voterId' => 1,
+            'electionId' => 1,
+            'requestID' => 'STATUS-SECURITY-0001',
+            'timestamp' => now()->toAtomString(),
+        ]);
+
+        $this->getJson('/api/v1/votes/status?'.$query)
+            ->assertForbidden()
+            ->assertJsonPath('message', 'Voting API access denied.');
+
+        $this->withHeader('X-Internal-Api-Key', 'voting-provider-key')
+            ->getJson('/api/v1/votes/status?'.http_build_query([
+                'voterId' => 1,
+                'electionId' => 1,
+                'requestID' => 'bad id',
+                'timestamp' => 'not-a-timestamp',
+            ]))
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'The Voting API request is invalid.')
+            ->assertJsonStructure(['errors' => ['requestID', 'timestamp']]);
+    }
+
+    public function test_vote_receipts_are_owner_scoped_and_do_not_reveal_other_voters_records(): void
+    {
+        [$owner, $candidate, $election] = $this->ballotFixture();
+        $intruder = User::factory()->create();
+        $vote = Vote::query()->create([
+            'voter_id' => $owner->id,
+            'candidate_id' => $candidate->id,
+            'election_id' => $election->id,
+            'cast_at' => now(),
+        ]);
+
+        $this->actingAs($intruder)
+            ->get(route('voting.receipt', $vote->id))
+            ->assertNotFound();
+
+        $this->actingAs($owner)
+            ->get(route('voting.receipt', $vote->id))
+            ->assertOk()
+            ->assertSee('VT-'.str_pad((string) $vote->id, 8, '0', STR_PAD_LEFT))
+            ->assertDontSee($candidate->email);
+    }
+
+    public function test_voting_pages_require_an_authenticated_verified_account(): void
+    {
+        $this->get(route('voting.index'))
+            ->assertRedirect(route('login'));
+
+        $this->actingAs(User::factory()->unverifiedProfile()->create())
+            ->get(route('voting.index'))
+            ->assertRedirect(route('profile.verify'));
+    }
+
+    public function test_cast_route_rejects_invalid_ballot_fields_without_sending_api_requests(): void
+    {
+        [$voter, $candidate, $election] = $this->ballotFixture();
+        Http::preventStrayRequests();
+
+        $this->actingAs($voter)
+            ->from(route('voting.ballot', $election->id))
+            ->post(route('voting.cast', $election->id), [
+                'candidate_id' => $candidate->id,
+                'request_id' => ['not-a-string'],
+                'timestamp' => 'not-a-timestamp',
+            ])
+            ->assertRedirect(route('voting.ballot', $election->id))
+            ->assertSessionHasErrors(['request_id', 'timestamp']);
+
+        Http::assertNothingSent();
+        $this->assertDatabaseCount('vote', 0);
     }
 
     /** @param array<string, mixed>|null $eligibility

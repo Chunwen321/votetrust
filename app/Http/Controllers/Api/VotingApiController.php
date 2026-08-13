@@ -6,7 +6,6 @@ use App\Contracts\VotingIntegration;
 use App\Http\Controllers\Controller;
 use App\Models\Vote;
 use App\Services\Voting\IntegrationException;
-use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -16,10 +15,6 @@ class VotingApiController extends Controller
 {
     public function status(Request $request): JsonResponse
     {
-        if ($failure = $this->validateEnvelope($request)) {
-            return $failure;
-        }
-
         $validator = Validator::make($request->query(), [
             'voterId' => ['required', 'integer', 'min:1'],
             'electionId' => ['required', 'integer', 'min:1'],
@@ -45,10 +40,6 @@ class VotingApiController extends Controller
         int $election,
         VotingIntegration $integration,
     ): JsonResponse {
-        if ($failure = $this->validateEnvelope($request)) {
-            return $failure;
-        }
-
         try {
             $ballot = $integration->election(
                 $election,
@@ -86,38 +77,6 @@ class VotingApiController extends Controller
             'electionId' => $election,
             'tally' => $tally,
         ], 'Vote tally retrieved.');
-    }
-
-    private function validateEnvelope(Request $request): ?JsonResponse
-    {
-        $configuredKey = (string) config('voting.api_key');
-        $providedKey = (string) $request->header('X-Internal-Api-Key');
-        if ($configuredKey === '' || ! hash_equals($configuredKey, $providedKey)) {
-            return $this->failure($request, 'Voting API access denied.', 403);
-        }
-
-        $requestId = $request->query('requestID');
-        $timestamp = $request->query('timestamp');
-        if (! is_string($requestId) || preg_match('/\A[A-Za-z0-9_-]{8,64}\z/', $requestId) !== 1) {
-            return $this->failure($request, 'Invalid request ID.', 422);
-        }
-
-        if (! is_string($timestamp) || $timestamp === '') {
-            return $this->failure($request, 'Invalid request timestamp.', 422);
-        }
-
-        try {
-            $requestedAt = CarbonImmutable::parse($timestamp);
-        } catch (\Throwable) {
-            return $this->failure($request, 'Invalid request timestamp.', 422);
-        }
-
-        if (abs(now()->diffInSeconds($requestedAt, false))
-            > (int) config('voting.request_max_age_seconds', 300)) {
-            return $this->failure($request, 'The request timestamp is expired.', 422);
-        }
-
-        return null;
     }
 
     /** @param array<string, mixed> $data */

@@ -71,6 +71,8 @@ The empty `testing.php`, built-in server router, duplicate unreachable profile b
 
 The custom autoloader, raw view renderer, PDO configuration, front controllers, built-in server router, and duplicate SQL scripts were not copied.
 
+The current security and design-pattern evidence for this module is recorded in `docs/voting-process-compliance.md`.
+
 ## Excluded root/runtime artifacts
 
 - Legacy `.git`, `.tmp`, and per-module `.env` files

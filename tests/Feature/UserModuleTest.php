@@ -93,9 +93,26 @@ final class UserModuleTest extends TestCase
         $this->get(route('register'))
             ->assertOk()
             ->assertSee('data-ic-number', false)
-            ->assertSeeText('Hyphens are added for display only')
+            ->assertSee('data-phone-number', false)
+            ->assertSeeText('Hyphens are added automatically.')
             ->assertSeeText('At least 12 characters')
-            ->assertSeeText('Passwords match');
+            ->assertDontSeeText('Passwords match')
+            ->assertDontSeeText('Trusted digital elections');
+    }
+
+    public function test_registration_rejects_an_implausibly_short_phone_number(): void
+    {
+        $this->post(route('register.store'), [
+            'full_name' => 'Short Phone',
+            'email' => 'short.phone@example.test',
+            'ic_number' => '010203101234',
+            'nationality_country_code' => 'MY',
+            'phone_number' => '123123',
+            'password' => 'Strong!Password123',
+            'password_confirmation' => 'Strong!Password123',
+        ])->assertSessionHasErrors('phone_number');
+
+        $this->assertGuest();
     }
 
     public function test_repeated_failed_logins_disable_an_active_account(): void
