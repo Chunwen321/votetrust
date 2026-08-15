@@ -16,9 +16,14 @@
     @stack('head')
 </head>
 <body>
+@php
+    $primaryDestination = auth()->check()
+        ? route(auth()->user()->isAdmin() ? 'admin.dashboard' : 'dashboard')
+        : route('home');
+@endphp
 <header class="site-header">
     <div class="site-header__inner">
-        <a class="brand" href="{{ url('/') }}" aria-label="VoteTrust home">
+        <a class="brand" href="{{ $primaryDestination }}" aria-label="{{ auth()->check() ? 'VoteTrust dashboard' : 'VoteTrust home' }}">
             <img class="brand__logo" src="{{ asset('img/votetrust-logo.png') }}" alt="VoteTrust">
         </a>
 
@@ -53,10 +58,9 @@
                 @endif
             @endauth
             @guest
-                @if (request()->routeIs('home'))
-                    <a href="#why-votetrust">Why VoteTrust</a>
-                    <a href="#how-it-works">How it works</a>
-                @endif
+                <a href="{{ route('home') }}#why-votetrust">Why VoteTrust</a>
+                <a href="{{ route('home') }}#how-it-works">How it works</a>
+                <a href="{{ route('faq') }}" @class(['is-active' => request()->routeIs('faq')])>FAQ</a>
             @endguest
         </nav>
 
@@ -109,8 +113,50 @@
 </main>
 
 <footer class="site-footer">
-    <span>VoteTrust &middot; Clear, accountable elections</span>
-    <span>SDG 16 &middot; Peace, Justice and Strong Institutions</span>
+    <div class="site-footer__inner">
+        <div class="site-footer__content">
+            <a class="site-footer__brand" href="{{ $primaryDestination }}" aria-label="{{ auth()->check() ? 'Go to your VoteTrust dashboard' : 'Go to the VoteTrust home page' }}">
+                <img src="{{ asset('img/votetrust-logo.png') }}" alt="VoteTrust">
+            </a>
+            <p>Clear online elections for organisers, candidates, and voters—from setup to the final result.</p>
+        </div>
+
+        <nav class="site-footer__nav" aria-label="Footer navigation">
+            <div class="site-footer__group">
+                <h2>Explore</h2>
+                @guest
+                    <a href="{{ route('home') }}#why-votetrust">Why VoteTrust</a>
+                    <a href="{{ route('home') }}#how-it-works">How it works</a>
+                @else
+                    <a href="{{ route(auth()->user()->isAdmin() ? 'admin.dashboard' : 'dashboard') }}">Dashboard</a>
+                    <a href="{{ route('elections.index') }}">Elections</a>
+                @endguest
+                <a href="{{ route('faq') }}">Frequently asked questions</a>
+            </div>
+
+            <div class="site-footer__group">
+                <h2>Account</h2>
+                @guest
+                    <a href="{{ route('login') }}">Sign in</a>
+                    <a href="{{ route('register') }}">Create account</a>
+                @else
+                    <a href="{{ route('profile.show') }}">Profile</a>
+                    @if (auth()->user()->isAdmin())
+                        <a href="{{ route('admin.users.index') }}">Manage members</a>
+                    @endif
+                    <form method="POST" action="{{ route('logout') }}">
+                        @csrf
+                        <button type="submit">Sign out</button>
+                    </form>
+                @endguest
+            </div>
+        </nav>
+    </div>
+
+    <div class="site-footer__bottom">
+        <span>&copy; {{ now()->year }} VoteTrust. Clear, accountable elections.</span>
+        <span>SDG 16 &middot; Peace, Justice and Strong Institutions</span>
+    </div>
 </footer>
 @stack('scripts')
 </body>

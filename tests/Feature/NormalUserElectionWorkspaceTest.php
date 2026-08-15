@@ -4,11 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Models\Candidacy;
 use App\Models\Election;
 use App\Models\Organizer;
 use App\Models\User;
 use App\Models\VoterEnrollment;
+use App\ValueObjects\EligibilityRules;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request as ClientRequest;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 final class NormalUserElectionWorkspaceTest extends TestCase
@@ -38,6 +43,7 @@ final class NormalUserElectionWorkspaceTest extends TestCase
             'election_id' => $votingElection->getKey(),
             'status' => VoterEnrollment::APPROVED,
         ]);
+        $this->fakeElectionSummary($votingElection);
 
         $this->actingAs($member)
             ->get(route('elections.index'))
@@ -52,6 +58,145 @@ final class NormalUserElectionWorkspaceTest extends TestCase
             ->get(route('dashboard'))
             ->assertOk()
             ->assertSee('Use one VoteTrust account to vote in some elections and organise others.');
+    }
+
+    public function test_each_election_role_card_shows_its_next_date_and_time_with_a_clear_label(): void
+    {
+        $this->travelTo(Carbon::parse('2026-08-15 12:00:00'));
+
+        $member = User::factory()->create([
+            'full_name' => 'Election Schedule Member',
+            'is_admin' => false,
+            'account_status' => 'ACTIVE',
+        ]);
+        $votingElection = Election::query()->create([
+            'title' => 'Voting Deadline Election',
+            'eligibility_rules' => EligibilityRules::privateElection()->toStorage(),
+            'nomination_start' => '2026-08-10 09:00:00',
+            'nomination_end' => '2026-08-12 17:30:00',
+            'voting_start' => '2026-08-15 09:00:00',
+            'voting_end' => '2026-08-20 17:30:00',
+            'status' => Election::VOTING_OPEN,
+            'currency' => 'MYR',
+        ]);
+        Election::query()->create([
+            'title' => 'Nomination Deadline Election',
+            'eligibility_rules' => EligibilityRules::publicElection()->toStorage(),
+            'nomination_start' => '2026-08-14 09:00:00',
+            'nomination_end' => '2026-08-18 17:30:00',
+            'voting_start' => '2026-08-19 09:00:00',
+            'voting_end' => '2026-08-21 17:30:00',
+            'status' => Election::NOMINATION_OPEN,
+            'currency' => 'MYR',
+        ]);
+        Election::query()->create([
+            'organizer_id' => $member->getKey(),
+            'title' => 'Organiser Schedule Election',
+            'eligibility_rules' => EligibilityRules::publicElection()->toStorage(),
+            'nomination_start' => '2026-08-22 09:15:00',
+            'nomination_end' => '2026-08-24 17:30:00',
+            'voting_start' => '2026-08-25 09:00:00',
+            'voting_end' => '2026-08-26 17:30:00',
+            'status' => Election::DRAFT,
+            'currency' => 'MYR',
+        ]);
+        VoterEnrollment::query()->create([
+            'user_id' => $member->getKey(),
+            'election_id' => $votingElection->getKey(),
+            'status' => VoterEnrollment::APPROVED,
+        ]);
+
+        $this->fakeElectionSummary($votingElection);
+
+        $this->actingAs($member)
+            ->get(route('elections.index'))
+            ->assertOk()
+            ->assertSeeTextInOrder([
+                'Voting Deadline Election',
+                'Voting closes',
+                '20 Aug 2026, 5:30 PM',
+                'Nomination Deadline Election',
+                'Nominations close',
+                '18 Aug 2026, 5:30 PM',
+                'Organiser Schedule Election',
+                'Planned nomination start',
+                '22 Aug 2026, 9:15 AM',
+            ]);
+    }
+
+    public function test_a_draft_is_private_to_its_organiser_until_it_is_published(): void
+    {
+        $organiser = User::factory()->create([
+            'full_name' => 'Draft Election Organiser',
+            'is_admin' => false,
+            'account_status' => 'ACTIVE',
+        ]);
+        $participant = User::factory()->create([
+            'full_name' => 'Draft Election Participant',
+            'is_admin' => false,
+            'account_status' => 'ACTIVE',
+        ]);
+        Organizer::query()->create(['user_id' => $organiser->getKey()]);
+
+        $draft = Election::query()->create([
+            'organizer_id' => $organiser->getKey(),
+            'title' => 'Unpublished Committee Draft',
+            'position_sought' => 'Committee Representative',
+            'description' => 'A draft election that only its organiser should be able to review.',
+            'eligibility_rules' => EligibilityRules::publicElection()->toStorage(),
+            'nomination_start' => now()->addDay(),
+            'nomination_end' => now()->addDays(2),
+            'voting_start' => now()->addDays(3),
+            'voting_end' => now()->addDays(4),
+            'status' => Election::DRAFT,
+            'currency' => 'MYR',
+        ]);
+        VoterEnrollment::query()->create([
+            'user_id' => $participant->getKey(),
+            'election_id' => $draft->getKey(),
+            'status' => VoterEnrollment::APPROVED,
+        ]);
+        Candidacy::query()->create([
+            'user_id' => $participant->getKey(),
+            'election_id' => $draft->getKey(),
+            'status' => Candidacy::APPROVED,
+        ]);
+
+        $this->fakeElectionSummary($draft);
+
+        $this->actingAs($participant)
+            ->get(route('elections.index'))
+            ->assertOk()
+            ->assertViewHas('voterEnrollments', fn ($enrollments): bool => $enrollments->isEmpty())
+            ->assertViewHas('candidateElections', fn ($elections): bool => $elections->isEmpty())
+            ->assertDontSee('Unpublished Committee Draft');
+
+        $this->actingAs($participant)
+            ->get(route('voter.dashboard'))
+            ->assertOk()
+            ->assertViewHas('enrollments', fn ($enrollments): bool => $enrollments->isEmpty())
+            ->assertDontSee('Unpublished Committee Draft');
+
+        $this->actingAs($participant)
+            ->get(route('elections.show', $draft))
+            ->assertNotFound();
+
+        $this->actingAs($organiser)
+            ->get(route('elections.index'))
+            ->assertOk()
+            ->assertSee('Organised elections')
+            ->assertSee('Unpublished Committee Draft')
+            ->assertSee('Continue setup')
+            ->assertSee(route('elections.edit', $draft))
+            ->assertViewHas('organizedElections', fn ($elections): bool => $elections->contains(
+                fn (Election $election): bool => $election->is($draft),
+            ));
+
+        $this->actingAs($organiser)
+            ->get(route('elections.show', $draft))
+            ->assertOk()
+            ->assertSee('Unpublished Committee Draft')
+            ->assertSee('Edit election');
     }
 
     public function test_a_normal_user_becomes_an_organiser_when_creating_a_first_election(): void
@@ -125,5 +270,43 @@ final class NormalUserElectionWorkspaceTest extends TestCase
             'currency' => 'MYR',
             'status' => Election::DRAFT,
         ]);
+    }
+
+    private function fakeElectionSummary(Election $election): void
+    {
+        config()->set('votetrust-user.services.election', [
+            'base_url' => 'https://election.test',
+            'api_key' => 'election-consumer-key',
+            'connect_timeout_seconds' => 1,
+            'timeout_seconds' => 2,
+            'response_max_age_seconds' => 300,
+        ]);
+        config()->set('votetrust-user.services.voting', [
+            'base_url' => '',
+            'api_key' => '',
+        ]);
+
+        Http::preventStrayRequests();
+        Http::fake(function (ClientRequest $request) use ($election) {
+            parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
+
+            return Http::response([
+                'status' => 'S',
+                'message' => 'Election summaries retrieved.',
+                'requestID' => $query['requestID'] ?? null,
+                'timestamp' => now()->toAtomString(),
+                'data' => ['elections' => [[
+                    'electionId' => $election->getKey(),
+                    'title' => $election->title,
+                    'lifecycleState' => $election->status,
+                    'organizerUserId' => $election->organizer_id,
+                    'nominationStart' => $election->nomination_start?->toAtomString(),
+                    'nominationEnd' => $election->nomination_end?->toAtomString(),
+                    'votingStart' => $election->voting_start?->toAtomString(),
+                    'votingEnd' => $election->voting_end?->toAtomString(),
+                    'updatedAt' => $election->updated_at?->toAtomString(),
+                ]]],
+            ]);
+        });
     }
 }

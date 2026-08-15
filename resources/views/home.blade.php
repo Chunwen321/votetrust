@@ -11,13 +11,8 @@
             <p class="home-hero__lead">VoteTrust brings organisers, candidates, and voters into one guided online election experience—from setup and nomination to a valid vote.</p>
 
             <div class="home-actions">
-                @auth
-                    <a class="button button--primary button--large" href="{{ route('dashboard') }}">Open my dashboard</a>
-                    <a class="button button--quiet button--large" href="{{ route('elections.index') }}#voting-elections">View open elections</a>
-                @else
-                    <a class="button button--primary button--large" href="{{ route('register') }}">Create your account</a>
-                    <a class="button button--quiet button--large" href="#how-it-works">See how it works</a>
-                @endauth
+                <a class="button button--primary button--large" href="{{ route('register') }}">Create your account</a>
+                <a class="button button--quiet button--large" href="#how-it-works">See how it works</a>
             </div>
 
             <ul class="home-hero__assurances" aria-label="VoteTrust highlights">
@@ -156,12 +151,8 @@
             <h2 id="cta-title">Make the next vote easier to run—and easier to trust.</h2>
         </div>
         <div class="home-cta__actions">
-            @auth
-                <a class="button button--light button--large" href="{{ route('elections.index') }}">Manage elections</a>
-            @else
-                <a class="button button--light button--large" href="{{ route('register') }}">Get started</a>
-                <a class="home-cta__link" href="{{ route('login') }}">Already have an account? Sign in</a>
-            @endauth
+            <a class="button button--light button--large" href="{{ route('register') }}">Get started</a>
+            <a class="home-cta__link" href="{{ route('login') }}">Already have an account? Sign in</a>
         </div>
     </section>
 </div>

@@ -33,6 +33,7 @@ The Payment service is an external teammate boundary until the Payment module is
 ## Requirements
 
 - PHP 8.2+
+- PHP Zip extension (required for XLSX voter-list imports)
 - Composer 2
 - Node.js and npm
 - MySQL 8+ for the local application (tests use in-memory SQLite)
@@ -40,16 +41,41 @@ The Payment service is an external teammate boundary until the Payment module is
 
 ## Setup
 
+Before setup, enable PHP's `zip` extension, start MySQL, and create an empty database named `votetrust`. Laragon's default `root` user with no password already matches `.env.example`; if your database name or credentials differ, copy `.env.example` to `.env` and update the `DB_*` values first. Laravel migrations create tables, but they do not create the MySQL database itself.
+
+With Laragon, enable Zip at `Menu > PHP > Extensions > zip`, restart the terminal, start MySQL, and create `votetrust` from Laragon's database tool or phpMyAdmin.
+
+Once that one-time prerequisite is ready, a fresh clone can be prepared with:
+
+```powershell
+composer setup
+```
+
+This installs dependencies, creates `.env` when needed, generates the application key, migrates and seeds the database, and builds the frontend.
+
+After an ordinary Git pull, use the conventional update path:
+
 ```powershell
 composer install
-Copy-Item .env.example .env
-php artisan key:generate
+php artisan config:clear
 php artisan migrate --seed
 npm install
 npm.cmd run build
 ```
 
-Set MySQL credentials and unique API keys in `.env`. Matching provider/consumer keys are required, for example `USER_API_KEY` with `USER_SERVICE_API_KEY`, and `VOTING_API_KEY` with `VOTING_SERVICE_API_KEY`.
+The equivalent fresh-clone workflow, when you prefer to run each step yourself, is:
+
+```powershell
+composer install
+Copy-Item .env.example .env
+php artisan key:generate
+php artisan config:clear
+php artisan migrate --seed
+npm install
+npm.cmd run build
+```
+
+The example file includes matching local-only keys for the User, Election, Voting, and Candidate services so the integrated application can call its own module APIs. Existing local `.env` files with blank internal keys receive the same local-only defaults from configuration after `php artisan config:clear`. Replace those example keys in any shared or deployed environment. Payment credentials remain blank because Payment is an external teammate service.
 
 ### Laragon URL
 
@@ -77,17 +103,44 @@ Alternatively, clone the repository directly as `C:\laragon\www\votetrust`; no j
 
 ## Demo accounts
 
-`php artisan db:seed` creates the integrated demo data without depending on fixed IDs.
+`php artisan db:seed` creates the integrated demo data without depending on fixed IDs. Sign in with the email address, not the display name.
 
-| Role | Username | Password |
+| Role / purpose | Email | Password |
 |---|---|---|
-| Organiser | `LowWenKaiOrganizer` | `VoteTrust!2026` |
-| Administrator | `SystemAdmin` | `VoteTrustAdmin!2026` |
-| Candidate | `CandidateAisha` | `Candidate!2026` |
-| Candidate | `CandidateDaniel` | `Candidate!2026` |
-| Voter | `VoterJohn` | `VoteTrustVoter!2026` |
+| Primary organiser - owns scenarios 01-03 and 05-09 | `lowwenkaiorganizer@votetrust.test` | `VoteTrust!2026` |
+| Secondary organiser - owns scenario 04 for the administrator handoff | `organizeradmin@votetrust.test` | `VoteTrust!2026` |
+| System administrator - approvals, participants, and member access | `systemadmin@votetrust.test` | `VoteTrustAdmin!2026` |
+| Candidate - ready to apply in scenario 05 and appears on seeded ballots | `candidateaisha@votetrust.test` | `Candidate!2026` |
+| Candidate - pending application for organizer review in scenario 05 | `candidatedaniel@votetrust.test` | `Candidate!2026` |
+| Voter - approved and ready to cast in active elections | `voterjohn@votetrust.test` | `VoteTrustVoter!2026` |
+| Voter - demonstrates the already-voted state | `voteramina@votetrust.test` | `VoteTrustVoter!2026` |
+| Voter / participant fixture | `voterbenjamin@votetrust.test` | `VoteTrustVoter!2026` |
+| Voter / private-roster fixture | `voterchen@votetrust.test` | `VoteTrustVoter!2026` |
+| Voter / private-roster fixture | `voterdevi@votetrust.test` | `VoteTrustVoter!2026` |
+| Voter / historical election fixture | `voterfarah@votetrust.test` | `VoteTrustVoter!2026` |
+| Unverified member - tests the profile-verification gate and local eKYC | `unverifiedmember@votetrust.test` | `VoteTrustMember!2026` |
+| Disabled member - tests administrator restoration; cannot sign in until restored | `disabledmember@votetrust.test` | `VoteTrustMember!2026` |
 
-Additional voters are `VoterAmina`, `VoterBenjamin`, `VoterChen`, `VoterDevi`, and `VoterFarah`, using the same voter password.
+### Demo scenario gallery
+
+The scenario dates are calculated relative to the time `php artisan db:seed` runs, so nomination and voting actions remain usable instead of expiring on fixed calendar dates.
+
+| Seeded election | Immediate test |
+|---|---|
+| `[Demo] 01 - Editable Public Draft` | Edit a public draft, continue to hosting payment, or cancel it. |
+| `[Demo] 02 - Private Roster Draft` | Search and assign private voters, import a roster, download the template, or continue to payment. |
+| `[Demo] 03 - Awaiting Hosting Payment` | Submit a hosting-payment reference or cancel the request. |
+| `[Demo] 04 - Awaiting Administrator Approval` | As the administrator, approve, return, or reject the request; as its organiser, withdraw it. |
+| `[Demo] 05 - Candidate Review` | Apply as CandidateAisha, or review CandidateDaniel's pending application as the primary organiser. |
+| `[Demo] 06 - Ready to Open Voting` | Open voting after the completed nomination and candidate-review gates. |
+| `[Demo] 07 - Public Voting Open` | Cast a public-election vote as VoterJohn or inspect VoterAmina's already-voted state. |
+| `[Demo] 08 - Private Voting Open` | Exercise approved-roster-only ballot access and voting. |
+| `[Demo] 09 - Ready to Close` | Close an election whose configured voting period has ended. |
+| `VoteTrust Student Council Election 2026` | Inspect a closed election with stable historical candidacies, enrolments, and votes. |
+
+Organizer and administrator lifecycle forms require the current password shown above. Re-running `php artisan db:seed` refreshes the relative dates and resets the reserved demo personas and scenarios, so manual changes to those fixtures are not permanent.
+
+Candidate payment status and application cancellation still require the external Payment API. Local payment rows alone deliberately do not enable those payment-dependent actions.
 
 ## Main pages
 
@@ -107,6 +160,6 @@ php vendor/bin/pint --test
 npm.cmd run build
 ```
 
-Current verified result: **58 tests, 271 assertions**, production assets built, 47 routes registered, and `http://votetrust.test/` returns HTTP 200.
+All three commands should complete successfully. Test and route counts change as the project evolves, so rely on the command output rather than a fixed count in this document. With Laragon running, also confirm that `http://votetrust.test/` returns the application home page.
 
 See [docs/legacy-migration.md](docs/legacy-migration.md) for the detailed migration/cleanup map, [docs/web-service-ifa.md](docs/web-service-ifa.md) for the provider/consumer interface agreements, and [docs/didit-ekyc-setup.md](docs/didit-ekyc-setup.md) to configure the hosted document/selfie eKYC flow.

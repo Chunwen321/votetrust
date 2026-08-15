@@ -2,16 +2,22 @@
 
 // PIC: Low Wen Kai - Election Management Module
 
+$localEnvironment = (string) env('APP_ENV', 'production') === 'local';
+
 return [
     'api' => [
-        'key' => env('ELECTION_API_KEY', env('ELECTION_SERVICE_API_KEY', '')),
+        'key' => env('ELECTION_API_KEY')
+            ?: env('ELECTION_SERVICE_API_KEY')
+            ?: ($localEnvironment ? 'votetrust-election-local-2026' : ''),
     ],
 
     // Election never reads or writes User/Voter tables directly. Private
     // roster matching and enrolment are delegated to this User Module API.
     'user_service' => [
         'base_url' => env('USER_SERVICE_BASE_URL', env('APP_URL', '')),
-        'api_key' => env('USER_SERVICE_API_KEY', env('USER_API_KEY', '')),
+        'api_key' => env('USER_SERVICE_API_KEY')
+            ?: env('USER_API_KEY')
+            ?: ($localEnvironment ? 'votetrust-user-local-2026' : ''),
         'connect_timeout_seconds' => (int) env('USER_SERVICE_CONNECT_TIMEOUT_SECONDS', 2),
         'timeout_seconds' => (int) env('USER_SERVICE_TIMEOUT_SECONDS', 10),
         'response_max_age_seconds' => (int) env('API_RESPONSE_MAX_AGE_SECONDS', 300),
