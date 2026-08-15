@@ -4,12 +4,14 @@ namespace App\Providers;
 
 use App\Contracts\Clock;
 use App\Contracts\PaymentGateway;
+use App\Contracts\PaymentGatewayContract;
 use App\Contracts\RegistrationService;
 use App\Contracts\VotingIntegration;
 use App\Services\CandidateRegistration\RealRegistrationService;
 use App\Services\CandidateRegistration\RegistrationProxy;
 use App\Services\Clock\SystemClock;
 use App\Services\Payment\HttpPaymentGateway;
+use App\Services\Payment\IDontPay99Gateway;
 use App\Services\Voting\ElectionVotingIntegration;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -27,6 +29,11 @@ class AppServiceProvider extends ServiceProvider
         // PIC: Low Wen Kai — Election clock and payment integration bindings.
         $this->app->singleton(Clock::class, SystemClock::class);
         $this->app->bind(PaymentGateway::class, HttpPaymentGateway::class);
+
+        // PIC: Risky Puah Kaho - Payment Module — pluggable gateway binding, IDontPay99 today, real provider later.
+        $this->app->bind(PaymentGatewayContract::class, match (config('payment.gateway', 'mock')) {
+            default => IDontPay99Gateway::class,
+        });
 
         // PIC: Wong Shun Bin — Candidate registration Proxy binding.
         $this->app->when(RegistrationProxy::class)

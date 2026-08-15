@@ -30,6 +30,7 @@
             <p>Payment status could not be verified. Payment-dependent actions remain disabled.</p>
         @elseif ($paymentStatus->isPending())
             <p>Your deposit is awaiting payment in the Payment Module.</p>
+            <a class="candidate-button" href="{{ route('payments.checkout.show', $payment) }}">Pay now</a>
         @elseif ($paymentStatus->paid)
             <p>Your payment is complete. Application approval will follow the configured payment workflow.</p>
         @else
