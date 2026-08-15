@@ -1,0 +1,217 @@
+/* PIC: Risky Puah Kaho - Payment Module */
+
+.payment-checkout-shell {
+    display: flex;
+    justify-content: center;
+    padding: 3rem 1rem;
+}
+
+.payment-checkout-card {
+    width: 100%;
+    max-width: 420px;
+    background: #fff;
+    border: 1px solid var(--user-line, #e2e8f0);
+    border-radius: 20px;
+    box-shadow: 0 24px 55px rgb(21 94 239 / 12%);
+    padding: 2rem;
+}
+
+.payment-checkout-brand {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.payment-checkout-logo {
+    font-weight: 900;
+    font-size: 1.3rem;
+    letter-spacing: -0.02em;
+    color: #10233f;
+}
+
+.payment-checkout-badge {
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #b54708;
+    background: #fff7df;
+    padding: 4px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.payment-checkout-summary {
+    display: grid;
+    gap: 4px;
+    padding: 1.1rem 1.25rem;
+    margin-bottom: 1.5rem;
+    background: #f7f9fc;
+    border-radius: 14px;
+}
+
+.payment-checkout-summary span {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #667085;
+}
+
+.payment-checkout-summary strong {
+    font-size: 1.8rem;
+    color: #10233f;
+}
+
+.payment-checkout-summary small {
+    color: #667085;
+}
+
+.payment-checkout-form {
+    display: grid;
+    gap: 1rem;
+}
+
+.payment-checkout-form label {
+    display: grid;
+    gap: 6px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #10233f;
+}
+
+.payment-checkout-form input {
+    padding: 0.7rem 0.85rem;
+    font-size: 1rem;
+    border: 1px solid var(--user-line, #d0d7e2);
+    border-radius: 10px;
+    background: #fff;
+}
+
+.payment-checkout-form input:focus {
+    outline: 3px solid rgb(21 94 239 / 16%);
+    border-color: #155eef;
+}
+
+.payment-checkout-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.payment-checkout-pay-button {
+    padding: 0.85rem 1rem;
+    font-size: 1rem;
+    font-weight: 800;
+    color: #fff;
+    background: linear-gradient(135deg, #155eef, #123e99);
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    box-shadow: 0 12px 24px rgb(21 94 239 / 24%);
+}
+
+.payment-checkout-pay-button:hover {
+    filter: brightness(1.05);
+}
+
+.payment-checkout-fineprint {
+    font-size: 0.76rem;
+    color: #667085;
+    text-align: center;
+    margin: 0.25rem 0 0;
+}
+
+.payment-checkout-note {
+    margin-bottom: 1rem;
+    color: #667085;
+}
+
+.payment-checkout-error {
+    color: #b42318;
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+
+.payment-checkout-result {
+    padding: 1.25rem;
+    border-radius: 14px;
+    text-align: center;
+}
+
+.payment-checkout-result h2 {
+    margin: 0 0 6px;
+}
+
+.payment-checkout-result p {
+    margin: 0;
+    color: #475467;
+}
+
+.payment-checkout-result--paid {
+    background: #ebf8f1;
+}
+
+.payment-checkout-result--paid h2 {
+    color: #067647;
+}
+
+.payment-checkout-result--failed {
+    background: #fff0ee;
+}
+
+.payment-checkout-result--failed h2 {
+    color: #b42318;
+}
+
+.payment-checkout-result--cancelled,
+.payment-checkout-result--refunded {
+    background: #f4f0ff;
+}
+
+.payment-checkout-result--cancelled h2,
+.payment-checkout-result--refunded h2 {
+    color: #6941c6;
+}
+
+.payment-checkout-reference {
+    margin-top: 1rem;
+    padding: 1.1rem 1.25rem;
+    background: #f7f9fc;
+    border-radius: 14px;
+    text-align: center;
+}
+
+.payment-checkout-reference span {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #667085;
+}
+
+.payment-checkout-reference strong {
+    display: block;
+    font-size: 1.15rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: #10233f;
+    margin: 4px 0 10px;
+}
+
+.payment-checkout-reference p {
+    font-size: 0.85rem;
+    color: #475467;
+    margin: 0 0 12px;
+}
+
+.payment-checkout-pay-button--secondary {
+    display: inline-block;
+    background: #fff;
+    color: #155eef;
+    border: 1px solid var(--user-line, #d0d7e2);
+    box-shadow: none;
+    text-decoration: none;
+    text-align: center;
+}

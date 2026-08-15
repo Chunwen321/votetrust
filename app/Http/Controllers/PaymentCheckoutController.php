@@ -1,0 +1,121 @@
+<?php
+
+// PIC: Risky Puah Kaho - Payment Module
+
+declare(strict_types=1);
+
+namespace App\Http\Controllers;
+
+use App\Contracts\PaymentGatewayContract;
+use App\Models\Election;
+use App\Models\Payment;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use Illuminate\View\View;
+
+/**
+ * A convincing but entirely fake checkout page for the IDontPay99 mock
+ * gateway. No card data is ever persisted, logged, or transmitted — the
+ * card number is only inspected in-memory to pick a demo outcome, the same
+ * way real sandbox gateways use "magic" test card numbers.
+ */
+final class PaymentCheckoutController extends Controller
+{
+    public function __construct(private readonly PaymentGatewayContract $gateway) {}
+
+    public function show(Request $request, int $payment): View
+    {
+        $record = Payment::query()->findOrFail($payment);
+        $this->authorizeAccess($request, $record);
+
+        return view('payments.checkout', ['payment' => $record]);
+    }
+
+    public function charge(Request $request, int $payment): RedirectResponse
+    {
+        $record = Payment::query()->findOrFail($payment);
+        $this->authorizeAccess($request, $record);
+
+        $request->validate([
+            'card_number' => ['required', 'string', 'regex:/^[0-9 ]{12,23}$/'],
+            'card_holder' => ['required', 'string', 'max:100'],
+            'expiry' => ['required', 'string', 'regex:/^(0[1-9]|1[0-2])\/[0-9]{2}$/'],
+            'cvv' => ['required', 'string', 'regex:/^[0-9]{3,4}$/'],
+        ]);
+
+        if ($record->paymentStatus()->isTerminal()) {
+            return redirect()->route('payments.checkout.show', $record)
+                ->with('success', 'This payment was already settled.');
+        }
+
+        // A card number ending in "0002" is IDontPay99's "always declines"
+        // test card, mirroring how real sandbox gateways expose magic
+        // numbers for testing both outcomes. Nothing about the card is kept.
+        $cardNumber = (string) $request->input('card_number');
+        $declines = str_ends_with(preg_replace('/\s+/', '', $cardNumber), '0002');
+
+        if ($declines) {
+            $this->gateway->fail($record, 'IDontPay99 test card declined the charge.');
+        } else {
+            $this->gateway->confirm($record);
+        }
+
+        return redirect()->route('payments.checkout.show', $record);
+    }
+
+    /**
+     * Election-module-agnostic entry point: resolves (or opens) the hosting
+     * Payment for an election and hands the organizer straight to the same
+     * checkout page candidates use. Reads the shared Election model only —
+     * no Election-owned controller, route, or view is touched. After paying,
+     * the checkout page shows the settled reference so the organizer can
+     * paste it into Election's own "Submit payment" field, unchanged.
+     */
+    public function payForElection(Request $request, int $election): RedirectResponse
+    {
+        $record = Election::query()->findOrFail($election);
+
+        $userId = (int) $request->user()?->getAuthIdentifier();
+        if ((int) $record->organizer_id !== $userId) {
+            throw new AuthorizationException('You do not have access to this election\'s payment.');
+        }
+
+        if ($record->status !== Election::PENDING_PAYMENT) {
+            throw new AuthorizationException('This election is not currently awaiting hosting payment.');
+        }
+
+        $payment = Payment::query()
+            ->where('purpose', Payment::PURPOSE_ELECTION_HOSTING)
+            ->where('election_id', $record->getKey())
+            ->whereIn('status', ['Pending', 'Paid'])
+            ->latest('id')
+            ->first();
+
+        if (! $payment instanceof Payment) {
+            $payment = Payment::query()->create([
+                'amount' => $record->hosting_fee,
+                'currency' => $record->currency,
+                'status' => 'Pending',
+                'gateway' => 'idontpay99',
+                'organizer_id' => $record->organizer_id,
+                'election_id' => $record->getKey(),
+                'purpose' => Payment::PURPOSE_ELECTION_HOSTING,
+                'provider_reference' => 'VT-HOST-'.strtoupper(Str::random(10)),
+            ]);
+        }
+
+        return redirect()->route('payments.checkout.show', $payment);
+    }
+
+    private function authorizeAccess(Request $request, Payment $payment): void
+    {
+        $userId = (int) $request->user()?->getAuthIdentifier();
+        $owner = $payment->candidate_id ?? $payment->organizer_id;
+
+        if ($owner === null || (int) $owner !== $userId) {
+            throw new AuthorizationException('You do not have access to this payment.');
+        }
+    }
+}
