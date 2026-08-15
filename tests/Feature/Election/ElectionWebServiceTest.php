@@ -69,6 +69,38 @@ final class ElectionWebServiceTest extends TestCase
             ->assertJsonStructure(['status', 'timestamp', 'data' => ['ballot']]);
     }
 
+    public function test_summary_endpoint_publishes_the_complete_election_schedule(): void
+    {
+        config()->set('election.api.key', 'election-summary-contract-key');
+        $now = CarbonImmutable::parse('2026-08-15 12:00:00', config('app.timezone'));
+        $this->travelTo($now);
+
+        $election = Election::query()->create([
+            'title' => 'Scheduled Student Election',
+            'nomination_start' => $now->addDay()->setTime(9, 15),
+            'nomination_end' => $now->addDays(3)->setTime(17, 30),
+            'voting_start' => $now->addDays(4)->setTime(9, 0),
+            'voting_end' => $now->addDays(5)->setTime(17, 30),
+            'status' => Election::NOMINATION_OPEN,
+            'currency' => 'MYR',
+        ])->refresh();
+
+        $this->withHeader('X-Internal-Api-Key', 'election-summary-contract-key')
+            ->getJson(route('api.elections.summaries').'?'.http_build_query([
+                'electionIds' => [$election->getKey()],
+                'requestID' => 'ELECTION-SUMMARY-SCHEDULE-0001',
+                'timestamp' => $now->toAtomString(),
+            ]))
+            ->assertOk()
+            ->assertJsonPath('status', 'S')
+            ->assertJsonPath('requestID', 'ELECTION-SUMMARY-SCHEDULE-0001')
+            ->assertJsonPath('data.elections.0.electionId', $election->getKey())
+            ->assertJsonPath('data.elections.0.nominationStart', $election->nomination_start?->toAtomString())
+            ->assertJsonPath('data.elections.0.nominationEnd', $election->nomination_end?->toAtomString())
+            ->assertJsonPath('data.elections.0.votingStart', $election->voting_start?->toAtomString())
+            ->assertJsonPath('data.elections.0.votingEnd', $election->voting_end?->toAtomString());
+    }
+
     public function test_provider_endpoints_return_failure_envelopes_for_invalid_requests(): void
     {
         $response = $this->getJson('/api/v1/elections/available?requestID=BAD');

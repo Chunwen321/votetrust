@@ -4,13 +4,17 @@
 
 declare(strict_types=1);
 
+$localEnvironment = (string) env('APP_ENV', 'production') === 'local';
+
 return [
     'auth' => [
         'max_failed_attempts' => (int) env('AUTH_MAX_FAILED_ATTEMPTS', 5),
     ],
 
     'api' => [
-        'key' => (string) env('USER_API_KEY', ''),
+        'key' => (string) (env('USER_API_KEY')
+            ?: env('USER_SERVICE_API_KEY')
+            ?: ($localEnvironment ? 'votetrust-user-local-2026' : '')),
         'max_age_seconds' => (int) env('API_REQUEST_MAX_AGE_SECONDS', 300),
     ],
 
@@ -34,21 +38,27 @@ return [
     'services' => [
         'election' => [
             'base_url' => (string) env('ELECTION_SERVICE_BASE_URL', env('APP_URL', '')),
-            'api_key' => (string) env('ELECTION_SERVICE_API_KEY', env('ELECTION_API_KEY', '')),
+            'api_key' => (string) (env('ELECTION_SERVICE_API_KEY')
+                ?: env('ELECTION_API_KEY')
+                ?: ($localEnvironment ? 'votetrust-election-local-2026' : '')),
             'connect_timeout_seconds' => (int) env('ELECTION_SERVICE_CONNECT_TIMEOUT_SECONDS', 2),
             'timeout_seconds' => (int) env('ELECTION_SERVICE_TIMEOUT_SECONDS', 5),
             'response_max_age_seconds' => (int) env('API_RESPONSE_MAX_AGE_SECONDS', 300),
         ],
         'candidate' => [
             'base_url' => (string) env('CANDIDATE_SERVICE_BASE_URL', env('APP_URL', '')),
-            'api_key' => (string) env('CANDIDATE_SERVICE_API_KEY', env('CANDIDATE_API_KEY', '')),
+            'api_key' => (string) (env('CANDIDATE_SERVICE_API_KEY')
+                ?: env('CANDIDATE_API_KEY')
+                ?: ($localEnvironment ? 'votetrust-candidate-local-2026' : '')),
             'connect_timeout_seconds' => (int) env('CANDIDATE_SERVICE_CONNECT_TIMEOUT_SECONDS', 2),
             'timeout_seconds' => (int) env('CANDIDATE_SERVICE_TIMEOUT_SECONDS', 5),
             'response_max_age_seconds' => (int) env('API_RESPONSE_MAX_AGE_SECONDS', 300),
         ],
         'voting' => [
             'base_url' => (string) env('VOTING_SERVICE_BASE_URL', env('APP_URL', '')),
-            'api_key' => (string) env('VOTING_SERVICE_API_KEY', env('VOTING_API_KEY', '')),
+            'api_key' => (string) (env('VOTING_SERVICE_API_KEY')
+                ?: env('VOTING_API_KEY')
+                ?: ($localEnvironment ? 'votetrust-voting-local-2026' : '')),
             'connect_timeout_seconds' => (int) env('VOTING_SERVICE_CONNECT_TIMEOUT_SECONDS', 2),
             'timeout_seconds' => (int) env('VOTING_SERVICE_TIMEOUT_SECONDS', 5),
             'response_max_age_seconds' => (int) env('API_RESPONSE_MAX_AGE_SECONDS', 300),

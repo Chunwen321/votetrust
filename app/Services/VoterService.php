@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\Election;
 use App\Models\User;
 use App\Models\VoterEnrollment;
 use App\Services\User\ElectionModuleClient;
@@ -32,13 +33,24 @@ final class VoterService
 
         $summaries = $this->elections->summaries($enrollments->pluck('election_id')->all());
 
-        return $enrollments->map(function (VoterEnrollment $enrollment) use ($summaries): VoterEnrollment {
-            $summary = $summaries[(int) $enrollment->election_id] ?? null;
-            $enrollment->setAttribute('election_title', $summary['title'] ?? 'Election #'.$enrollment->election_id);
-            $enrollment->setAttribute('election_status', $summary['status'] ?? 'UNAVAILABLE');
+        return $enrollments
+            ->map(function (VoterEnrollment $enrollment) use ($summaries): VoterEnrollment {
+                $summary = $summaries[(int) $enrollment->election_id] ?? null;
+                $enrollment->setAttribute('election_title', $summary['title'] ?? 'Election #'.$enrollment->election_id);
+                $enrollment->setAttribute('election_status', $summary['status'] ?? 'UNAVAILABLE');
+                $enrollment->setAttribute('election_nomination_start', $summary['nominationStart'] ?? null);
+                $enrollment->setAttribute('election_nomination_end', $summary['nominationEnd'] ?? null);
+                $enrollment->setAttribute('election_voting_start', $summary['votingStart'] ?? null);
+                $enrollment->setAttribute('election_voting_end', $summary['votingEnd'] ?? null);
 
-            return $enrollment;
-        });
+                return $enrollment;
+            })
+            ->filter(fn (VoterEnrollment $enrollment): bool => in_array($enrollment->election_status, [
+                Election::NOMINATION_OPEN,
+                Election::VOTING_OPEN,
+                Election::CLOSED,
+            ], true))
+            ->values();
     }
 
     /** @return array{APPROVED:int,PENDING:int,REJECTED:int,SUSPENDED:int} */

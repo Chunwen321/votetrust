@@ -1,6 +1,8 @@
 <?php
 
 // PIC: Wong Shun Bin — Candidate Registration module configuration.
+$localEnvironment = (string) env('APP_ENV', 'production') === 'local';
+
 return [
     'disk' => env('CANDIDATE_STORAGE_DISK', 'local'),
     'photos_directory' => env('CANDIDATE_PHOTOS_DIRECTORY', 'candidate/photos'),
@@ -12,7 +14,9 @@ return [
 
     // PIC: Wong Shun Bin - REST provider used by Payment to retrieve candidate/payee details.
     'api' => [
-        'key' => env('CANDIDATE_API_KEY'),
+        'key' => env('CANDIDATE_API_KEY')
+            ?: env('CANDIDATE_SERVICE_API_KEY')
+            ?: ($localEnvironment ? 'votetrust-candidate-local-2026' : ''),
         'clock_skew_seconds' => (int) env('CANDIDATE_API_CLOCK_SKEW_SECONDS', 300),
     ],
 

@@ -138,7 +138,30 @@
                         </time>
                     </dd>
                 </div>
-                <div class="election-configuration-split"><dt>Hosting fee</dt><dd>{{ $displayCurrency }} {{ number_format((float) $displayHostingFee, 2) }}</dd><dt>Payment</dt><dd>@if ($availability['hostingPaymentVerified']) Verified by administrator @elseif ($election->payment_reference) Submitted for verification @elseif ($election->status === \App\States\ElectionStatus::PENDING_PAYMENT->value) Ready for payment @else Not yet available @endif</dd><dt>Approval</dt><dd>{{ $availability['administratorApproved'] ? 'Approved' : 'Required' }}</dd></div>
+                <div class="election-configuration-split">
+                    <div class="election-configuration-split__item">
+                        <dt>Hosting fee</dt>
+                        <dd>{{ $displayCurrency }} {{ number_format((float) $displayHostingFee, 2) }}</dd>
+                    </div>
+                    <div class="election-configuration-split__item">
+                        <dt>Payment</dt>
+                        <dd>
+                            @if ($availability['hostingPaymentVerified'])
+                                Verified by administrator
+                            @elseif ($election->payment_reference)
+                                Submitted for verification
+                            @elseif ($election->status === \App\States\ElectionStatus::PENDING_PAYMENT->value)
+                                Ready for payment
+                            @else
+                                Not yet available
+                            @endif
+                        </dd>
+                    </div>
+                    <div class="election-configuration-split__item">
+                        <dt>Approval</dt>
+                        <dd>{{ $availability['administratorApproved'] ? 'Approved' : 'Required' }}</dd>
+                    </div>
+                </div>
             </dl>
         </aside>
     </section>

@@ -93,7 +93,19 @@ final class ElectionSummaryController extends Controller
         }
     }
 
-    /** @return array{electionId:int,title:string,lifecycleState:string,organizerUserId:?int,updatedAt:?string} */
+    /**
+     * @return array{
+     *     electionId:int,
+     *     title:string,
+     *     lifecycleState:string,
+     *     organizerUserId:?int,
+     *     nominationStart:?string,
+     *     nominationEnd:?string,
+     *     votingStart:?string,
+     *     votingEnd:?string,
+     *     updatedAt:?string
+     * }
+     */
     private function summary(Election $election): array
     {
         return [
@@ -101,6 +113,10 @@ final class ElectionSummaryController extends Controller
             'title' => (string) $election->title,
             'lifecycleState' => (string) $election->status,
             'organizerUserId' => $election->organizer_id === null ? null : (int) $election->organizer_id,
+            'nominationStart' => $election->nomination_start?->toAtomString(),
+            'nominationEnd' => $election->nomination_end?->toAtomString(),
+            'votingStart' => $election->voting_start?->toAtomString(),
+            'votingEnd' => $election->voting_end?->toAtomString(),
             'updatedAt' => $election->updated_at?->toAtomString(),
         ];
     }

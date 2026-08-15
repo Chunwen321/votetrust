@@ -21,6 +21,8 @@
         </div>
     </section>
 
+    <p class="election-hub__timezone" role="note">All election dates and times are shown in {{ $electionTimezoneLabel }}.</p>
+
     <section id="voting-elections" class="election-role-section election-role-section--voter" aria-labelledby="voting-elections-title">
         <div class="section-title">
             <div class="election-role-heading">
@@ -47,6 +49,7 @@
                 @foreach ($voterEnrollments as $enrollment)
                     @php($votingStatus = $votingStatuses[(int) $enrollment->election_id] ?? null)
                     @php($canVote = $user->isVerified() && $enrollment->status === 'APPROVED' && $enrollment->election_status === \App\Models\Election::VOTING_OPEN && ($votingStatus['available'] ?? false) && ! ($votingStatus['hasVoted'] ?? false))
+                    @php($milestone = $voterMilestones[(int) $enrollment->election_id])
                     <article class="card election-list-item" role="listitem">
                         <div class="election-list-item__main">
                             <div class="election-list-item__heading">
@@ -56,6 +59,7 @@
                                 </span>
                             </div>
                             <p>Voter access: <span class="badge status-{{ strtolower($enrollment->status) }}">{{ str($enrollment->status)->lower()->headline() }}</span></p>
+                            @include('elections.partials.card-milestone', ['milestone' => $milestone])
                         </div>
                         <div class="election-list-item__action">
                             @if (! $user->isVerified())
@@ -102,6 +106,7 @@
                 @foreach ($candidateElections as $election)
                     @php($candidacy = $election->candidacies->first())
                     @php($isPublic = \App\ValueObjects\EligibilityRules::fromStored($election->eligibility_rules)->mode() === \App\ValueObjects\EligibilityRules::PUBLIC)
+                    @php($milestone = $candidateMilestones[(int) $election->getKey()])
                     <article class="card election-list-item" role="listitem">
                         <div class="election-list-item__main">
                             <div class="election-list-item__heading">
@@ -113,8 +118,15 @@
                             @if ($candidacy)
                                 <p>You have been assigned as a candidate. Status: <span class="badge status-{{ strtolower($candidacy->status) }}">{{ $candidacy->status }}</span></p>
                             @elseif ($isPublic)
-                                <p>Public election &mdash; you can view the details and apply to become a candidate.</p>
+                                @if ($candidateApplicationsOpen[(int) $election->getKey()])
+                                    <p>Public election &mdash; candidate applications are open now.</p>
+                                @elseif ($election->status === \App\Models\Election::NOMINATION_OPEN && $milestone->tone === 'upcoming')
+                                    <p>Public election &mdash; applications open when nominations begin.</p>
+                                @else
+                                    <p>Public election &mdash; candidate applications are closed.</p>
+                                @endif
                             @endif
+                            @include('elections.partials.card-milestone', ['milestone' => $milestone])
                         </div>
                         <div class="election-list-item__action">
                             <a class="button button-quiet button-small" href="{{ route('elections.show', $election) }}">View election <span aria-hidden="true">&rarr;</span></a>
@@ -158,6 +170,7 @@
         @else
             <div class="election-list" role="list">
                 @foreach ($organizedElections as $election)
+                    @php($milestone = $organizerMilestones[(int) $election->getKey()])
                     <article class="card election-list-item" role="listitem">
                         <div class="election-list-item__main">
                             <div class="election-list-item__heading">
@@ -166,16 +179,15 @@
                                     {{ str($election->status)->replace('_', ' ')->lower()->headline() }}
                                 </span>
                             </div>
-                            <p>
-                                @if ($election->voting_start && $election->voting_end)
-                                    Voting {{ $election->voting_start->format('d M Y') }} – {{ $election->voting_end->format('d M Y') }}
-                                @else
-                                    Configure the election schedule to continue.
-                                @endif
-                            </p>
+                            <p>Schedule status</p>
+                            @include('elections.partials.card-milestone', ['milestone' => $milestone])
                         </div>
                         <div class="election-list-item__action">
-                            <a class="button button-quiet button-small" href="{{ route('elections.show', $election) }}">Manage election <span aria-hidden="true">→</span></a>
+                            @if ($election->status === \App\Models\Election::DRAFT)
+                                <a class="button button-quiet button-small" href="{{ route('elections.edit', $election) }}">Continue setup <span aria-hidden="true">→</span></a>
+                            @else
+                                <a class="button button-quiet button-small" href="{{ route('elections.show', $election) }}">Manage election <span aria-hidden="true">→</span></a>
+                            @endif
                         </div>
                     </article>
                 @endforeach

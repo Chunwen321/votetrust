@@ -261,6 +261,8 @@
 .user-module .election-hub .page-heading { margin-bottom: 36px; }
 .user-module .election-hub .page-heading > div > p:last-child { max-width: 640px; color: var(--user-muted); font-size: 1.04rem; }
 .user-module .election-hub__actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
+.user-module .election-hub__timezone { display: flex; width: fit-content; align-items: center; gap: 8px; margin: -18px 0 22px; padding: 7px 11px; border: 1px solid #d6e3f7; border-radius: 999px; background: #f8fbff; color: #536980; font-size: .78rem; font-weight: 700; }
+.user-module .election-hub__timezone::before { width: 7px; height: 7px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 4px rgb(21 94 239 / 10%); content: ''; }
 .user-module .election-role-section {
     --role-accent: #155eef;
     --role-border: #ccdcfa;
@@ -292,6 +294,23 @@
 .user-module .election-list-item h3 { margin: 0; font-size: 1.05rem; overflow-wrap: anywhere; }
 .user-module .election-list-item p { margin: 8px 0 0; color: var(--user-muted); font-size: .88rem; }
 .user-module .election-list-item p .badge { margin-left: 3px; vertical-align: middle; }
+.user-module .election-list-item__milestone { display: flex; width: fit-content; flex-wrap: wrap; gap: 5px 10px; align-items: baseline; margin-top: 12px; padding: 8px 11px; border: 1px solid #d7e3f3; border-radius: 10px; background: #f7faff; color: #314b68; font-size: .82rem; line-height: 1.35; }
+.user-module .election-list-item__milestone-label { color: #61758b; font-size: .68rem; font-weight: 850; letter-spacing: .045em; text-transform: uppercase; }
+.user-module .election-list-item__milestone time { color: #183451; font-weight: 850; }
+.user-module .election-list-item__milestone--active { border-color: #b7e2ca; background: #effaf5; }
+.user-module .election-list-item__milestone--active .election-list-item__milestone-label,
+.user-module .election-list-item__milestone--active time { color: #087a54; }
+.user-module .election-list-item__milestone--upcoming { border-color: #c7d8f5; background: #f2f6ff; }
+.user-module .election-list-item__milestone--upcoming .election-list-item__milestone-label,
+.user-module .election-list-item__milestone--upcoming time { color: #164aa9; }
+.user-module .election-list-item__milestone--attention { border-color: #efd79d; background: #fff9e9; }
+.user-module .election-list-item__milestone--attention .election-list-item__milestone-label,
+.user-module .election-list-item__milestone--attention time { color: #8a5b00; }
+.user-module .election-list-item__milestone--past,
+.user-module .election-list-item__milestone--unavailable { border-color: #dce3eb; background: #f7f8fa; }
+.user-module .election-list-item__milestone--past .election-list-item__milestone-label,
+.user-module .election-list-item__milestone--past time,
+.user-module .election-list-item__milestone--unavailable .election-list-item__milestone-label { color: #66788a; }
 .user-module .election-list-item__action { display: flex; flex: 0 0 auto; align-items: center; justify-content: flex-end; }
 .user-module .election-list-item__action .button.button-quiet { border-color: #c7d8f5; background: #fff; color: var(--primary-dark); text-decoration: none; }
 .user-module .election-list-item:hover .election-list-item__action .button.button-quiet,
@@ -394,6 +413,8 @@
     .user-module .role-empty-state { align-items: stretch; flex-direction: column; }
     .user-module .election-hub__actions { width: 100%; justify-content: stretch; }
     .user-module .election-hub__actions .button { flex: 1 1 180px; }
+    .user-module .election-hub__timezone { width: 100%; border-radius: 12px; }
+    .user-module .election-list-item__milestone { width: 100%; }
     .user-module .election-list-item__action { justify-content: flex-start; }
     .user-module .role-empty-state--action .button { margin-left: 0; }
 }
