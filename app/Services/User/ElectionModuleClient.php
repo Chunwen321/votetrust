@@ -7,6 +7,7 @@ declare(strict_types=1);
 namespace App\Services\User;
 
 use Carbon\CarbonImmutable;
+use DateTimeInterface;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Str;
 use Throwable;
@@ -17,7 +18,7 @@ final class ElectionModuleClient
 
     /**
      * @param  iterable<int, int|string>  $electionIds
-     * @return array<int, array{id:int,title:string,status:string,organizerUserId:?int,updatedAt:?string}>
+     * @return array<int, array{id:int,title:string,status:string,organizerUserId:?int,nominationStart:?string,nominationEnd:?string,votingStart:?string,votingEnd:?string,updatedAt:?string}>
      */
     public function summaries(iterable $electionIds): array
     {
@@ -49,6 +50,10 @@ final class ElectionModuleClient
                 'title' => $record['title'],
                 'status' => $record['lifecycleState'],
                 'organizerUserId' => is_int($record['organizerUserId'] ?? null) ? $record['organizerUserId'] : null,
+                'nominationStart' => $this->normaliseTimestamp($record['nominationStart'] ?? null),
+                'nominationEnd' => $this->normaliseTimestamp($record['nominationEnd'] ?? null),
+                'votingStart' => $this->normaliseTimestamp($record['votingStart'] ?? null),
+                'votingEnd' => $this->normaliseTimestamp($record['votingEnd'] ?? null),
                 'updatedAt' => is_string($updatedAt) ? $updatedAt : null,
             ];
         }
@@ -56,7 +61,7 @@ final class ElectionModuleClient
         return $summaries;
     }
 
-    /** @return array{id:int,title:string,status:string,organizerUserId:?int,updatedAt:?string}|null */
+    /** @return array{id:int,title:string,status:string,organizerUserId:?int,nominationStart:?string,nominationEnd:?string,votingStart:?string,votingEnd:?string,updatedAt:?string}|null */
     public function summary(int $electionId): ?array
     {
         return $this->summaries([$electionId])[$electionId] ?? null;
@@ -157,6 +162,23 @@ final class ElectionModuleClient
         }
 
         return $result;
+    }
+
+    private function normaliseTimestamp(mixed $value): ?string
+    {
+        if (! is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        try {
+            $timestamp = CarbonImmutable::createFromFormat(DateTimeInterface::ATOM, $value);
+        } catch (Throwable) {
+            return null;
+        }
+
+        return $timestamp instanceof CarbonImmutable && $timestamp->format(DateTimeInterface::ATOM) === $value
+            ? $value
+            : null;
     }
 
     /**

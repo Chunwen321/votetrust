@@ -19,6 +19,7 @@ use App\Services\User\VotingParticipationClient;
 use App\Services\VoterModuleClient;
 use App\Services\VoterService;
 use App\States\ElectionStatus;
+use App\Support\ElectionCardMilestone;
 use App\ValueObjects\EligibilityRules;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -56,15 +57,52 @@ final class ElectionController extends Controller
             ->filter(fn (Election $election): bool => $this->isPublic($election)
                 || $election->candidacies->isNotEmpty())
             ->values();
+        $organizedElections = Election::query()
+            ->where('organizer_id', $user->getKey())
+            ->latest('updated_at')
+            ->get();
+        $now = CarbonImmutable::now((string) config('app.timezone'));
 
         return view('elections.index', [
             'user' => $user,
             'voterEnrollments' => $enrollments,
-            'organizedElections' => Election::query()
-                ->where('organizer_id', $user->getKey())
-                ->latest('updated_at')
-                ->get(),
+            'organizedElections' => $organizedElections,
             'candidateElections' => $candidateElections,
+            'electionTimezoneLabel' => ElectionCardMilestone::timezoneLabel(),
+            'voterMilestones' => $enrollments->mapWithKeys(fn ($enrollment): array => [
+                (int) $enrollment->election_id => ElectionCardMilestone::forVoter(
+                    (string) $enrollment->election_status,
+                    $enrollment->election_voting_start,
+                    $enrollment->election_voting_end,
+                    $now,
+                ),
+            ]),
+            'candidateMilestones' => $candidateElections->mapWithKeys(fn (Election $election): array => [
+                (int) $election->getKey() => ElectionCardMilestone::forCandidate(
+                    (string) $election->status,
+                    $election->nomination_start,
+                    $election->nomination_end,
+                    $election->voting_start,
+                    $election->voting_end,
+                    $now,
+                ),
+            ]),
+            'candidateApplicationsOpen' => $candidateElections->mapWithKeys(fn (Election $election): array => [
+                (int) $election->getKey() => $election->status === Election::NOMINATION_OPEN
+                    && ($election->nomination_start === null || $election->nomination_start->lte($now))
+                    && ($election->nomination_end === null || $election->nomination_end->gte($now)),
+            ]),
+            'organizerMilestones' => $organizedElections->mapWithKeys(fn (Election $election): array => [
+                (int) $election->getKey() => ElectionCardMilestone::forOrganizer(
+                    (string) $election->status,
+                    $election->nomination_start,
+                    $election->nomination_end,
+                    $election->voting_start,
+                    $election->voting_end,
+                    $election->rejected_at,
+                    $now,
+                ),
+            ]),
             'votingStatuses' => $this->voting->statusesForVoter(
                 (int) $user->getKey(),
                 $enrollments->pluck('election_id')->all(),
