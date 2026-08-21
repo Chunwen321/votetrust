@@ -447,6 +447,84 @@ final class ElectionService
             ->all();
     }
 
+    /**
+     * Elections that remain useful in the voter-facing portal. Unlike
+     * availableForVoting(), this catalog retains an open election after its
+     * scheduled end and retains closed elections so their details and results
+     * remain discoverable.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function voterElectionCatalog(?CarbonImmutable $at = null): array
+    {
+        $now = $at ?? $this->clock->now();
+
+        return Election::query()
+            ->whereIn('status', [
+                ElectionStatus::VOTING_OPEN->value,
+                ElectionStatus::CLOSED->value,
+            ])
+            ->withCount([
+                'candidacies as approved_ballot_count' => static fn ($query) => $query
+                    ->where('status', self::CANDIDACY_APPROVED),
+            ])
+            ->get()
+            ->sort(function (Election $left, Election $right): int {
+                $leftIsClosed = $left->status === ElectionStatus::CLOSED->value;
+                $rightIsClosed = $right->status === ElectionStatus::CLOSED->value;
+
+                if ($leftIsClosed !== $rightIsClosed) {
+                    return $leftIsClosed ? 1 : -1;
+                }
+
+                $leftEnd = $left->voting_end?->getTimestamp();
+                $rightEnd = $right->voting_end?->getTimestamp();
+                if ($leftEnd !== $rightEnd) {
+                    if ($leftEnd === null) {
+                        return 1;
+                    }
+                    if ($rightEnd === null) {
+                        return -1;
+                    }
+
+                    return $leftIsClosed
+                        ? $rightEnd <=> $leftEnd
+                        : $leftEnd <=> $rightEnd;
+                }
+
+                return (int) $left->getKey() <=> (int) $right->getKey();
+            })
+            ->values()
+            ->map(function (Election $election) use ($now): array {
+                $votingAllowed = false;
+                if ($election->status === ElectionStatus::VOTING_OPEN->value) {
+                    try {
+                        $votingAllowed = $this->stateFactory
+                            ->make(ElectionStatus::VOTING_OPEN->value)
+                            ->canVote($election, $now);
+                    } catch (BusinessRuleException) {
+                        $votingAllowed = false;
+                    }
+                }
+
+                return [
+                    'electionId' => (int) $election->getKey(),
+                    'title' => (string) $election->title,
+                    'positionSought' => (string) $election->position_sought,
+                    'description' => (string) $election->description,
+                    'lifecycleState' => (string) $election->status,
+                    'votingAllowed' => $votingAllowed,
+                    'eligibility' => EligibilityRules::fromStored($election->eligibility_rules)->toArray(),
+                    'votingPeriod' => [
+                        'start' => $election->voting_start?->toAtomString(),
+                        'end' => $election->voting_end?->toAtomString(),
+                    ],
+                    'ballotCandidateCount' => (int) $election->getAttribute('approved_ballot_count'),
+                ];
+            })
+            ->all();
+    }
+
     /** @return Collection<int, Candidacy> */
     public function candidateApplications(Election $election): Collection
     {

@@ -14,6 +14,7 @@ final class BasicVoteService implements VoteCastingService
             'voter_id' => $command->voterId,
             'election_id' => $command->electionId,
             'candidate_id' => $command->candidateId,
+            'request_id' => $command->requestId,
             'cast_at' => now(),
         ]);
     }

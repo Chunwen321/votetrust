@@ -841,6 +841,12 @@ textarea {
     color: var(--success);
 }
 
+.alert--notice {
+    border-color: #eed48b;
+    background: var(--warning-soft);
+    color: var(--warning);
+}
+
 .alert--error {
     border-color: #f2bbb7;
     background: var(--danger-soft);

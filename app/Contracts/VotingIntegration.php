@@ -9,9 +9,29 @@ interface VotingIntegration
     public function openElections(string $requestId, string $timestamp): array;
 
     /**
+     * @return list<array{
+     *     id:int,
+     *     title:string,
+     *     position:string,
+     *     description:string,
+     *     status:string,
+     *     votingAllowed:bool,
+     *     eligibility:array{
+     *         type:string,
+     *         minimumAge:?int,
+     *         nationality:array{restricted:bool,countryCode:?string,countryName:?string,excludedCountryCode:?string}
+     *     },
+     *     votingPeriod:array{start:?string,end:?string},
+     *     approvedCandidateCount:int
+     * }>
+     */
+    public function voterElections(string $requestId, string $timestamp): array;
+
+    /**
      * @return array{
      *     id:int,
      *     title:string,
+     *     position:string,
      *     description:string,
      *     eligibilityRules:string,
      *     eligibility:array{
@@ -21,6 +41,7 @@ interface VotingIntegration
      *     },
      *     status:string,
      *     votingAllowed:bool,
+     *     nominationPeriod:array{start:?string,end:?string},
      *     votingPeriod:array{start:?string,end:?string},
      *     candidacies:list<array{id:int,candidateId:int,name:string,position:string,manifesto:string}>
      * }

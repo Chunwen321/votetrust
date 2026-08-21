@@ -19,15 +19,23 @@ final class ElectionWebServiceTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config()->set('election.api.key', 'election-provider-key');
+    }
+
     public function test_available_and_detail_endpoints_publish_voting_data_in_ifa_envelopes(): void
     {
         $now = CarbonImmutable::now();
         [$election, $approvedCandidacy] = $this->votingElection($now);
 
-        $list = $this->getJson('/api/v1/elections/available?'.http_build_query([
-            'requestID' => 'VOTE-LIST-0001',
-            'timestamp' => $now->toAtomString(),
-        ]));
+        $list = $this->withHeader('X-Internal-Api-Key', 'election-provider-key')
+            ->getJson('/api/v1/elections/available?'.http_build_query([
+                'requestID' => 'VOTE-LIST-0001',
+                'timestamp' => $now->toAtomString(),
+            ]));
 
         $list->assertOk()
             ->assertJsonPath('status', 'S')
@@ -42,10 +50,11 @@ final class ElectionWebServiceTest extends TestCase
             ->assertJsonPath('data.elections.0.ballotCandidateCount', 1)
             ->assertJsonStructure(['status', 'timestamp', 'data' => ['elections']]);
 
-        $detail = $this->getJson('/api/v1/elections/'.$election->getKey().'/availability?'.http_build_query([
-            'requestID' => 'VOTE-DETAIL-0001',
-            'timestamp' => $now->toAtomString(),
-        ]));
+        $detail = $this->withHeader('X-Internal-Api-Key', 'election-provider-key')
+            ->getJson('/api/v1/elections/'.$election->getKey().'/availability?'.http_build_query([
+                'requestID' => 'VOTE-DETAIL-0001',
+                'timestamp' => $now->toAtomString(),
+            ]));
 
         $detail->assertOk()
             ->assertJsonPath('status', 'S')
@@ -67,6 +76,86 @@ final class ElectionWebServiceTest extends TestCase
             ->assertJsonPath('data.ballot.0.manifesto', 'A transparent manifesto supplied through the Election REST provider.')
             ->assertJsonCount(1, 'data.ballot')
             ->assertJsonStructure(['status', 'timestamp', 'data' => ['ballot']]);
+    }
+
+    public function test_voter_catalog_keeps_public_and_private_voting_history_but_excludes_unpublished_elections(): void
+    {
+        $now = CarbonImmutable::parse('2026-08-21 12:00:00', config('app.timezone'));
+        $this->travelTo($now);
+        $admin = User::factory()->create(['is_admin' => true]);
+
+        $ended = $this->catalogElection(
+            'Ended Awaiting Closure',
+            ElectionStatus::VOTING_OPEN,
+            $now->subDays(2),
+            $now->subMinutes(5),
+            EligibilityRules::publicElection(),
+            $admin,
+        );
+        $active = $this->catalogElection(
+            'Active Public Election',
+            ElectionStatus::VOTING_OPEN,
+            $now->subHour(),
+            $now->addHour(),
+            EligibilityRules::publicElection(18, 'MY'),
+            $admin,
+        );
+        $closed = $this->catalogElection(
+            'Closed Public Election',
+            ElectionStatus::CLOSED,
+            $now->subDays(3),
+            $now->subHour(),
+            EligibilityRules::publicElection(),
+            $admin,
+        );
+        $private = $this->catalogElection(
+            'Closed Private Election',
+            ElectionStatus::CLOSED,
+            $now->subDays(4),
+            $now->subHours(2),
+            EligibilityRules::privateElection(),
+            $admin,
+        );
+        $draft = $this->catalogElection(
+            'Unpublished Draft Election',
+            ElectionStatus::DRAFT,
+            $now->addDays(2),
+            $now->addDays(3),
+            EligibilityRules::publicElection(),
+            $admin,
+        );
+
+        $response = $this->withHeader('X-Internal-Api-Key', 'election-provider-key')
+            ->getJson('/api/v1/elections/voter-catalog?'.http_build_query([
+                'requestID' => 'VOTER-CATALOG-0001',
+                'timestamp' => $now->toAtomString(),
+            ]));
+
+        $response->assertOk()
+            ->assertJsonPath('status', 'S')
+            ->assertJsonPath('requestID', 'VOTER-CATALOG-0001')
+            ->assertJsonPath('data.count', 4)
+            ->assertJsonMissing(['electionId' => $draft->getKey()]);
+
+        $catalog = collect($response->json('data.elections'));
+        self::assertSame(
+            [
+                'Ended Awaiting Closure',
+                'Active Public Election',
+                'Closed Public Election',
+                'Closed Private Election',
+            ],
+            $catalog->pluck('title')->all(),
+        );
+
+        $byId = $catalog->keyBy('electionId');
+        self::assertTrue($byId[$active->getKey()]['votingAllowed']);
+        self::assertFalse($byId[$ended->getKey()]['votingAllowed']);
+        self::assertFalse($byId[$closed->getKey()]['votingAllowed']);
+        self::assertSame(EligibilityRules::PUBLIC, $byId[$closed->getKey()]['eligibility']['type']);
+        self::assertSame(EligibilityRules::PRIVATE, $byId[$private->getKey()]['eligibility']['type']);
+        self::assertArrayNotHasKey('privateVoters', $byId[$private->getKey()]);
+        self::assertArrayNotHasKey('voterIds', $byId[$private->getKey()]);
     }
 
     public function test_summary_endpoint_publishes_the_complete_election_schedule(): void
@@ -103,12 +192,53 @@ final class ElectionWebServiceTest extends TestCase
 
     public function test_provider_endpoints_return_failure_envelopes_for_invalid_requests(): void
     {
-        $response = $this->getJson('/api/v1/elections/available?requestID=BAD');
+        $response = $this->withHeader('X-Internal-Api-Key', 'election-provider-key')
+            ->getJson('/api/v1/elections/available?requestID=BAD');
 
         $response->assertUnprocessable()
             ->assertJsonPath('status', 'F')
             ->assertJsonPath('requestID', 'BAD')
             ->assertJsonStructure(['status', 'timestamp', 'errors']);
+    }
+
+    public function test_voting_catalog_and_detail_endpoints_require_the_internal_api_key(): void
+    {
+        $now = CarbonImmutable::now();
+        [$election] = $this->votingElection($now);
+        $catalogUrl = '/api/v1/elections/available?'.http_build_query([
+            'requestID' => 'VOTE-CATALOG-AUTH-0001',
+            'timestamp' => $now->toAtomString(),
+        ]);
+        $detailUrl = '/api/v1/elections/'.$election->getKey().'/availability?'.http_build_query([
+            'requestID' => 'VOTE-DETAIL-AUTH-0001',
+            'timestamp' => $now->toAtomString(),
+        ]);
+        $voterCatalogUrl = '/api/v1/elections/voter-catalog?'.http_build_query([
+            'requestID' => 'VOTER-CATALOG-AUTH-0001',
+            'timestamp' => $now->toAtomString(),
+        ]);
+
+        $this->getJson($catalogUrl)
+            ->assertForbidden()
+            ->assertJsonPath('status', 'F')
+            ->assertJsonPath('message', 'Election API access denied.')
+            ->assertJsonMissingPath('data');
+
+        $this->withHeader('X-Internal-Api-Key', 'wrong-election-provider-key')
+            ->getJson($detailUrl)
+            ->assertForbidden()
+            ->assertJsonPath('status', 'F')
+            ->assertJsonPath('message', 'Election API access denied.')
+            ->assertJsonMissingPath('data');
+
+        config()->set('election.api.key', '');
+
+        $this->withHeader('X-Internal-Api-Key', 'election-provider-key')
+            ->getJson($voterCatalogUrl)
+            ->assertForbidden()
+            ->assertJsonPath('status', 'F')
+            ->assertJsonPath('message', 'Election API access denied.')
+            ->assertJsonMissingPath('data');
     }
 
     public function test_admin_approval_endpoint_returns_an_ifa_response(): void
@@ -224,5 +354,30 @@ final class ElectionWebServiceTest extends TestCase
         ]);
 
         return [$election, $approved];
+    }
+
+    private function catalogElection(
+        string $title,
+        ElectionStatus $status,
+        CarbonImmutable $votingStart,
+        CarbonImmutable $votingEnd,
+        EligibilityRules $eligibility,
+        User $admin,
+    ): Election {
+        return Election::query()->create([
+            'title' => $title,
+            'position_sought' => 'Student Representative',
+            'description' => 'Published election information for the secure voter catalog.',
+            'eligibility_rules' => $eligibility->toStorage(),
+            'nomination_start' => $votingStart->subDays(2),
+            'nomination_end' => $votingStart->subDay(),
+            'voting_start' => $votingStart,
+            'voting_end' => $votingEnd,
+            'status' => $status->value,
+            'payment_verified_at' => $votingStart->subDay(),
+            'approved_by' => $admin->getKey(),
+            'approved_at' => $votingStart->subDay(),
+            'currency' => 'MYR',
+        ]);
     }
 }

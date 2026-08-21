@@ -18,10 +18,12 @@ final class VoteService
         VoterEligibilityAuthorizer $eligibilityAuthorizer,
     ) {
         $this->pipeline = new InputValidationDecorator(
-            new AuthorizationDecorator(
-                new DuplicateVoteDecorator($core),
-                $integration,
-                $eligibilityAuthorizer,
+            new ReplayProtectionDecorator(
+                new AuthorizationDecorator(
+                    new DuplicateVoteDecorator($core),
+                    $integration,
+                    $eligibilityAuthorizer,
+                ),
             ),
         );
     }

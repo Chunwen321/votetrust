@@ -11,9 +11,11 @@ use App\Services\Voting\VoteAccessDenied;
 use App\Services\Voting\VoteAlreadyExists;
 use App\Services\Voting\VoterEligibilityAuthorizer;
 use App\Services\Voting\VoteService;
+use App\Services\Voting\VoteTallyService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\Response;
 
 // PIC: Goh Chun Wen - Voting Process module.
 class VotingController extends Controller
@@ -23,15 +25,35 @@ class VotingController extends Controller
         [$requestId, $timestamp] = $this->newEnvelope();
 
         try {
-            $elections = collect($integration->openElections($requestId, $timestamp))
-                ->map(function (array $election) use ($request): array {
-                    $election['hasVoted'] = Vote::query()
-                        ->where('voter_id', $request->user()->id)
-                        ->where('election_id', $election['id'])
-                        ->exists();
+            $elections = collect($integration->voterElections($requestId, $timestamp))
+                ->filter(function (array $election) use ($integration, $request): bool {
+                    if (data_get($election, 'eligibility.type') !== 'PRIVATE') {
+                        return true;
+                    }
 
-                    return $election;
-                });
+                    [$eligibilityRequestId, $eligibilityTimestamp] = $this->newEnvelope();
+                    $eligibility = $integration->voterEligibility(
+                        (int) $request->user()->getKey(),
+                        (int) $election['id'],
+                        $eligibilityRequestId,
+                        $eligibilityTimestamp,
+                    );
+
+                    return $eligibility['eligible'];
+                })
+                ->values();
+
+            $votedElectionIds = Vote::query()
+                ->where('voter_id', $request->user()->id)
+                ->whereIn('election_id', $elections->pluck('id'))
+                ->pluck('election_id')
+                ->mapWithKeys(static fn (mixed $id): array => [(int) $id => true]);
+
+            $elections = $elections->map(function (array $election) use ($votedElectionIds): array {
+                $election['hasVoted'] = $votedElectionIds->has((int) $election['id']);
+
+                return $election;
+            });
         } catch (IntegrationException) {
             return view('voting.error', [
                 'message' => 'The election web service is temporarily unavailable.',
@@ -39,6 +61,63 @@ class VotingController extends Controller
         }
 
         return view('voting.index', ['elections' => $elections]);
+    }
+
+    public function results(
+        Request $request,
+        int $election,
+        VotingIntegration $integration,
+        VoterEligibilityAuthorizer $eligibilityAuthorizer,
+        VoteTallyService $tallyService,
+    ): Response|View {
+        [$requestId, $timestamp] = $this->newEnvelope();
+
+        try {
+            $details = $integration->election($election, $requestId, $timestamp);
+
+            if ($details['eligibility']['type'] === 'PRIVATE') {
+                [$eligibilityRequestId, $eligibilityTimestamp] = $this->newEnvelope();
+                $voterEligibility = $integration->voterEligibility(
+                    (int) $request->user()->getKey(),
+                    $election,
+                    $eligibilityRequestId,
+                    $eligibilityTimestamp,
+                );
+
+                try {
+                    $eligibilityAuthorizer->assertEligible($voterEligibility, $details['eligibility']);
+                } catch (VoteAccessDenied) {
+                    abort(404);
+                }
+            }
+        } catch (IntegrationException) {
+            return response()->view('voting.error', [
+                'message' => 'A required teammate web service is temporarily unavailable.',
+            ], 503);
+        }
+
+        abort_unless(
+            in_array($details['status'], ['VOTING_OPEN', 'CLOSED'], true),
+            404,
+        );
+
+        $hasVoted = Vote::query()
+            ->where('voter_id', $request->user()->id)
+            ->where('election_id', $election)
+            ->exists();
+
+        $tally = $details['status'] === 'CLOSED'
+            ? $tallyService->tally($election, $details['candidacies'])
+            : ['tally' => [], 'totalVotes' => 0];
+
+        return response()
+            ->view('voting.results', [
+                'election' => $details,
+                'results' => $tally['tally'],
+                'totalVotes' => $tally['totalVotes'],
+                'hasVoted' => $hasVoted,
+            ])
+            ->header('Cache-Control', 'private, no-store, max-age=0');
     }
 
     public function ballot(
@@ -99,7 +178,22 @@ class VotingController extends Controller
                 (string) $request->validated('request_id'),
                 (string) $request->validated('timestamp'),
             );
-        } catch (InvalidVoteRequest|VoteAlreadyExists|VoteAccessDenied $exception) {
+        } catch (VoteAlreadyExists) {
+            $recordedVote = Vote::query()
+                ->where('voter_id', $request->user()->id)
+                ->where('election_id', $election)
+                ->first();
+
+            if ($recordedVote instanceof Vote) {
+                return redirect()
+                    ->route('voting.ballot', $election)
+                    ->with('duplicate_vote', true);
+            }
+
+            return redirect()
+                ->route('voting.ballot', $election)
+                ->with('notice', 'Your vote is not confirmed yet. Please wait a moment, then refresh the ballot.');
+        } catch (InvalidVoteRequest|VoteAccessDenied $exception) {
             return back()->withErrors(['vote' => $exception->getMessage()]);
         } catch (IntegrationException) {
             return back()->withErrors([
