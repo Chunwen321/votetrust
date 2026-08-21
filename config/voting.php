@@ -11,6 +11,7 @@ return [
     'response_max_age_seconds' => (int) env('API_RESPONSE_MAX_AGE_SECONDS', 300),
     'lock_seconds' => (int) env('VOTING_LOCK_SECONDS', 10),
     'lock_wait_seconds' => (int) env('VOTING_LOCK_WAIT_SECONDS', 3),
+    'cast_rate_limit_per_minute' => (int) env('VOTING_CAST_RATE_LIMIT_PER_MINUTE', 10),
 
     'services' => [
         'election' => [

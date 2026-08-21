@@ -15,7 +15,15 @@
         @endif
     </header>
 
-    @if ($hasVoted)
+    @if (session('duplicate_vote'))
+        <article class="card confirmation-card">
+            <span class="status status--pending">Not accepted</span>
+            <h2>Vote not submitted</h2>
+            <p>A vote from your account was already recorded for this election.</p>
+            <p><strong>This submission was not accepted, and your existing vote remains unchanged.</strong></p>
+            <p>VoteTrust never displays your selected candidate after submission.</p>
+        </article>
+    @elseif ($hasVoted)
         <article class="card confirmation-card">
             <span class="confirmation-mark" aria-hidden="true">✓</span>
             <h2>Your vote has already been recorded</h2>

@@ -9,7 +9,11 @@ Route::middleware(['auth', 'active.account', 'verified.profile'])->prefix('votin
     Route::get('/elections/{election}', [VotingController::class, 'ballot'])
         ->whereNumber('election')
         ->name('ballot');
+    Route::get('/elections/{election}/results', [VotingController::class, 'results'])
+        ->whereNumber('election')
+        ->name('results');
     Route::post('/elections/{election}/votes', [VotingController::class, 'cast'])
+        ->middleware('throttle:voting.cast')
         ->whereNumber('election')
         ->name('cast');
     Route::get('/receipts/{vote}', [VotingController::class, 'receipt'])

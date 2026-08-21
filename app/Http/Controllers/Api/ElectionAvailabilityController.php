@@ -41,6 +41,27 @@ final class ElectionAvailabilityController extends Controller
         }
     }
 
+    public function catalog(Request $request): JsonResponse
+    {
+        $requestId = (string) $request->input('requestID', 'UNKNOWN');
+        try {
+            $envelope = $this->validator->validateEnvelope($request->all());
+            $requestId = $envelope['requestID'];
+            $elections = $this->service->voterElectionCatalog();
+
+            return response()->json(ApiEnvelope::success($requestId, [
+                'count' => count($elections),
+                'elections' => $elections,
+            ], 'Voter election catalog retrieved.'));
+        } catch (ValidationException $exception) {
+            return response()->json(ApiEnvelope::failure(
+                $requestId,
+                'The API request envelope is invalid.',
+                $exception->errors(),
+            ), 422);
+        }
+    }
+
     public function show(Request $request, int $election): JsonResponse
     {
         $requestId = (string) $request->input('requestID', 'UNKNOWN');

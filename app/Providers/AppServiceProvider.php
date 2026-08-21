@@ -63,5 +63,14 @@ class AppServiceProvider extends ServiceProvider
         // PIC: Chew Zhexuan, Low Wen Kai, Wong Shun Bin, Goh Chun Wen - shared REST API throttle.
         RateLimiter::for('api', fn (Request $request): Limit => Limit::perMinute(60)
             ->by($request->user()?->getAuthIdentifier() ?? $request->ip()));
+
+        // Limit repeated submissions without making different elections share one quota.
+        RateLimiter::for('voting.cast', function (Request $request): Limit {
+            $voter = $request->user()?->getAuthIdentifier() ?? $request->ip();
+            $election = $request->route('election', 'unknown');
+
+            return Limit::perMinute(max(1, (int) config('voting.cast_rate_limit_per_minute', 10)))
+                ->by("voting:cast:{$voter}:{$election}");
+        });
     }
 }

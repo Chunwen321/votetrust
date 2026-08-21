@@ -125,6 +125,62 @@ class VotingServiceTest extends TestCase
         $this->assertDatabaseCount('vote', 0);
     }
 
+    public function test_a_candidate_from_another_election_is_rejected_without_creating_a_vote(): void
+    {
+        [$voter, $candidate, $election] = $this->ballotFixture();
+        $otherElection = Election::query()->create([
+            'title' => 'Another election',
+            'status' => Election::VOTING_OPEN,
+            'voting_start' => now()->subMinute(),
+            'voting_end' => now()->addHour(),
+        ]);
+        $otherCandidate = User::factory()->create();
+        Candidacy::query()->create([
+            'user_id' => $otherCandidate->id,
+            'election_id' => $otherElection->id,
+            'status' => Candidacy::APPROVED,
+        ]);
+        $this->fakeTeammateApis($voter, $candidate, $election);
+
+        try {
+            $this->app->make(VoteService::class)->cast(
+                $voter,
+                $election->id,
+                $otherCandidate->id,
+                'VOTE-WRONG-BALLOT-0001',
+                now()->toAtomString(),
+            );
+            self::fail('A candidate from another election was accepted.');
+        } catch (VoteAccessDenied $exception) {
+            self::assertSame('The selected candidate is not on this ballot.', $exception->getMessage());
+        }
+
+        $this->assertDatabaseCount('vote', 0);
+    }
+
+    public function test_a_replayed_request_identifier_is_rejected_before_downstream_api_calls(): void
+    {
+        [$voter, $candidate, $election] = $this->ballotFixture();
+        $this->fakeTeammateApis($voter, $candidate, $election);
+        $service = $this->app->make(VoteService::class);
+        $requestId = 'VOTE-REPLAY-0001';
+        $timestamp = now()->toAtomString();
+
+        $service->cast($voter, $election->id, $candidate->id, $requestId, $timestamp);
+        Http::assertSentCount(2);
+
+        try {
+            $service->cast($voter, $election->id, $candidate->id, $requestId, $timestamp);
+            self::fail('A replayed ballot request identifier was accepted.');
+        } catch (VoteAlreadyExists $exception) {
+            self::assertSame('This ballot submission has already been processed.', $exception->getMessage());
+        }
+
+        // A replay must be stopped locally instead of repeating eligibility and election API calls.
+        Http::assertSentCount(2);
+        $this->assertDatabaseCount('vote', 1);
+    }
+
     public function test_http_consumer_fails_closed_when_a_service_api_key_is_missing(): void
     {
         config(['voting.services.election.api_key' => '']);
@@ -326,9 +382,11 @@ class VotingServiceTest extends TestCase
                 'data' => [
                     'electionId' => $election->id,
                     'title' => $election->title,
+                    'positionSought' => 'President',
                     'lifecycleState' => 'CLOSED',
                     'eligibility' => $this->eligibilityRules(null),
                     'votingAllowed' => false,
+                    'nominationPeriod' => ['start' => null, 'end' => null],
                     'votingPeriod' => ['start' => null, 'end' => null],
                     'ballot' => [[
                         'id' => 1,
@@ -377,7 +435,7 @@ class VotingServiceTest extends TestCase
             ->assertJsonMissingPath('data.tally');
     }
 
-    public function test_voting_api_rejects_unauthenticated_and_malformed_requests_before_controller_logic(): void
+    public function test_voting_api_rejects_missing_or_wrong_keys_and_malformed_requests_before_controller_logic(): void
     {
         $query = http_build_query([
             'voterId' => 1,
@@ -387,6 +445,11 @@ class VotingServiceTest extends TestCase
         ]);
 
         $this->getJson('/api/v1/votes/status?'.$query)
+            ->assertForbidden()
+            ->assertJsonPath('message', 'Voting API access denied.');
+
+        $this->withHeader('X-Internal-Api-Key', 'wrong-voting-provider-key')
+            ->getJson('/api/v1/votes/status?'.$query)
             ->assertForbidden()
             ->assertJsonPath('message', 'Voting API access denied.');
 
@@ -434,6 +497,154 @@ class VotingServiceTest extends TestCase
             ->assertRedirect(route('profile.verify'));
     }
 
+    public function test_cast_route_rejects_guest_unverified_and_disabled_accounts_without_side_effects(): void
+    {
+        [, $candidate, $election] = $this->ballotFixture();
+        $payload = [
+            'candidate_id' => $candidate->id,
+            'request_id' => 'VOTE-ACTOR-CHECK-0001',
+            'timestamp' => now()->toAtomString(),
+        ];
+        Http::preventStrayRequests();
+
+        $this->post(route('voting.cast', $election->id), $payload)
+            ->assertRedirect(route('login'));
+
+        $this->actingAs(User::factory()->unverifiedProfile()->create())
+            ->post(route('voting.cast', $election->id), $payload)
+            ->assertRedirect(route('profile.verify'));
+
+        $disabledVoter = User::factory()->create([
+            'account_status' => 'DISABLED',
+            'account_disabled_at' => now(),
+        ]);
+
+        $this->actingAs($disabledVoter)
+            ->post(route('voting.cast', $election->id), $payload)
+            ->assertRedirect(route('login'))
+            ->assertSessionHas('error');
+
+        $this->assertGuest();
+        Http::assertNothingSent();
+        $this->assertDatabaseCount('vote', 0);
+    }
+
+    public function test_cast_route_rate_limits_repeated_submissions_without_creating_a_vote(): void
+    {
+        [$voter, , $election] = $this->ballotFixture();
+        config(['voting.cast_rate_limit_per_minute' => 2]);
+        Http::preventStrayRequests();
+
+        foreach (range(1, 2) as $attempt) {
+            $this->actingAs($voter)
+                ->post(route('voting.cast', $election->id), [
+                    'candidate_id' => 0,
+                    'request_id' => "VOTE-RATE-LIMIT-000{$attempt}",
+                    'timestamp' => now()->toAtomString(),
+                ])
+                ->assertRedirect()
+                ->assertSessionHasErrors('candidate_id');
+        }
+
+        $this->actingAs($voter)
+            ->post(route('voting.cast', $election->id), [
+                'candidate_id' => 0,
+                'request_id' => 'VOTE-RATE-LIMIT-0003',
+                'timestamp' => now()->toAtomString(),
+            ])
+            ->assertStatus(429);
+
+        Http::assertNothingSent();
+        $this->assertDatabaseCount('vote', 0);
+    }
+
+    public function test_duplicate_browser_submission_shows_the_recorded_state_without_an_error_banner(): void
+    {
+        [$voter, $candidate, $election] = $this->ballotFixture();
+        $secondCandidate = User::factory()->create();
+        Candidacy::query()->create([
+            'user_id' => $secondCandidate->id,
+            'election_id' => $election->id,
+            'status' => Candidacy::APPROVED,
+        ]);
+        $this->fakeTeammateApis($voter, $candidate, $election, additionalCandidates: [$secondCandidate]);
+        $ballotUrl = route('voting.ballot', $election->id);
+
+        $this->actingAs($voter)
+            ->from($ballotUrl)
+            ->post(route('voting.cast', $election->id), [
+                'candidate_id' => $candidate->id,
+                'request_id' => 'VOTE-BROWSER-ONE-0001',
+                'timestamp' => now()->toAtomString(),
+            ])
+            ->assertRedirectContains('/voting/receipts/');
+
+        $this->actingAs($voter)
+            ->from($ballotUrl)
+            ->post(route('voting.cast', $election->id), [
+                'candidate_id' => $secondCandidate->id,
+                'request_id' => 'VOTE-BROWSER-TWO-0001',
+                'timestamp' => now()->toAtomString(),
+            ])
+            ->assertRedirect($ballotUrl)
+            ->assertSessionDoesntHaveErrors()
+            ->assertSessionHas('duplicate_vote', true);
+
+        $this->get($ballotUrl)
+            ->assertOk()
+            ->assertSee('Vote not submitted')
+            ->assertSee('This submission was not accepted, and your existing vote remains unchanged.')
+            ->assertDontSee('Please review the following:');
+
+        $this->assertDatabaseCount('vote', 1);
+        $this->assertDatabaseHas('vote', [
+            'voter_id' => $voter->id,
+            'election_id' => $election->id,
+            'candidate_id' => $candidate->id,
+        ]);
+        $this->assertDatabaseMissing('vote', [
+            'voter_id' => $voter->id,
+            'election_id' => $election->id,
+            'candidate_id' => $secondCandidate->id,
+        ]);
+    }
+
+    public function test_unconfirmed_locked_submission_shows_a_neutral_notice_instead_of_false_success(): void
+    {
+        [$voter, $candidate, $election] = $this->ballotFixture();
+        $this->fakeTeammateApis($voter, $candidate, $election);
+        config(['voting.lock_wait_seconds' => 0]);
+        $ballotUrl = route('voting.ballot', $election->id);
+        $lock = Cache::lock("voting:cast:{$voter->id}:{$election->id}", 10);
+        self::assertTrue($lock->get());
+
+        try {
+            $this->actingAs($voter)
+                ->from($ballotUrl)
+                ->post(route('voting.cast', $election->id), [
+                    'candidate_id' => $candidate->id,
+                    'request_id' => 'VOTE-BROWSER-LOCK-0001',
+                    'timestamp' => now()->toAtomString(),
+                ])
+                ->assertRedirect($ballotUrl)
+                ->assertSessionDoesntHaveErrors()
+                ->assertSessionHas(
+                    'notice',
+                    'Your vote is not confirmed yet. Please wait a moment, then refresh the ballot.',
+                );
+        } finally {
+            $lock->release();
+        }
+
+        $this->get($ballotUrl)
+            ->assertOk()
+            ->assertSee('Your vote is not confirmed yet')
+            ->assertDontSee('Vote recorded successfully')
+            ->assertDontSee('Please review the following:');
+
+        $this->assertDatabaseCount('vote', 0);
+    }
+
     public function test_cast_route_rejects_invalid_ballot_fields_without_sending_api_requests(): void
     {
         [$voter, $candidate, $election] = $this->ballotFixture();
@@ -462,6 +673,7 @@ class VotingServiceTest extends TestCase
         Election $election,
         ?array $eligibility = null,
         ?array $identity = null,
+        array $additionalCandidates = [],
     ): void {
         $eligibility ??= $this->eligibilityRules(18, 'MY');
         $identity ??= [
@@ -469,7 +681,7 @@ class VotingServiceTest extends TestCase
             'nationality' => ['countryCode' => $voter->nationality_country_code],
         ];
         Http::preventStrayRequests();
-        Http::fake(function (Request $request) use ($voter, $candidate, $election, $eligibility, $identity) {
+        Http::fake(function (Request $request) use ($voter, $candidate, $election, $eligibility, $identity, $additionalCandidates) {
             $requestId = (string) $request['requestID'];
 
             if (str_starts_with($request->url(), 'https://user.test/api/v1/voters/eligibility')) {
@@ -497,21 +709,29 @@ class VotingServiceTest extends TestCase
                     'data' => [
                         'electionId' => $election->id,
                         'title' => $election->title,
+                        'positionSought' => 'President',
                         'description' => $election->description ?? '',
                         'lifecycleState' => 'VOTING_OPEN',
                         'eligibility' => $eligibility,
                         'votingAllowed' => true,
+                        'nominationPeriod' => [
+                            'start' => $election->voting_start?->subDays(2)->toAtomString(),
+                            'end' => $election->voting_start?->subDay()->toAtomString(),
+                        ],
                         'votingPeriod' => [
                             'start' => $election->voting_start?->toAtomString(),
                             'end' => $election->voting_end?->toAtomString(),
                         ],
-                        'ballot' => [[
-                            'id' => 1,
-                            'candidateId' => $candidate->id,
-                            'name' => $candidate->display_name,
-                            'position' => 'President',
-                            'manifesto' => 'A trustworthy ballot.',
-                        ]],
+                        'ballot' => collect([$candidate, ...$additionalCandidates])
+                            ->values()
+                            ->map(static fn (User $ballotCandidate, int $index): array => [
+                                'id' => $index + 1,
+                                'candidateId' => $ballotCandidate->id,
+                                'name' => $ballotCandidate->display_name,
+                                'position' => 'President',
+                                'manifesto' => 'A trustworthy ballot.',
+                            ])
+                            ->all(),
                     ],
                 ]);
             }

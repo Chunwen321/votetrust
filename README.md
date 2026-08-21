@@ -163,3 +163,5 @@ npm.cmd run build
 All three commands should complete successfully. Test and route counts change as the project evolves, so rely on the command output rather than a fixed count in this document. With Laragon running, also confirm that `http://votetrust.test/` returns the application home page.
 
 See [docs/legacy-migration.md](docs/legacy-migration.md) for the detailed migration/cleanup map, [docs/web-service-ifa.md](docs/web-service-ifa.md) for the provider/consumer interface agreements, and [docs/didit-ekyc-setup.md](docs/didit-ekyc-setup.md) to configure the hosted document/selfie eKYC flow.
+
+For the Voting module's real concurrent double-submission exercise, use [docs/voting-race-simulation.md](docs/voting-race-simulation.md).

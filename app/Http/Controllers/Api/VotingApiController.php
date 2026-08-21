@@ -6,6 +6,7 @@ use App\Contracts\VotingIntegration;
 use App\Http\Controllers\Controller;
 use App\Models\Vote;
 use App\Services\Voting\IntegrationException;
+use App\Services\Voting\VoteTallyService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -39,6 +40,7 @@ class VotingApiController extends Controller
         Request $request,
         int $election,
         VotingIntegration $integration,
+        VoteTallyService $tallyService,
     ): JsonResponse {
         try {
             $ballot = $integration->election(
@@ -59,23 +61,11 @@ class VotingApiController extends Controller
             return $this->failure($request, 'Votes can only be tallied after the election closes.', 422);
         }
 
-        $counts = Vote::query()
-            ->where('election_id', $election)
-            ->selectRaw('candidate_id, COUNT(*) as total')
-            ->groupBy('candidate_id')
-            ->pluck('total', 'candidate_id');
-
-        $tally = collect($ballot['candidacies'])
-            ->map(fn (array $candidate): array => [
-                'candidateId' => $candidate['candidateId'],
-                'candidateName' => $candidate['name'],
-                'votes' => (int) ($counts[$candidate['candidateId']] ?? 0),
-            ])
-            ->values();
+        $result = $tallyService->tally($election, $ballot['candidacies']);
 
         return $this->success($request, [
             'electionId' => $election,
-            'tally' => $tally,
+            ...$result,
         ], 'Vote tally retrieved.');
     }
 

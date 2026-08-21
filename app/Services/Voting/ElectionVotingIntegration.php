@@ -5,6 +5,7 @@ namespace App\Services\Voting;
 use App\Contracts\VotingIntegration;
 use App\Support\CountryList;
 use Carbon\CarbonImmutable;
+use DateTimeInterface;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
@@ -44,6 +45,53 @@ final class ElectionVotingIntegration implements VotingIntegration
         }, $items);
     }
 
+    public function voterElections(string $requestId, string $timestamp): array
+    {
+        $body = $this->get('election', '/api/v1/elections/voter-catalog', [
+            'requestID' => $requestId,
+            'timestamp' => $timestamp,
+        ]);
+
+        $items = $body['data']['elections'] ?? null;
+        if (! is_array($items) || ! array_is_list($items)) {
+            throw new IntegrationException('The Election Module returned an invalid voter election catalog.');
+        }
+
+        return array_map(function (mixed $item): array {
+            if (! is_array($item)
+                || ! is_int($item['electionId'] ?? null)
+                || $item['electionId'] < 1
+                || ! is_string($item['title'] ?? null)
+                || trim($item['title']) === ''
+                || ! is_string($item['positionSought'] ?? null)
+                || ! is_string($item['description'] ?? null)
+                || ! is_string($item['lifecycleState'] ?? null)
+                || ! is_bool($item['votingAllowed'] ?? null)
+                || ! is_int($item['ballotCandidateCount'] ?? null)
+                || $item['ballotCandidateCount'] < 0) {
+                throw new IntegrationException('The Election Module returned malformed voter catalog data.');
+            }
+
+            $status = $item['lifecycleState'];
+            if (! in_array($status, ['VOTING_OPEN', 'CLOSED'], true)
+                || ($status === 'CLOSED' && $item['votingAllowed'])) {
+                throw new IntegrationException('The Election Module returned an invalid voter catalog status.');
+            }
+
+            return [
+                'id' => $item['electionId'],
+                'title' => $item['title'],
+                'position' => $item['positionSought'],
+                'description' => $item['description'],
+                'status' => $status,
+                'votingAllowed' => $item['votingAllowed'],
+                'eligibility' => $this->eligibility($item['eligibility'] ?? $item['eligibilityRules'] ?? null),
+                'votingPeriod' => $this->strictPeriod($item['votingPeriod'] ?? null),
+                'approvedCandidateCount' => $item['ballotCandidateCount'],
+            ];
+        }, $items);
+    }
+
     public function election(int $electionId, string $requestId, string $timestamp): array
     {
         $body = $this->get('election', "/api/v1/elections/{$electionId}/availability", [
@@ -56,8 +104,10 @@ final class ElectionVotingIntegration implements VotingIntegration
         if (! is_array($data)
             || (int) ($data['electionId'] ?? 0) !== $electionId
             || ! is_string($data['title'] ?? null)
+            || ! is_string($data['positionSought'] ?? null)
             || ! is_string($data['lifecycleState'] ?? null)
             || ! is_bool($data['votingAllowed'] ?? null)
+            || ! is_array($data['nominationPeriod'] ?? null)
             || ! is_array($data['votingPeriod'] ?? null)
             || ! is_array($data['ballot'] ?? null)
             || ! array_is_list($data['ballot'])) {
@@ -84,12 +134,14 @@ final class ElectionVotingIntegration implements VotingIntegration
         return [
             'id' => $electionId,
             'title' => $data['title'],
+            'position' => $data['positionSought'],
             'description' => is_string($data['description'] ?? null) ? $data['description'] : '',
             'eligibilityRules' => $this->describeRules($eligibility),
             'eligibility' => $eligibility,
             'status' => strtoupper($data['lifecycleState']),
             'votingAllowed' => $data['votingAllowed'],
-            'votingPeriod' => $this->period($data['votingPeriod']),
+            'nominationPeriod' => $this->strictPeriod($data['nominationPeriod']),
+            'votingPeriod' => $this->strictPeriod($data['votingPeriod']),
             'candidacies' => $candidacies,
         ];
     }
@@ -220,6 +272,41 @@ final class ElectionVotingIntegration implements VotingIntegration
         return [
             'start' => is_string($period['start'] ?? null) ? $period['start'] : null,
             'end' => is_string($period['end'] ?? null) ? $period['end'] : null,
+        ];
+    }
+
+    /** @return array{start:?string,end:?string} */
+    private function strictPeriod(mixed $period): array
+    {
+        if (! is_array($period)
+            || ! array_key_exists('start', $period)
+            || ! array_key_exists('end', $period)) {
+            throw new IntegrationException('The Election Module returned an invalid election period.');
+        }
+
+        foreach (['start', 'end'] as $field) {
+            $value = $period[$field];
+            if ($value === null) {
+                continue;
+            }
+            if (! is_string($value)) {
+                throw new IntegrationException('The Election Module returned an invalid election period.');
+            }
+
+            try {
+                $parsed = CarbonImmutable::createFromFormat(DateTimeInterface::ATOM, $value);
+            } catch (\Throwable) {
+                $parsed = false;
+            }
+
+            if ($parsed === false || $parsed->format(DateTimeInterface::ATOM) !== $value) {
+                throw new IntegrationException('The Election Module returned an invalid election period.');
+            }
+        }
+
+        return [
+            'start' => $period['start'],
+            'end' => $period['end'],
         ];
     }
 
