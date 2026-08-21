@@ -64,7 +64,24 @@
                     @error('email')<small class="field-error">{{ $message }}</small>@enderror
                 </div>
 
-                <div class="auth-field" data-identity-my @if (! $isMalaysianRegistration) hidden @endif>
+                <div class="auth-field auth-field--wide auth-identity-selector">
+                    <label for="nationality">Nationality</label>
+                    <select id="nationality" name="nationality_country_code" autocomplete="country-name" required data-nationality-select>
+                        @foreach ($nationalityOptions as $countryCode => $countryName)
+                            <option value="{{ $countryCode }}" @selected(old('nationality_country_code', 'MY') === $countryCode)>{{ $countryName }}</option>
+                        @endforeach
+                    </select>
+                    <small>Choose your nationality to enter the matching identity document.</small>
+                    @error('nationality_country_code')<small class="field-error">{{ $message }}</small>@enderror
+                </div>
+
+                <div class="auth-identity-intro auth-field--wide" aria-live="polite">
+                    <span class="auth-identity-intro__label">Identity document</span>
+                    <p data-identity-copy-my @if (! $isMalaysianRegistration) hidden @endif>Malaysian citizens register with their 12-digit IC number.</p>
+                    <p data-identity-copy-foreign @if ($isMalaysianRegistration) hidden @endif>Passport holders register with their passport number and date of birth.</p>
+                </div>
+
+                <div class="auth-field auth-field--wide" data-identity-my @if (! $isMalaysianRegistration) hidden @endif>
                     <label for="ic-number">IC number</label>
                     <input id="ic-number" name="ic_number" value="{{ old('ic_number') }}" inputmode="numeric" maxlength="14" autocomplete="off" data-ic-number @required($isMalaysianRegistration) @disabled(! $isMalaysianRegistration)>
                     <small>Hyphens are added automatically.</small>
@@ -77,26 +94,16 @@
                     @error('passport_number')<small class="field-error">{{ $message }}</small>@enderror
                 </div>
 
-                <div class="auth-field">
-                    <label for="phone-number">Phone number</label>
-                    <input id="phone-number" name="phone_number" type="tel" value="{{ old('phone_number') }}" maxlength="30" autocomplete="tel" inputmode="tel" placeholder="e.g. +60 12-345 6789" data-phone-number required>
-                    @error('phone_number')<small class="field-error">{{ $message }}</small>@enderror
-                </div>
-
-                <div class="auth-field">
-                    <label for="nationality">Nationality</label>
-                    <select id="nationality" name="nationality_country_code" autocomplete="country-name" required data-nationality-select>
-                        @foreach ($nationalityOptions as $countryCode => $countryName)
-                            <option value="{{ $countryCode }}" @selected(old('nationality_country_code', 'MY') === $countryCode)>{{ $countryName }}</option>
-                        @endforeach
-                    </select>
-                    @error('nationality_country_code')<small class="field-error">{{ $message }}</small>@enderror
-                </div>
-
                 <div class="auth-field" data-identity-foreign @if ($isMalaysianRegistration) hidden @endif>
                     <label for="date-of-birth">Date of birth</label>
                     <input id="date-of-birth" name="date_of_birth" type="date" value="{{ old('date_of_birth') }}" autocomplete="bday" @required(! $isMalaysianRegistration) @disabled($isMalaysianRegistration)>
                     @error('date_of_birth')<small class="field-error">{{ $message }}</small>@enderror
+                </div>
+
+                <div class="auth-field auth-field--wide">
+                    <label for="phone-number">Phone number</label>
+                    <input id="phone-number" name="phone_number" type="tel" value="{{ old('phone_number') }}" maxlength="30" autocomplete="tel" inputmode="tel" placeholder="e.g. +60 12-345 6789" data-phone-number required>
+                    @error('phone_number')<small class="field-error">{{ $message }}</small>@enderror
                 </div>
 
                 <div class="auth-field auth-field--wide">
@@ -278,6 +285,12 @@
             field.hidden = isMalaysian;
             input.disabled = isMalaysian;
             input.required = !isMalaysian;
+        });
+        document.querySelectorAll('[data-identity-copy-my]').forEach((copy) => {
+            copy.hidden = !isMalaysian;
+        });
+        document.querySelectorAll('[data-identity-copy-foreign]').forEach((copy) => {
+            copy.hidden = isMalaysian;
         });
     };
 

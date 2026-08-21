@@ -37,7 +37,7 @@ final class ProfileController extends Controller
         abort_unless($user instanceof User, 401);
         $this->users->updateProfile($user, $request->validated());
 
-        return back()->with('success', 'Your profile has been updated.');
+        return redirect()->route('profile.show')->with('success', 'Your profile has been updated.');
     }
 
     public function verify(VerifyProfileRequest $request): RedirectResponse

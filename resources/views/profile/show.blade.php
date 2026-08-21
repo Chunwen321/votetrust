@@ -11,33 +11,52 @@
     <p>Keep your contact details current{{ $user->isAdmin() ? '' : ', complete eKYC verification,' }} and protect your account with a strong password.</p>
 </section>
 
-<section class="card profile-verification-card {{ $user->isVerified() || $user->isAdmin() ? 'profile-verification-card--complete' : '' }}">
-    <div>
-        <p class="eyebrow">{{ $user->isAdmin() ? 'Administrator account' : 'Profile verification' }}</p>
-        <h2>
-            @if ($user->isAdmin())
-                eKYC is not required for administrators
-            @elseif ($user->isVerified())
-                Your profile is verified
+@php($verificationComplete = $user->isVerified() || $user->isAdmin())
+@php($canEditIdentity = ! $verificationComplete)
+<section class="card profile-verification-card {{ $verificationComplete ? 'profile-verification-card--complete' : '' }}">
+    <div class="profile-verification-card__main">
+        <div class="profile-verification-card__icon" aria-hidden="true">
+            @if ($verificationComplete)
+                <svg viewBox="0 0 24 24" focusable="false"><path d="M12 3 5 6v5c0 4.5 2.9 8.6 7 10 4.1-1.4 7-5.5 7-10V6l-7-3Z"></path><path d="m8.8 12 2.1 2.1 4.4-4.5"></path></svg>
             @else
-                Verify your profile to unlock election actions
+                <svg viewBox="0 0 24 24" focusable="false"><path d="M12 3 5 6v5c0 4.5 2.9 8.6 7 10 4.1-1.4 7-5.5 7-10V6l-7-3Z"></path><path d="M12 8v4"></path><path d="M12 16h.01"></path></svg>
             @endif
-        </h2>
-        @if ($user->isAdmin())
-            <p>Your administrator access is managed by VoteTrust. You can use the administrative workspace without completing eKYC.</p>
-        @elseif ($user->isVerified())
-            <p>Your eKYC verification was completed on {{ $user->verified_at?->format('d M Y, g:i A') }}. You can organise elections, vote, and apply as a candidate.</p>
-        @elseif ($ekycDriver === 'didit' && in_array($user->verification_status, ['PENDING', 'NOT_STARTED', 'IN_PROGRESS', 'AWAITING_USER', 'IN_REVIEW', 'RESUBMITTED'], true))
-            <p>Didit will guide you through document capture and a selfie/liveness check. Your election access unlocks only after Didit returns an approved result.</p>
-        @elseif (strtoupper($user->nationality_country_code ?? '') === 'MY')
-            <p>Use eKYC to verify the Malaysian IC details saved to your account. Verification is required before you can organise, vote, or apply as a candidate.</p>
-        @else
-            <p>Use eKYC to verify the passport details and date of birth saved to your account. Verification is required before you can organise, vote, or apply as a candidate.</p>
+        </div>
+        <div class="profile-verification-card__copy">
+            <p class="eyebrow">{{ $user->isAdmin() ? 'Administrator account' : 'Profile verification' }}</p>
+            <h2>
+                @if ($user->isAdmin())
+                    eKYC is not required for administrators
+                @elseif ($user->isVerified())
+                    Your profile is verified
+                @else
+                    Verify your profile to unlock election actions
+                @endif
+            </h2>
+            @if ($user->isAdmin())
+                <p>Your administrator access is managed by VoteTrust. You can use the administrative workspace without completing eKYC.</p>
+            @elseif ($user->isVerified())
+                <p>Your identity has been confirmed. You can organise elections, vote, and apply as a candidate.</p>
+            @elseif ($ekycDriver === 'didit' && in_array($user->verification_status, ['PENDING', 'NOT_STARTED', 'IN_PROGRESS', 'AWAITING_USER', 'IN_REVIEW', 'RESUBMITTED'], true))
+                <p>Didit will guide you through document capture and a selfie/liveness check. Your election access unlocks only after Didit returns an approved result.</p>
+            @elseif (strtoupper($user->nationality_country_code ?? '') === 'MY')
+                <p>Use eKYC to verify the Malaysian IC details saved to your account. Verification is required before you can organise, vote, or apply as a candidate.</p>
+            @else
+                <p>Use eKYC to verify the passport details and date of birth saved to your account. Verification is required before you can organise, vote, or apply as a candidate.</p>
+            @endif
+        </div>
+    </div>
+    <div class="profile-verification-card__status">
+        <span class="badge {{ $verificationComplete ? 'status-approved' : 'status-pending' }}">{{ $user->isAdmin() ? 'eKYC exempt' : ($user->isVerified() ? 'Verified' : 'Verification required') }}</span>
+        @if ($user->isVerified())
+            <time datetime="{{ $user->verified_at?->toDateString() }}">Completed {{ $user->verified_at?->format('d M Y') }}</time>
+        @elseif (! $user->isAdmin())
+            <span>{{ str($user->verification_status ?? 'NOT_STARTED')->replace('_', ' ')->lower()->headline() }}</span>
         @endif
     </div>
     @if (! $user->isAdmin() && ! $user->isVerified())
         @php($hasResumableDiditSession = $ekycDriver === 'didit' && in_array($user->verification_status, ['PENDING', 'NOT_STARTED', 'IN_PROGRESS', 'AWAITING_USER', 'IN_REVIEW', 'RESUBMITTED'], true))
-        <form method="post" action="{{ route('profile.verify.store') }}">
+        <form class="profile-verification-card__action" method="post" action="{{ route('profile.verify.store') }}">
             @csrf
             <label class="verification-consent"><input type="checkbox" name="ekyc_consent" value="1" required> I consent to sending my identity details to {{ $ekycDriver === 'didit' ? 'Didit' : 'the configured eKYC provider' }} for verification.</label>
             @if ($ekycDriver === 'didit')
@@ -77,6 +96,28 @@
             @error('full_name')<small class="field-error">{{ $message }}</small>@enderror
             <label>Email address<input name="email" type="email" value="{{ old('email', $user->email) }}" maxlength="190" autocomplete="email" required></label>
             @error('email')<small class="field-error">{{ $message }}</small>@enderror
+            @if ($canEditIdentity)
+                <div class="profile-identity-edit">
+                    <div>
+                        <strong>Identity details</strong>
+                        <p>You can update this until eKYC is completed. Changing it will restart any verification in progress.</p>
+                    </div>
+                    @if (strtoupper($user->nationality_country_code ?? '') === 'MY')
+                        <label>IC number<input name="ic_number" value="{{ old('ic_number', $user->ic_number) }}" inputmode="numeric" maxlength="14" autocomplete="off" required></label>
+                        <small>Enter 12 digits. Spaces and hyphens are accepted.</small>
+                        @error('ic_number')<small class="field-error">{{ $message }}</small>@enderror
+                    @else
+                        <label>Passport number<input name="passport_number" value="{{ old('passport_number', $user->passport_number) }}" maxlength="20" autocomplete="off" required></label>
+                        <small>Use 6–20 letters or numbers. Spaces and hyphens are accepted.</small>
+                        @error('passport_number')<small class="field-error">{{ $message }}</small>@enderror
+                    @endif
+                </div>
+            @elseif ($user->isVerified())
+                <div class="profile-identity-locked">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>
+                    <div><strong>Identity details are locked</strong><p>Your IC or passport number cannot be changed after eKYC verification.</p></div>
+                </div>
+            @endif
             <button type="submit">Save profile</button>
         </form>
     </section>

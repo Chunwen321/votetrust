@@ -71,6 +71,86 @@ final class UserModuleTest extends TestCase
         ]);
     }
 
+    public function test_an_unverified_malaysian_member_can_update_their_ic_number_before_ekyc(): void
+    {
+        $user = User::factory()->unverifiedProfile()->create([
+            'full_name' => 'Before Verification',
+            'email' => 'before.verification@example.test',
+            'ic_number' => '010203101234',
+            'date_of_birth' => '2001-02-03',
+            'nationality_country_code' => 'MY',
+            'verification_status' => 'IN_PROGRESS',
+            'verification_session_id' => 'didit-session',
+        ]);
+
+        $this->actingAs($user)
+            ->patch(route('profile.update'), [
+                'full_name' => 'Before Verification',
+                'email' => 'before.verification@example.test',
+                'ic_number' => '020304-10-4321',
+            ])
+            ->assertRedirect(route('profile.show'));
+
+        $this->assertDatabaseHas('user', [
+            'id' => $user->getKey(),
+            'ic_number' => '020304104321',
+            'passport_number' => null,
+            'date_of_birth' => '2002-03-04 00:00:00',
+            'verification_status' => 'NOT_STARTED',
+            'verification_session_id' => null,
+        ]);
+    }
+
+    public function test_an_unverified_foreign_member_can_update_their_passport_number_before_ekyc(): void
+    {
+        $user = User::factory()->unverifiedProfile()->create([
+            'full_name' => 'Passport Member',
+            'email' => 'passport.member@example.test',
+            'ic_number' => null,
+            'passport_number' => 'E1234567',
+            'date_of_birth' => '1998-04-12',
+            'nationality_country_code' => 'SG',
+        ]);
+
+        $this->actingAs($user)
+            ->patch(route('profile.update'), [
+                'full_name' => 'Passport Member',
+                'email' => 'passport.member@example.test',
+                'passport_number' => 's-987 6543',
+            ])
+            ->assertRedirect(route('profile.show'));
+
+        $this->assertDatabaseHas('user', [
+            'id' => $user->getKey(),
+            'ic_number' => null,
+            'passport_number' => 'S9876543',
+            'date_of_birth' => '1998-04-12 00:00:00',
+        ]);
+    }
+
+    public function test_a_verified_member_cannot_change_their_identity_document(): void
+    {
+        $user = User::factory()->create([
+            'full_name' => 'Verified Member',
+            'email' => 'verified.member@example.test',
+            'ic_number' => '010203101234',
+            'nationality_country_code' => 'MY',
+        ]);
+
+        $this->actingAs($user)
+            ->patch(route('profile.update'), [
+                'full_name' => 'Verified Member',
+                'email' => 'verified.member@example.test',
+                'ic_number' => '020304104321',
+            ])
+            ->assertSessionHasErrors('ic_number');
+
+        $this->assertDatabaseHas('user', [
+            'id' => $user->getKey(),
+            'ic_number' => '010203101234',
+        ]);
+    }
+
     public function test_registration_rejects_an_email_address_that_is_already_registered(): void
     {
         User::factory()->create(['email' => 'existing.member@example.test']);
