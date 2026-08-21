@@ -99,14 +99,38 @@ final class UserService
     {
         $fullName = $this->normaliseName((string) $attributes['full_name']);
         $identityNameChanged = $user->full_name !== $fullName;
+        $canEditIdentity = ! $user->isVerified() && ! $user->isAdmin();
+        $identityDocumentChanged = false;
         $updates = [
             'name' => $fullName,
             'full_name' => $fullName,
             'email' => mb_strtolower(trim((string) $attributes['email'])),
         ];
 
-        // The verified name is part of the eKYC identity payload. A later name change requires a fresh check.
-        if ($identityNameChanged && ! $user->isAdmin()) {
+        if ($canEditIdentity && strtoupper((string) $user->nationality_country_code) === 'MY') {
+            $icNumber = Identity::normaliseIcNumber((string) $attributes['ic_number']);
+            $dateOfBirth = Identity::dateOfBirthFromMalaysianIc($icNumber);
+            $identityDocumentChanged = $user->ic_number !== $icNumber
+                || $user->passport_number !== null
+                || $user->date_of_birth?->toDateString() !== $dateOfBirth?->toDateString();
+            $updates += [
+                'ic_number' => $icNumber,
+                'passport_number' => null,
+                'date_of_birth' => $dateOfBirth?->toDateString(),
+            ];
+        }
+
+        if ($canEditIdentity && strtoupper((string) $user->nationality_country_code) !== 'MY') {
+            $passportNumber = Identity::normalisePassportNumber((string) $attributes['passport_number']);
+            $identityDocumentChanged = $user->passport_number !== $passportNumber || $user->ic_number !== null;
+            $updates += [
+                'ic_number' => null,
+                'passport_number' => $passportNumber,
+            ];
+        }
+
+        // Any eKYC identity change must invalidate a pending or completed verification session.
+        if (($identityNameChanged || $identityDocumentChanged) && ! $user->isAdmin()) {
             $updates += [
                 'is_verified' => false,
                 'verified_at' => null,
