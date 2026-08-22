@@ -32,7 +32,6 @@ final class NominationOpenState extends AbstractElectionState
     public function canRegisterCandidate(Election $election, CarbonImmutable $now): bool
     {
         return $this->paymentVerified($election)
-            && $this->adminApproved($election)
             && $now->betweenIncluded($this->date($election, 'nomination_start'), $this->date($election, 'nomination_end'));
     }
 
@@ -46,8 +45,8 @@ final class NominationOpenState extends AbstractElectionState
         }
 
         $election = $lifecycle->election();
-        if (! $this->paymentVerified($election) || ! $this->adminApproved($election)) {
-            throw new BusinessRuleException('Voting requires confirmed payment and administrator approval.');
+        if (! $this->paymentVerified($election)) {
+            throw new BusinessRuleException('Voting requires confirmed payment.');
         }
         if ((int) $context->input('approved_candidate_count', 0) < 1) {
             throw new BusinessRuleException('Voting cannot open until at least one candidate is approved.');

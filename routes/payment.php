@@ -30,4 +30,7 @@ Route::middleware(['auth', 'active.account'])->group(function (): void {
     Route::get('/payments/elections/{election}/pay', [PaymentCheckoutController::class, 'payForElection'])
         ->whereNumber('election')
         ->name('payments.checkout.election');
+    Route::get('/payments/{payment}/receipt', [PaymentCheckoutController::class, 'receipt'])
+        ->whereNumber('payment')
+        ->name('payments.checkout.receipt');
 });

@@ -31,13 +31,28 @@
                         This payment is {{ strtolower($status->value) }} and can no longer be paid here.
                     @endif
                 </p>
+
+                @if($status->value === 'Failed')
+                    <div class="payment-checkout-actions">
+                        @if($payment->election_id)
+                            <a class="payment-checkout-pay-button" href="{{ route('payments.checkout.election', $payment->election_id) }}">Try again</a>
+                            <a class="payment-checkout-pay-button payment-checkout-pay-button--secondary" href="{{ route('elections.show', $payment->election_id) }}">Back to election</a>
+                        @else
+                            <a class="payment-checkout-pay-button" href="{{ route('payments.checkout.show', $payment) }}">Try again</a>
+                        @endif
+                    </div>
+                @elseif($status->value === 'Paid')
+                    <div class="payment-checkout-actions">
+                        <a class="payment-checkout-pay-button payment-checkout-pay-button--secondary" href="{{ route('payments.checkout.receipt', $payment) }}">View receipt</a>
+                    </div>
+                @endif
             </div>
 
             @if($status->value === 'Paid' && $payment->purpose === \App\Models\Payment::PURPOSE_ELECTION_HOSTING)
                 <div class="payment-checkout-reference">
                     <span>Payment reference</span>
                     <strong>{{ $payment->provider_reference }}</strong>
-                    <p>Copy this reference into your election's <em>Submit payment for verification</em> form, then ask an administrator to approve it — that step will re-confirm this same payment automatically.</p>
+                    <p>Copy this reference into your election's <em>Submit payment for verification</em> form. Your payment will be verified automatically.</p>
                     @if($payment->election_id)
                         <a class="payment-checkout-pay-button payment-checkout-pay-button--secondary" href="{{ route('elections.show', $payment->election_id) }}">Back to my election</a>
                     @endif
@@ -76,11 +91,16 @@
                     <p class="payment-checkout-error">Check the card details and try again.</p>
                 @endif
 
+                <label class="payment-checkout-simulate">
+                    <input type="checkbox" name="simulate_failure" value="1">
+                    <span>Simulate a failed payment (test mode)</span>
+                </label>
+
                 <button type="submit" class="payment-checkout-pay-button">Pay {{ $payment->currency }} {{ number_format((float) $payment->amount, 2) }}</button>
 
                 <p class="payment-checkout-fineprint">
                     This is a fake gateway for local testing only — nothing entered here is stored or sent anywhere.
-                    Any card number works and settles as Paid; a number ending <strong>0002</strong> always declines.
+                    Any card number works and settles as Paid; a number ending <strong>0002</strong>, or checking the box above, always declines.
                 </p>
             </form>
         @endif
