@@ -193,6 +193,8 @@
 .election-fee-preview strong { color: var(--primary-dark); font-size: 1.5rem; }
 .election-form label,
 .election-action label { display: grid; gap: .35rem; font-size: .85rem; font-weight: 700; }
+.election-form label.election-required-label { display: block; }
+.election-required-marker { color: #ad2633; }
 .election-form input,
 .election-form textarea,
 .election-form select,
@@ -213,7 +215,9 @@
 .election-choice-row label { display: flex; align-items: center; gap: .4rem; }
 .election-choice-row input { width: auto; }
 .election-help { margin: 0; color: var(--muted); font-size: .9rem; line-height: 1.55; }
-.election-criteria { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.election-criteria { display: grid; gap: .75rem; }
+.election-criterion-field { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: .35rem .75rem; }
+.election-criterion-field > .election-field-error { grid-column: 2; }
 .election-field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
 .election-schedule { display: grid; gap: 1.25rem; }
 .election-schedule-phase { --schedule-accent: #6941c6; padding: 1.1rem; border: 1px solid #d9d0ef; border-left: 4px solid var(--schedule-accent); border-radius: .85rem; background: #fff; }
@@ -877,10 +881,11 @@
 @media (max-width: 760px) {
     .election-page-header,
     .election-detail-grid { display: grid; grid-template-columns: 1fr; }
-    .election-criteria,
+    .election-criterion-field,
     .election-field-grid,
     .election-facts,
     .election-private-voter-tools { grid-template-columns: 1fr; }
+    .election-criterion-field > .election-field-error { grid-column: 1; }
 
     .election-management { width: min(100% - 1.25rem, 1280px); }
     .election-workspace-hero,

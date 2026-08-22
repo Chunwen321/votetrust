@@ -19,16 +19,16 @@
 
     <fieldset>
         <legend>Election identity</legend>
-        <label for="title">Title</label>
+        <label class="election-required-label" for="title">Title <span class="election-required-marker" aria-hidden="true">*</span></label>
         <input id="title" name="title" maxlength="120" value="{{ $value('title') }}" required>
         @error('title') <small class="election-field-error" data-server-error-for="title">{{ $message }}</small> @enderror
 
-        <label for="position_sought">Position sought</label>
+        <label class="election-required-label" for="position_sought">Position sought <span class="election-required-marker" aria-hidden="true">*</span></label>
         <input id="position_sought" name="position_sought" maxlength="100" value="{{ $value('position_sought') }}" required>
         <p class="election-help">Every candidate in this election applies for this fixed position.</p>
         @error('position_sought') <small class="election-field-error">{{ $message }}</small> @enderror
 
-        <label for="description">Description</label>
+        <label class="election-required-label" for="description">Description <span class="election-required-marker" aria-hidden="true">*</span></label>
         <textarea id="description" name="description" rows="5" maxlength="2000" required>{{ $value('description') }}</textarea>
         @error('description') <small class="election-field-error" data-server-error-for="description">{{ $message }}</small> @enderror
     </fieldset>
@@ -41,28 +41,31 @@
         </div>
         @error('eligibility_mode') <small class="election-field-error" data-server-error-for="eligibility_mode">{{ $message }}</small> @enderror
 
-        <p class="election-help" data-public-help @if ($mode !== 'PUBLIC') hidden @endif>Public elections are open to verified VoteTrust users who meet at least one rule below.</p>
+        <p class="election-help" data-public-help @if ($mode !== 'PUBLIC') hidden @endif>Public elections are open to verified VoteTrust users who meet the rules below.</p>
         <p class="election-help" data-private-help @if ($mode !== 'PRIVATE') hidden @endif>Private elections use an organiser roster. After saving the draft, upload a CSV/XLSX/XLS file with names and IC/passport numbers, or assign voters individually by IC or passport number.</p>
 
         <div class="election-criteria" data-eligibility-criteria @if ($mode !== 'PUBLIC') hidden @endif>
-            <label for="eligibility_minimum_age">Minimum age</label>
-            <select id="eligibility_minimum_age" name="eligibility_minimum_age">
-                <option value="">Any age</option>
-                @foreach (\App\ValueObjects\EligibilityRules::minimumAgeOptions() as $age)
-                    <option value="{{ $age }}" @selected((string) $minimumAge === (string) $age)>{{ $age }} years or older</option>
-                @endforeach
-            </select>
-            @error('eligibility_minimum_age') <small class="election-field-error" data-server-error-for="eligibility_minimum_age">{{ $message }}</small> @enderror
+            <div class="election-criterion-field">
+                <label class="election-required-label" for="eligibility_minimum_age">Minimum age <span class="election-required-marker" aria-hidden="true">*</span></label>
+                <select id="eligibility_minimum_age" name="eligibility_minimum_age" required>
+                    <option value="">Select minimum age</option>
+                    @foreach (\App\ValueObjects\EligibilityRules::minimumAgeOptions() as $age)
+                        <option value="{{ $age }}" @selected((string) $minimumAge === (string) $age)>{{ $age }} years or older</option>
+                    @endforeach
+                </select>
+                @error('eligibility_minimum_age') <small class="election-field-error" data-server-error-for="eligibility_minimum_age">{{ $message }}</small> @enderror
+            </div>
 
-            <label for="eligibility_nationality">Nationality</label>
-            <select id="eligibility_nationality" name="eligibility_nationality">
-                @foreach (\App\ValueObjects\EligibilityRules::nationalityOptions() as $key => $label)
-                    <option value="{{ $key }}" @selected($nationality === $key)>{{ $label }}</option>
-                @endforeach
-            </select>
-            @error('eligibility_nationality') <small class="election-field-error" data-server-error-for="eligibility_nationality">{{ $message }}</small> @enderror
+            <div class="election-criterion-field">
+                <label for="eligibility_nationality">Nationality</label>
+                <select id="eligibility_nationality" name="eligibility_nationality">
+                    @foreach (\App\ValueObjects\EligibilityRules::nationalityOptions() as $key => $label)
+                        <option value="{{ $key }}" @selected($nationality === $key)>{{ $label }}</option>
+                    @endforeach
+                </select>
+                @error('eligibility_nationality') <small class="election-field-error" data-server-error-for="eligibility_nationality">{{ $message }}</small> @enderror
+            </div>
         </div>
-        @error('eligibility_criteria') <small class="election-field-error" data-server-error-for="eligibility_criteria">{{ $message }}</small> @enderror
     </fieldset>
 
     <fieldset>
@@ -109,7 +112,7 @@
                                 }
                             @endphp
                             <div>
-                                <label for="{{ $field }}">{{ $label }}</label>
+                                <label class="election-required-label" for="{{ $field }}">{{ $label }} <span class="election-required-marker" aria-hidden="true">*</span></label>
                                 <input id="{{ $field }}" name="{{ $field }}" type="datetime-local" value="{{ $dateValue }}" required>
                                 @error($field) <small class="election-field-error" data-server-error-for="{{ $field }}">{{ $message }}</small> @enderror
                             </div>

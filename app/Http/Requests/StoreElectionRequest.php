@@ -37,7 +37,7 @@ class StoreElectionRequest extends FormRequest
             'position_sought' => ['required', 'string', 'min:2', 'max:100', 'regex:/^[\p{L}\p{N} .,&()\/-]+$/u'],
             'description' => ['required', 'string', 'min:20', 'max:2000'],
             'eligibility_mode' => ['required', Rule::in([EligibilityRules::PUBLIC, EligibilityRules::PRIVATE])],
-            'eligibility_minimum_age' => ['nullable', 'integer', 'min:1', 'max:130'],
+            'eligibility_minimum_age' => ['required_if:eligibility_mode,'.EligibilityRules::PUBLIC, 'nullable', 'integer', 'min:1', 'max:130'],
             'eligibility_nationality' => ['nullable', Rule::in(array_keys(EligibilityRules::nationalityOptions()))],
             'nomination_start' => ['required', 'date'],
             'nomination_end' => ['required', 'date', 'after:nomination_start'],
@@ -45,20 +45,5 @@ class StoreElectionRequest extends FormRequest
             'voting_end' => ['required', 'date', 'after:voting_start'],
             'version' => ['nullable', 'integer', 'min:1'],
         ];
-    }
-
-    public function withValidator($validator): void
-    {
-        $validator->after(function ($validator): void {
-            if (strtoupper((string) $this->input('eligibility_mode')) !== EligibilityRules::PUBLIC) {
-                return;
-            }
-
-            $age = $this->input('eligibility_minimum_age');
-            $nationality = strtoupper((string) $this->input('eligibility_nationality', 'ANY'));
-            if (($age === null || $age === '') && $nationality === 'ANY') {
-                $validator->errors()->add('eligibility_criteria', 'Select at least one eligibility requirement.');
-            }
-        });
     }
 }
