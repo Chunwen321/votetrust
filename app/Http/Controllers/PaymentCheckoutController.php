@@ -33,6 +33,21 @@ final class PaymentCheckoutController extends Controller
         return view('payments.checkout', ['payment' => $record]);
     }
 
+    public function receipt(Request $request, int $payment): View
+    {
+        // election_id is only ever set for ELECTION_HOSTING payments (see
+        // payForElection() below). CANDIDATE_DEPOSIT payments leave it null —
+        // the Candidate module tracks that association on its own Candidacy
+        // row instead — so the receipt's Election field renders blank for
+        // deposits. Enriching it would mean reaching into Candidacy, which is
+        // the Candidate module's data; left as a known gap for that module
+        // to close if it wants receipts to show the election.
+        $record = Payment::query()->with('election')->findOrFail($payment);
+        $this->authorizeAccess($request, $record);
+
+        return view('payments.receipt', ['payment' => $record]);
+    }
+
     public function charge(Request $request, int $payment): RedirectResponse
     {
         $record = Payment::query()->findOrFail($payment);
@@ -53,8 +68,11 @@ final class PaymentCheckoutController extends Controller
         // A card number ending in "0002" is IDontPay99's "always declines"
         // test card, mirroring how real sandbox gateways expose magic
         // numbers for testing both outcomes. Nothing about the card is kept.
+        // The "simulate failure" checkbox is a more direct way to force the
+        // same outcome without needing to remember the magic card number.
         $cardNumber = (string) $request->input('card_number');
-        $declines = str_ends_with(preg_replace('/\s+/', '', $cardNumber), '0002');
+        $declines = $request->boolean('simulate_failure')
+            || str_ends_with(preg_replace('/\s+/', '', $cardNumber), '0002');
 
         if ($declines) {
             $this->gateway->fail($record, 'IDontPay99 test card declined the charge.');

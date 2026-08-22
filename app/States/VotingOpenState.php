@@ -32,7 +32,6 @@ final class VotingOpenState extends AbstractElectionState
     public function canVote(Election $election, CarbonImmutable $now): bool
     {
         return $this->paymentVerified($election)
-            && $this->adminApproved($election)
             && $now->betweenIncluded($this->date($election, 'voting_start'), $this->date($election, 'voting_end'));
     }
 

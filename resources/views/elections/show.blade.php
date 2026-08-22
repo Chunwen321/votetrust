@@ -79,6 +79,8 @@
                         <p>{{ $action['description'] }}</p>
                     </div>
                     @if ($action['requiresPaymentReference'])
+                        <p class="election-action-copy">First pay the hosting fee with IDontPay99 to get a payment reference, then paste that reference into the field below.</p>
+                        <a class="election-button election-button-light" href="{{ route('payments.checkout.election', $election) }}">Pay hosting fee (IDontPay99)</a>
                         <label>Payment reference<input name="payment_reference" maxlength="64" required></label>
                     @endif
                     @if ($action['requiresReason'])
