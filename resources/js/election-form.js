@@ -127,46 +127,10 @@ document.querySelectorAll('[data-election-form]').forEach((form) => {
         return message === '';
     };
 
-    const criteriaMessage = () => {
-        if (selectedEligibilityMode() !== 'PUBLIC') {
-            return '';
-        }
-
-        return value('eligibility_minimum_age') === '' && value('eligibility_nationality') === 'ANY'
-            ? 'Select at least one eligibility requirement.'
-            : '';
-    };
-
-    const validateCriteria = (showMessage = true) => {
-        const message = criteriaMessage();
-        const age = form.elements.namedItem('eligibility_minimum_age');
-        const nationality = form.elements.namedItem('eligibility_nationality');
-
-        if (showMessage) {
-            let error = form.querySelector('[data-live-error-for="eligibility_criteria"]');
-
-            if (!error) {
-                error = document.createElement('small');
-                error.className = 'election-field-error election-field-error--live';
-                error.dataset.liveErrorFor = 'eligibility_criteria';
-                error.setAttribute('aria-live', 'polite');
-                criteria.insertAdjacentElement('afterend', error);
-            }
-
-            error.textContent = message;
-            error.hidden = message === '';
-            age.setAttribute('aria-invalid', String(message !== ''));
-            nationality.setAttribute('aria-invalid', String(message !== ''));
-            hideServerErrors('eligibility_criteria');
-        }
-
-        return message === '';
-    };
-
     const formIsValid = (showMessages = false) => {
         const fieldsValid = fields.every((control) => validateField(control, showMessages));
 
-        return fieldsValid && selectedEligibilityMode() !== '' && validateCriteria(showMessages);
+        return fieldsValid && selectedEligibilityMode() !== '';
     };
 
     const hideResolvedSummary = () => {
@@ -209,13 +173,16 @@ document.querySelectorAll('[data-election-form]').forEach((form) => {
             control.disabled = !isPublic;
         });
 
-        validateCriteria();
+        const minimumAge = form.elements.namedItem('eligibility_minimum_age');
+        minimumAge.required = isPublic;
+        if (!isPublic || minimumAge.dataset.touched === 'true') {
+            validateField(minimumAge);
+        }
     };
 
     choices.forEach((choice) => choice.addEventListener('change', () => {
         updateEligibility();
         hideServerErrors('eligibility_mode');
-        validateCriteria();
         hideResolvedSummary();
     }));
 
@@ -223,10 +190,6 @@ document.querySelectorAll('[data-election-form]').forEach((form) => {
         const validate = () => {
             control.dataset.touched = 'true';
             validateField(control);
-
-            if (['eligibility_minimum_age', 'eligibility_nationality'].includes(control.name)) {
-                validateCriteria();
-            }
 
             revalidateDependents(control);
             hideResolvedSummary();
@@ -243,10 +206,9 @@ document.querySelectorAll('[data-election-form]').forEach((form) => {
             validateField(control);
         });
 
-        const validCriteria = validateCriteria();
         const invalidField = fields.find((control) => control.getAttribute('aria-invalid') === 'true');
 
-        if (invalidField || !validCriteria || selectedEligibilityMode() === '') {
+        if (invalidField || selectedEligibilityMode() === '') {
             event.preventDefault();
             (invalidField ?? form.querySelector('input[name="eligibility_mode"]'))?.focus();
         }

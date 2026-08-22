@@ -19,13 +19,17 @@ final class ElectionEligibilityTest extends TestCase
     {
         $organizer = $this->organizer();
 
-        $this->actingAs($organizer)
+        $response = $this->actingAs($organizer)
             ->get(route('elections.create'))
             ->assertOk()
+            ->assertSee('name="eligibility_minimum_age" required', false)
+            ->assertSee('Select minimum age')
             ->assertSee('Any nationality')
             ->assertSee('Malaysia')
             ->assertSee('Singapore')
             ->assertDontSee('Occupation');
+
+        self::assertSame(8, substr_count($response->getContent(), 'class="election-required-marker"'));
     }
 
     public function test_public_election_stores_submitted_restrictions_and_ignores_occupation(): void
@@ -48,12 +52,11 @@ final class ElectionEligibilityTest extends TestCase
         self::assertArrayNotHasKey('occupation', $rules->toArray());
     }
 
-    public function test_public_elections_store_age_nationality_or_both(): void
+    public function test_public_elections_store_required_age_with_optional_nationality(): void
     {
         $organizer = $this->organizer();
         $cases = [
             ['Age Public Election', 18, 'ANY', 18, null],
-            ['Nationality Public Election', null, 'MY', null, 'MY'],
             ['Combined Public Election', 21, 'SG', 21, 'SG'],
         ];
 
@@ -72,7 +75,7 @@ final class ElectionEligibilityTest extends TestCase
         }
     }
 
-    public function test_negative_or_missing_public_criteria_are_rejected(): void
+    public function test_negative_or_missing_public_minimum_age_is_rejected(): void
     {
         $organizer = $this->organizer();
         $negative = $this->validPayload('Invalid Negative Age Election') + [
@@ -93,7 +96,8 @@ final class ElectionEligibilityTest extends TestCase
         $this->actingAs($organizer)
             ->from(route('elections.create'))
             ->post(route('elections.store'), $missing)
-            ->assertSessionHasErrors('eligibility_criteria');
+            ->assertSessionHasErrors('eligibility_minimum_age')
+            ->assertSessionDoesntHaveErrors('eligibility_criteria');
     }
 
     private function organizer(): User

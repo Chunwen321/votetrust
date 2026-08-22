@@ -276,10 +276,10 @@
         @if ($logs === [])
             <div class="election-panel-empty"><strong>No lifecycle events recorded.</strong><p>The first election action will appear here.</p></div>
         @else
-            <div class="election-table-wrap"><table class="election-table"><thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Transition</th><th>Request</th></tr></thead><tbody>
+            <div class="election-table-wrap"><table class="election-table"><thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Transition</th></tr></thead><tbody>
             @foreach ($logs as $log)
                 @php $actor = $log->actor(); @endphp
-                <tr><td>{{ \Carbon\CarbonImmutable::parse($log->get('created_at'))->format('d M Y H:i') }}</td><td>{{ $actor?->name ?? $actor?->email ?? 'User #'.$log->get('actor_user_id') }}</td><td>{{ str($log->get('action'))->replace('_', ' ')->headline() }}</td><td><code>{{ $log->get('from_state') }}</code> &rarr; <code>{{ $log->get('to_state') }}</code></td><td><code>{{ $log->get('request_id') }}</code></td></tr>
+                <tr><td>{{ \Carbon\CarbonImmutable::parse($log->get('created_at'))->format('d M Y H:i') }}</td><td>{{ $actor?->name ?? $actor?->email ?? 'User #'.$log->get('actor_user_id') }}</td><td>{{ str($log->get('action'))->replace('_', ' ')->headline() }}</td><td><code>{{ $log->get('from_state') }}</code> &rarr; <code>{{ $log->get('to_state') }}</code></td></tr>
             @endforeach
             </tbody></table></div>
         @endif
