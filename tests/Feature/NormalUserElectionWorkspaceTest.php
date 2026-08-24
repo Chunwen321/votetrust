@@ -124,6 +124,47 @@ final class NormalUserElectionWorkspaceTest extends TestCase
             ]);
     }
 
+    public function test_an_expired_nomination_window_is_not_labelled_as_open(): void
+    {
+        $this->travelTo(Carbon::parse('2026-08-21 15:28:01'));
+
+        $member = User::factory()->create([
+            'is_admin' => false,
+            'account_status' => 'ACTIVE',
+        ]);
+        $election = Election::query()->create([
+            'title' => 'Ready to Open Voting',
+            'position_sought' => 'Student Representative',
+            'description' => 'Nominations have ended and the ballot is waiting for voting to open.',
+            'eligibility_rules' => EligibilityRules::publicElection()->toStorage(),
+            'nomination_start' => '2026-08-20 09:00:00',
+            'nomination_end' => '2026-08-21 15:28:00',
+            'voting_start' => '2026-08-22 09:00:00',
+            'voting_end' => '2026-08-22 17:00:00',
+            'status' => Election::NOMINATION_OPEN,
+            'currency' => 'MYR',
+        ]);
+
+        $this->actingAs($member)
+            ->get(route('elections.index'))
+            ->assertOk()
+            ->assertSee('election-state-nomination-closed', false)
+            ->assertSeeTextInOrder([
+                'Ready to Open Voting',
+                'Nominations Closed',
+                'candidate applications are closed',
+                'Nominations closed',
+            ])
+            ->assertDontSeeText('Nomination Open');
+
+        $this->actingAs($member)
+            ->get(route('elections.show', $election))
+            ->assertOk()
+            ->assertSee('election-status-nomination-closed', false)
+            ->assertSeeText('Nominations Closed')
+            ->assertDontSeeText('Nomination Open');
+    }
+
     public function test_a_draft_is_private_to_its_organiser_until_it_is_published(): void
     {
         $organiser = User::factory()->create([

@@ -50,12 +50,13 @@
                     @php($votingStatus = $votingStatuses[(int) $enrollment->election_id] ?? null)
                     @php($canVote = $user->isVerified() && $enrollment->status === 'APPROVED' && $enrollment->election_status === \App\Models\Election::VOTING_OPEN && ($votingStatus['available'] ?? false) && ! ($votingStatus['hasVoted'] ?? false))
                     @php($milestone = $voterMilestones[(int) $enrollment->election_id])
+                    @php($displayStatus = $voterElectionStatuses[(int) $enrollment->election_id])
                     <article class="card election-list-item" role="listitem">
                         <div class="election-list-item__main">
                             <div class="election-list-item__heading">
                                 <h3>{{ $enrollment->election_title }}</h3>
-                                <span class="badge election-state election-state-{{ strtolower(str_replace('_', '-', $enrollment->election_status)) }}">
-                                    {{ str($enrollment->election_status)->replace('_', ' ')->lower()->headline() }}
+                                <span class="badge election-state election-state-{{ $displayStatus->modifier }}">
+                                    {{ $displayStatus->label }}
                                 </span>
                             </div>
                             <p>Voter access: <span class="badge status-{{ strtolower($enrollment->status) }}">{{ str($enrollment->status)->lower()->headline() }}</span></p>
@@ -107,12 +108,13 @@
                     @php($candidacy = $election->candidacies->first())
                     @php($isPublic = \App\ValueObjects\EligibilityRules::fromStored($election->eligibility_rules)->mode() === \App\ValueObjects\EligibilityRules::PUBLIC)
                     @php($milestone = $candidateMilestones[(int) $election->getKey()])
+                    @php($displayStatus = $candidateElectionStatuses[(int) $election->getKey()])
                     <article class="card election-list-item" role="listitem">
                         <div class="election-list-item__main">
                             <div class="election-list-item__heading">
                                 <h3>{{ $election->title }}</h3>
-                                <span class="badge election-state election-state-{{ strtolower(str_replace('_', '-', $election->status)) }}">
-                                    {{ str($election->status)->replace('_', ' ')->lower()->headline() }}
+                                <span class="badge election-state election-state-{{ $displayStatus->modifier }}">
+                                    {{ $displayStatus->label }}
                                 </span>
                             </div>
                             @if ($candidacy)
@@ -171,12 +173,13 @@
             <div class="election-list" role="list">
                 @foreach ($organizedElections as $election)
                     @php($milestone = $organizerMilestones[(int) $election->getKey()])
+                    @php($displayStatus = $organizerElectionStatuses[(int) $election->getKey()])
                     <article class="card election-list-item" role="listitem">
                         <div class="election-list-item__main">
                             <div class="election-list-item__heading">
                                 <h3>{{ $election->title }}</h3>
-                                <span class="badge election-state election-state-{{ strtolower(str_replace('_', '-', $election->status)) }}">
-                                    {{ str($election->status)->replace('_', ' ')->lower()->headline() }}
+                                <span class="badge election-state election-state-{{ $displayStatus->modifier }}">
+                                    {{ $displayStatus->label }}
                                 </span>
                             </div>
                             <p>Schedule status</p>
