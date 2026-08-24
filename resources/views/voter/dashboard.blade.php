@@ -8,7 +8,7 @@
 <section class="page-heading">
     <p class="eyebrow">Voter access</p>
     <h1>My election enrolments</h1>
-    <p>Voting eligibility is granted separately for each election by an administrator.</p>
+    <p>Public elections follow their eligibility rules. Private-election access is assigned by an organiser or administrator.</p>
 </section>
 
 <section class="card table-card">
@@ -25,7 +25,7 @@
                     <tr>
                         <td><strong>{{ $enrollment->election_title }}</strong><br><small>Election #{{ $enrollment->election_id }}</small></td>
                         <td>{{ $enrollment->election_status === 'UNAVAILABLE' ? 'Unavailable' : str_replace('_', ' ', $enrollment->election_status) }}</td>
-                        <td><span class="badge status-{{ strtolower($enrollment->status) }}">{{ $enrollment->status }}</span></td>
+                        <td><span class="badge status-{{ strtolower($enrollment->status) }}">{{ $enrollment->election_access_type === 'PUBLIC' ? 'PUBLIC' : $enrollment->status }}</span></td>
                         <td>
                             @if($votingStatus && $votingStatus['available'])
                                 <span class="badge {{ $votingStatus['hasVoted'] ? 'status-voted' : 'status-not-voted' }}">
@@ -35,7 +35,7 @@
                                 <span class="badge status-unavailable" title="Voting status is supplied by the Voting web service.">Unavailable</span>
                             @endif
                         </td>
-                        <td>{{ optional($enrollment->updated_at)->format('d M Y, g:i A') }}</td>
+                        <td>{{ optional($enrollment->updated_at)->format('d M Y, g:i A') ?? '—' }}</td>
                     </tr>
                 @endforeach
                 </tbody>

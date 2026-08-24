@@ -6,6 +6,9 @@ require __DIR__.'/api-user.php';
 // PIC: Low Wen Kai — Election lifecycle APIs.
 require __DIR__.'/api-election.php';
 
+// PIC: Wong Shun Bin - Candidate information and participant APIs.
+require __DIR__.'/api-candidate.php';
+
 // PIC: Goh Chun Wen — Voting status and tally APIs.
 require __DIR__.'/api-voting.php';
 

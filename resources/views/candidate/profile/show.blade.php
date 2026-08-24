@@ -1,12 +1,13 @@
-{{-- PIC: Wong Shun Bin — Candidate Registration profile and applications view. --}}
+{{-- PIC: Wong Shun Bin — Candidate profile view. --}}
 @extends('candidate.layout')
 
-@section('title', 'My profile')
+@section('title', 'My candidate profile')
 
 @section('candidate-content')
     <div class="candidate-page-heading">
         <p class="candidate-eyebrow">User account</p>
-        <h1>My profile</h1>
+        <h1>My candidate profile</h1>
+        <p>Keep the contact information connected to your candidate applications up to date.</p>
     </div>
 
     <section class="candidate-card">
@@ -28,90 +29,15 @@
         </form>
     </section>
 
-    <section class="candidate-card">
-        <div class="candidate-section-heading">
-            <h2>Applications</h2>
-            @if ($canApply)
-                <a class="candidate-button" href="{{ route('candidate.applications.create') }}">New application</a>
-            @endif
+    <section class="candidate-card candidate-workspace-link">
+        <div>
+            <p class="candidate-eyebrow">Application workspace</p>
+            <h2>Candidate applications</h2>
+            <p>
+                You have {{ $applicationCount }} application{{ $applicationCount === 1 ? '' : 's' }}.
+                View decisions, payment status, submitted details, and available actions in one place.
+            </p>
         </div>
-
-        @forelse ($candidacies->take(1) as $candidacy)
-            @php($paymentStatus = $paymentStatuses[$candidacy->getKey()] ?? null)
-            <article class="candidate-application">
-                <div class="candidate-application__summary">
-                    @if ($candidacy->profile_photo)
-                        <img
-                            class="candidate-photo"
-                            src="{{ route('candidate.applications.photo', $candidacy) }}"
-                            alt="Your candidate photo for {{ $candidacy->election?->title }}"
-                        >
-                    @endif
-                    <div>
-                        <h3>{{ $candidacy->election?->title ?? 'Election' }}</h3>
-                        <p><strong>Position:</strong> {{ $candidacy->election?->position_sought ?? 'Not recorded' }}</p>
-                        @if ($candidacy->status === \App\Models\Candidacy::APPROVED)
-                            <p><strong>Candidate Introduction:</strong> {{ $candidacy->candidate_introduction ?: 'Not provided' }}</p>
-                            <p><strong>Qualifications / Experience:</strong> {{ $candidacy->qualifications ?: 'Not provided' }}</p>
-                            <p><strong>Reason for Candidacy:</strong> {{ $candidacy->reason_for_candidacy ?: 'Not provided' }}</p>
-                        @else
-                            <p><strong>Application:</strong> {{ $candidacy->status }}</p>
-                            <p>
-                                <strong>Payment:</strong>
-                                {{ $paymentStatus?->displayStatus() ?? 'No payment reference' }}
-                                @if ($paymentStatus && ! $paymentStatus->available)
-                                    (actions disabled)
-                                @endif
-                            </p>
-                        @endif
-                    </div>
-                </div>
-
-                <details>
-                    <summary>Application details</summary>
-                    <p><strong>Candidate Introduction:</strong></p>
-                    <p class="candidate-preserve-lines">{{ $candidacy->candidate_introduction ?: 'Not provided' }}</p>
-
-                    <p><strong>Qualifications / Experience:</strong></p>
-                    <p class="candidate-preserve-lines">{{ $candidacy->qualifications ?: 'Not provided' }}</p>
-
-                    <p><strong>Reason for Candidacy:</strong></p>
-                    <p class="candidate-preserve-lines">{{ $candidacy->reason_for_candidacy ?: 'Not provided' }}</p>
-
-                    <p><strong>Manifesto:</strong></p>
-                    <p class="candidate-preserve-lines">{{ $candidacy->manifesto }}</p>
-
-                    @if ($candidacy->documents->isNotEmpty())
-                        <p><strong>Private documents:</strong></p>
-                        <ul>
-                            @foreach ($candidacy->documents as $document)
-                                <li>
-                                    <a href="{{ route('candidate.applications.documents.download', [$candidacy, $document]) }}">
-                                        {{ $document->original_name }}
-                                    </a>
-                                </li>
-                            @endforeach
-                        </ul>
-                    @endif
-                </details>
-
-                <div class="candidate-actions">
-                    @if ($candidacy->payment_id)
-                        <a class="candidate-button candidate-button--primary" href="{{ route('candidate.payments.show', $candidacy->payment_id) }}">
-                            View payment
-                        </a>
-                    @endif
-
-                    @if ($candidacy->status === 'Pending' && $paymentStatus?->isPending())
-                        <form method="post" action="{{ route('candidate.applications.cancel', $candidacy) }}">
-                            @csrf
-                            <button class="candidate-button candidate-button--danger" type="submit">Cancel application</button>
-                        </form>
-                    @endif
-                </div>
-            </article>
-        @empty
-            <p>You have not submitted a candidacy application.</p>
-        @endforelse
+        <a class="candidate-button" href="{{ route('candidate.applications.index') }}">Manage applications</a>
     </section>
 @endsection

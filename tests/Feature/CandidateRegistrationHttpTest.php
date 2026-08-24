@@ -27,9 +27,22 @@ final class CandidateRegistrationHttpTest extends TestCase
         [$candidate, $election] = $this->candidateAndOpenElection();
 
         $this->actingAs($candidate)
-            ->get(route('candidate.applications.create'))
+            ->get(route('candidate.applications.create', $election))
             ->assertOk()
-            ->assertSee($election->title);
+            ->assertSee($election->title)
+            ->assertSee($election->position_sought)
+            ->assertSee(route('candidate.applications.store', $election))
+            ->assertDontSee('name="election_id"', false)
+            ->assertDontSee('<select id="election_id"', false);
+    }
+
+    public function test_the_application_form_cannot_be_opened_without_selecting_an_election_first(): void
+    {
+        $candidate = User::factory()->create();
+
+        $this->actingAs($candidate)
+            ->get('/candidate/applications/create')
+            ->assertNotFound();
     }
 
     public function test_the_http_form_submits_through_the_bound_registration_proxy(): void
@@ -37,10 +50,11 @@ final class CandidateRegistrationHttpTest extends TestCase
         Storage::fake('candidate-test');
         config(['candidate.disk' => 'candidate-test']);
         [$candidate, $election] = $this->candidateAndOpenElection();
+        [, $otherElection] = $this->candidateAndOpenElection();
 
-        $this->actingAs($candidate)
-            ->post(route('candidate.applications.store'), [
-                'election_id' => $election->getKey(),
+        $response = $this->actingAs($candidate)
+            ->post(route('candidate.applications.store', $election), [
+                'election_id' => $otherElection->getKey(),
                 'manifesto' => str_repeat('A clear commitment to student representation. ', 2),
                 'candidate_introduction' => 'I am a second-year student who enjoys serving the student community.',
                 'qualifications' => 'Previous committee experience.',
@@ -49,8 +63,14 @@ final class CandidateRegistrationHttpTest extends TestCase
                 'documents' => [
                     UploadedFile::fake()->create('support.pdf', 100, 'application/pdf'),
                 ],
-            ])
-            ->assertRedirect(route('candidate.profile.show'));
+            ]);
+
+        $application = Candidacy::query()
+            ->where('user_id', $candidate->getKey())
+            ->where('election_id', $election->getKey())
+            ->firstOrFail();
+
+        $response->assertRedirect(route('candidate.applications.show', $application));
 
         $this->assertDatabaseHas('candidacy', [
             'user_id' => $candidate->getKey(),
@@ -59,6 +79,10 @@ final class CandidateRegistrationHttpTest extends TestCase
             'candidate_introduction' => 'I am a second-year student who enjoys serving the student community.',
             'qualifications' => 'Previous committee experience.',
             'reason_for_candidacy' => 'I want to improve communication between students and their representatives.',
+        ]);
+        $this->assertDatabaseMissing('candidacy', [
+            'user_id' => $candidate->getKey(),
+            'election_id' => $otherElection->getKey(),
         ]);
     }
 
@@ -71,6 +95,9 @@ final class CandidateRegistrationHttpTest extends TestCase
         $candidacy = $this->application($candidate, $election);
         $document = $candidacy->documents()->firstOrFail();
 
+        $this->actingAs($intruder)
+            ->get(route('candidate.applications.show', $candidacy))
+            ->assertForbidden();
         $this->actingAs($intruder)
             ->get(route('candidate.applications.photo', $candidacy))
             ->assertForbidden();
@@ -106,7 +133,7 @@ final class CandidateRegistrationHttpTest extends TestCase
 
         $this->actingAs($candidate)
             ->post(route('candidate.applications.cancel', $candidacy))
-            ->assertRedirect(route('candidate.profile.show'));
+            ->assertRedirect(route('candidate.applications.show', $candidacy));
 
         $candidacy->refresh();
         $this->assertSame('Cancelled', $candidacy->status);
@@ -117,7 +144,7 @@ final class CandidateRegistrationHttpTest extends TestCase
         Storage::disk('candidate-test')->assertMissing($documentPath);
     }
 
-    public function test_pending_profile_displays_position_application_and_payment_status(): void
+    public function test_pending_application_page_displays_position_details_and_payment_status(): void
     {
         Storage::fake('candidate-test');
         config(['candidate.disk' => 'candidate-test']);
@@ -126,14 +153,14 @@ final class CandidateRegistrationHttpTest extends TestCase
         $this->fakePaymentStatus('CONFIRMED');
 
         $this->actingAs($candidate)
-            ->get(route('candidate.profile.show'))
+            ->get(route('candidate.applications.show', $candidacy))
             ->assertOk()
-            ->assertSee('Position:')
-            ->assertSee('Application:')
+            ->assertSee('Position')
+            ->assertSee('Application')
             ->assertSee('Confirmed')
-            ->assertSee('Candidate Introduction:')
-            ->assertSee('Qualifications / Experience:')
-            ->assertSee('Reason for Candidacy:')
+            ->assertSee('Candidate introduction')
+            ->assertSee('Qualifications / experience')
+            ->assertSee('Reason for candidacy')
             ->assertSee(route('candidate.payments.show', $candidacy->payment_id));
 
         Http::assertSent(fn (ClientRequest $request): bool => str_contains(
@@ -142,7 +169,7 @@ final class CandidateRegistrationHttpTest extends TestCase
         ));
     }
 
-    public function test_profile_hides_new_application_when_no_eligible_election_remains(): void
+    public function test_candidate_profile_links_to_the_dedicated_application_workspace(): void
     {
         Storage::fake('candidate-test');
         config(['candidate.disk' => 'candidate-test']);
@@ -152,10 +179,13 @@ final class CandidateRegistrationHttpTest extends TestCase
         $this->actingAs($candidate)
             ->get(route('candidate.profile.show'))
             ->assertOk()
+            ->assertSee('You have 1 application')
+            ->assertSee('Manage applications')
+            ->assertSee(route('candidate.applications.index'))
             ->assertDontSee('New application');
     }
 
-    public function test_approved_profile_displays_candidate_background_details(): void
+    public function test_approved_application_displays_candidate_background_details(): void
     {
         Storage::fake('candidate-test');
         config(['candidate.disk' => 'candidate-test']);
@@ -164,15 +194,15 @@ final class CandidateRegistrationHttpTest extends TestCase
         $candidacy->update(['status' => Candidacy::APPROVED]);
 
         $this->actingAs($candidate)
-            ->get(route('candidate.profile.show'))
+            ->get(route('candidate.applications.show', $candidacy))
             ->assertOk()
-            ->assertSee('Candidate Introduction:')
-            ->assertSee('Qualifications / Experience:')
+            ->assertSee('Candidate introduction')
+            ->assertSee('Qualifications / experience')
             ->assertSee('Previous committee experience.')
-            ->assertSee('Reason for Candidacy:');
+            ->assertSee('Reason for candidacy');
     }
 
-    public function test_profile_only_displays_the_most_recent_application(): void
+    public function test_application_workspace_displays_the_complete_history_in_newest_first_order(): void
     {
         Storage::fake('candidate-test');
         config(['candidate.disk' => 'candidate-test']);
@@ -188,10 +218,9 @@ final class CandidateRegistrationHttpTest extends TestCase
         $latest->update(['registered_at' => now()]);
 
         $this->actingAs($candidate)
-            ->get(route('candidate.profile.show'))
+            ->get(route('candidate.applications.index'))
             ->assertOk()
-            ->assertSee('Latest Candidate Election')
-            ->assertDontSee('Older Candidate Election');
+            ->assertSeeInOrder(['Latest Candidate Election', 'Older Candidate Election']);
     }
 
     private function application(User $candidate, Election $election): Candidacy

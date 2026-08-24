@@ -4,11 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Contracts\RegistrationService;
 use App\Http\Requests\StoreCandidacyRequest;
+use App\Models\Candidacy;
 use App\Models\Election;
+use App\Models\User;
+use App\Services\CandidateRegistration\CandidateApplicationAccess;
 use App\ValueObjects\EligibilityRules;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 /**
@@ -17,50 +21,68 @@ use Illuminate\View\View;
  */
 final class CandidateRegistrationController extends Controller
 {
-    public function create(Request $request): View
+    public function __construct(private readonly CandidateApplicationAccess $applicationAccess) {}
+
+    public function create(Request $request, Election $election): View|RedirectResponse
     {
-        $now = now();
-        $userId = (int) $request->user()?->getAuthIdentifier();
-        $elections = Election::query()
-            ->where('status', 'NOMINATION_OPEN')
-            ->whereNotNull('position_sought')
-            ->where('position_sought', '!=', '')
-            ->whereDoesntHave('candidacies', fn ($query) => $query
-                ->where('user_id', $userId)
-                ->where('status', '!=', 'Rejected'))
-            ->where(function ($query) use ($now): void {
-                $query->whereNull('nomination_start')
-                    ->orWhere('nomination_start', '<=', $now);
-            })
-            ->where(function ($query) use ($now): void {
-                $query->whereNull('nomination_end')
-                    ->orWhere('nomination_end', '>=', $now);
-            })
-            ->orderBy('nomination_end')
-            ->orderBy('title')
-            ->get()
-            ->filter(fn (Election $election): bool => EligibilityRules::fromStored($election->eligibility_rules)->mode() === EligibilityRules::PUBLIC)
-            ->values();
+        $user = $request->user();
+        abort_unless($user instanceof User, 403);
+        abort_unless(
+            EligibilityRules::fromStored($election->eligibility_rules)->mode() === EligibilityRules::PUBLIC,
+            404,
+        );
+
+        $unavailableReason = $this->applicationAccess->unavailableReason($user, $election);
+        if ($unavailableReason !== null) {
+            $existingApplication = Candidacy::query()
+                ->where('user_id', $user->getKey())
+                ->where('election_id', $election->getKey())
+                ->where('status', '!=', Candidacy::REJECTED)
+                ->first();
+
+            if ($existingApplication instanceof Candidacy) {
+                return redirect()
+                    ->route('candidate.applications.show', $existingApplication)
+                    ->with('notice', $unavailableReason);
+            }
+
+            return redirect()
+                ->route('elections.show', $election)
+                ->with('error', $unavailableReason);
+        }
 
         return view('candidate.registration.create', [
-            'elections' => $elections,
-            'selectedElectionId' => $request->integer('election_id') ?: null,
+            'election' => $election,
+            'isReapplication' => Candidacy::query()
+                ->where('user_id', $user->getKey())
+                ->where('election_id', $election->getKey())
+                ->where('status', Candidacy::REJECTED)
+                ->exists(),
         ]);
     }
 
     public function store(
         StoreCandidacyRequest $request,
+        Election $election,
         RegistrationService $service,
     ): RedirectResponse {
+        $user = $request->user();
+        abort_unless($user instanceof User, 403);
+
+        $unavailableReason = $this->applicationAccess->unavailableReason($user, $election);
+        if ($unavailableReason !== null) {
+            throw ValidationException::withMessages(['application' => $unavailableReason]);
+        }
+
         $documents = $request->file('documents', []);
         $documents = is_array($documents) ? array_values($documents) : [];
         $photo = $request->file('profile_photo');
 
         abort_unless($photo instanceof UploadedFile, 422);
 
-        $service->apply(
-            (int) $request->user()?->getAuthIdentifier(),
-            (int) $request->integer('election_id'),
+        $application = $service->apply(
+            (int) $user->getAuthIdentifier(),
+            (int) $election->getKey(),
             $request->safe()->only([
                 'manifesto',
                 'candidate_introduction',
@@ -72,7 +94,7 @@ final class CandidateRegistrationController extends Controller
         );
 
         return redirect()
-            ->route('candidate.profile.show')
+            ->route('candidate.applications.show', $application)
             ->with('success', 'Your application was submitted with Pending status.');
     }
 }

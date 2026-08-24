@@ -16,6 +16,8 @@ use Illuminate\Validation\Rules\Password;
 
 final class RegisterRequest extends FormRequest
 {
+    protected $redirectRoute = 'register';
+
     public function authorize(): bool
     {
         return true;

@@ -48,7 +48,12 @@
             <div class="election-list" role="list">
                 @foreach ($voterEnrollments as $enrollment)
                     @php($votingStatus = $votingStatuses[(int) $enrollment->election_id] ?? null)
-                    @php($canVote = $user->isVerified() && $enrollment->status === 'APPROVED' && $enrollment->election_status === \App\Models\Election::VOTING_OPEN && ($votingStatus['available'] ?? false) && ! ($votingStatus['hasVoted'] ?? false))
+                    @php($isApprovedVoter = $enrollment->status === \App\Models\VoterEnrollment::APPROVED)
+                    @php($isVotingOpen = $enrollment->election_status === \App\Models\Election::VOTING_OPEN)
+                    @php($isClosed = $enrollment->election_status === \App\Models\Election::CLOSED)
+                    @php($isPublicAccess = $enrollment->election_access_type === 'PUBLIC')
+                    @php($isVotingAllowed = $enrollment->election_voting_allowed)
+                    @php($hasRecordedVote = ($votingStatus['available'] ?? false) && ($votingStatus['hasVoted'] ?? false))
                     @php($milestone = $voterMilestones[(int) $enrollment->election_id])
                     @php($displayStatus = $voterElectionStatuses[(int) $enrollment->election_id])
                     <article class="card election-list-item" role="listitem">
@@ -59,20 +64,30 @@
                                     {{ $displayStatus->label }}
                                 </span>
                             </div>
-                            <p>Voter access: <span class="badge status-{{ strtolower($enrollment->status) }}">{{ str($enrollment->status)->lower()->headline() }}</span></p>
+                            <p>Voter access: <span class="badge status-{{ strtolower($enrollment->status) }}">{{ $isPublicAccess ? 'Public' : str($enrollment->status)->lower()->headline() }}</span></p>
                             @include('elections.partials.card-milestone', ['milestone' => $milestone])
                         </div>
                         <div class="election-list-item__action">
-                            @if (! $user->isVerified())
+                            @if ($isClosed)
+                                @if ($user->isVerified() && $isApprovedVoter)
+                                    <a class="button button-quiet button-small" href="{{ route('voting.results', $enrollment->election_id) }}" aria-label="View results for {{ $enrollment->election_title }}">View results <span aria-hidden="true">&rarr;</span></a>
+                                @else
+                                    <span class="item-note">Election ended</span>
+                                @endif
+                            @elseif (in_array($enrollment->status, [\App\Models\VoterEnrollment::REJECTED, \App\Models\VoterEnrollment::SUSPENDED], true))
+                                <span class="badge status-{{ strtolower($enrollment->status) }}">Voting access {{ str($enrollment->status)->lower() }}</span>
+                            @elseif (! $user->isVerified())
                                 <a class="button button-quiet button-small" href="{{ route('profile.verify') }}">Verify to vote</a>
-                            @elseif ($canVote)
-                                <a class="button button-small" href="{{ route('voting.ballot', $enrollment->election_id) }}">Open ballot</a>
-                            @elseif (($votingStatus['available'] ?? false) && ($votingStatus['hasVoted'] ?? false))
-                                <span class="badge status-voted">Vote recorded</span>
-                            @elseif ($enrollment->election_status === \App\Models\Election::VOTING_OPEN && $enrollment->status !== 'APPROVED')
+                            @elseif (! $isApprovedVoter)
                                 <span class="item-note">Voting access pending</span>
+                            @elseif ($isVotingOpen && $isVotingAllowed === false)
+                                <span class="item-note">{{ $milestone->tone === 'upcoming' ? 'Voting has not opened' : 'Voting has ended' }}</span>
+                            @elseif ($isVotingOpen && $hasRecordedVote)
+                                <span class="badge status-voted">Vote recorded</span>
+                            @elseif ($isVotingOpen && $isApprovedVoter)
+                                <a class="button button-small" href="{{ route('voting.ballot', $enrollment->election_id) }}" aria-label="Open the ballot for {{ $enrollment->election_title }}">Open ballot <span aria-hidden="true">&rarr;</span></a>
                             @else
-                                <a class="button button-quiet button-small" href="{{ route('voting.index') }}">View voting</a>
+                                <a class="button button-quiet button-small" href="{{ route('voting.ballot', $enrollment->election_id) }}" aria-label="View voting for {{ $enrollment->election_title }}">View voting <span aria-hidden="true">&rarr;</span></a>
                             @endif
                         </div>
                     </article>
@@ -88,7 +103,7 @@
                 <div>
                     <p class="eyebrow">Your candidate area</p>
                     <h2 id="candidate-elections-title">Election opportunities</h2>
-                    <p>View public elections you can stand in and private elections where you have been assigned as a candidate.</p>
+                    <p>Apply to current public opportunities and track elections where you already have an application or assignment.</p>
                 </div>
             </div>
             <span class="section-count">{{ $candidateElections->count() }} election{{ $candidateElections->count() === 1 ? '' : 's' }}</span>
@@ -98,8 +113,8 @@
             <article class="card role-empty-state">
                 <div class="role-empty-state__icon" aria-hidden="true">i</div>
                 <div>
-                    <h3>No candidate elections available</h3>
-                    <p>Public nomination opportunities and private candidate assignments will appear here.</p>
+                    <h3>No candidate opportunities or applications</h3>
+                    <p>Open public nominations and your existing candidate records will appear here.</p>
                 </div>
             </article>
         @else
@@ -118,9 +133,11 @@
                                 </span>
                             </div>
                             @if ($candidacy)
-                                <p>You have been assigned as a candidate. Status: <span class="badge status-{{ strtolower($candidacy->status) }}">{{ $candidacy->status }}</span></p>
+                                <p>{{ $isPublic ? 'Your application status:' : 'Private candidate assignment:' }} <span class="badge status-{{ strtolower($candidacy->status) }}">{{ str($candidacy->status)->lower()->headline() }}</span></p>
                             @elseif ($isPublic)
-                                @if ($candidateApplicationsOpen[(int) $election->getKey()])
+                                @if (! $user->isVerified())
+                                    <p>Public election &mdash; verify your profile before applying.</p>
+                                @elseif ($candidateApplicationsOpen[(int) $election->getKey()])
                                     <p>Public election &mdash; candidate applications are open now.</p>
                                 @elseif ($election->status === \App\Models\Election::NOMINATION_OPEN && $milestone->tone === 'upcoming')
                                     <p>Public election &mdash; applications open when nominations begin.</p>
@@ -131,7 +148,7 @@
                             @include('elections.partials.card-milestone', ['milestone' => $milestone])
                         </div>
                         <div class="election-list-item__action">
-                            <a class="button button-quiet button-small" href="{{ route('elections.show', $election) }}">View election <span aria-hidden="true">&rarr;</span></a>
+                            <a class="button button-quiet button-small" href="{{ route('elections.show', $election) }}" aria-label="View {{ $election->title }}">View election <span aria-hidden="true">&rarr;</span></a>
                         </div>
                     </article>
                 @endforeach
@@ -187,9 +204,9 @@
                         </div>
                         <div class="election-list-item__action">
                             @if ($election->status === \App\Models\Election::DRAFT)
-                                <a class="button button-quiet button-small" href="{{ route('elections.edit', $election) }}">Continue setup <span aria-hidden="true">→</span></a>
+                                <a class="button button-quiet button-small" href="{{ route('elections.edit', $election) }}" aria-label="Continue setting up {{ $election->title }}">Continue setup <span aria-hidden="true">&rarr;</span></a>
                             @else
-                                <a class="button button-quiet button-small" href="{{ route('elections.show', $election) }}">Manage election <span aria-hidden="true">→</span></a>
+                                <a class="button button-quiet button-small" href="{{ route('elections.show', $election) }}" aria-label="Manage {{ $election->title }}">Manage election <span aria-hidden="true">&rarr;</span></a>
                             @endif
                         </div>
                     </article>

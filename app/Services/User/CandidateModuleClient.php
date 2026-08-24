@@ -19,6 +19,10 @@ final class CandidateModuleClient
     public function participants(int $electionId): array
     {
         $data = $this->get('/api/v1/elections/'.$electionId.'/candidates', ['electionId' => $electionId]);
+        if (($data['electionId'] ?? null) !== $electionId) {
+            return [];
+        }
+
         $candidates = $data['candidates'] ?? null;
         if (! is_array($candidates)) {
             return [];
@@ -52,19 +56,27 @@ final class CandidateModuleClient
 
     public function saveParticipant(int $electionId, int $userId, string $status): bool
     {
-        return $this->send('POST', '/api/v1/elections/'.$electionId.'/candidates', [
+        $data = $this->send('POST', '/api/v1/elections/'.$electionId.'/candidates', [
             'electionId' => $electionId,
             'userId' => $userId,
             'status' => $status,
         ]);
+
+        return ($data['electionId'] ?? null) === $electionId
+            && ($data['userId'] ?? null) === $userId
+            && ($data['status'] ?? null) === $status;
     }
 
     public function changeParticipantStatus(int $electionId, int $userId, string $status): bool
     {
-        return $this->send('PATCH', '/api/v1/elections/'.$electionId.'/candidates/'.$userId, [
+        $data = $this->send('PATCH', '/api/v1/elections/'.$electionId.'/candidates/'.$userId, [
             'electionId' => $electionId,
             'status' => $status,
         ]);
+
+        return ($data['electionId'] ?? null) === $electionId
+            && ($data['userId'] ?? null) === $userId
+            && ($data['status'] ?? null) === $status;
     }
 
     /** @param array<string, mixed> $query
@@ -97,13 +109,14 @@ final class CandidateModuleClient
         return $body['data'];
     }
 
-    /** @param array<string, mixed> $payload */
-    private function send(string $method, string $path, array $payload): bool
+    /** @param array<string, mixed> $payload
+     * @return array<string, mixed>|null */
+    private function send(string $method, string $path, array $payload): ?array
     {
         $baseUrl = rtrim((string) config('votetrust-user.services.candidate.base_url', ''), '/');
         $apiKey = (string) config('votetrust-user.services.candidate.api_key', '');
         if ($baseUrl === '' || $apiKey === '') {
-            return false;
+            return null;
         }
 
         $requestId = 'usr_'.str_replace('-', '', (string) Str::uuid());
@@ -118,19 +131,26 @@ final class CandidateModuleClient
                 ->send($method, $baseUrl.$path, ['json' => $payload]);
             $body = $response->json();
         } catch (Throwable) {
-            return false;
+            return null;
         }
 
-        return $response->successful()
-            && is_array($body)
-            && $this->validEnvelope($body, $requestId)
-            && is_array($body['data'] ?? null);
+        if (! $response->successful()
+            || ! is_array($body)
+            || ! $this->validEnvelope($body, $requestId)
+            || ! is_array($body['data'] ?? null)) {
+            return null;
+        }
+
+        return $body['data'];
     }
 
     /** @param array<array-key, mixed> $payload */
     private function validEnvelope(array $payload, string $requestId): bool
     {
-        if (($payload['status'] ?? null) !== 'S' || ($payload['requestID'] ?? null) !== $requestId || ! is_string($payload['timestamp'] ?? null)) {
+        if (($payload['status'] ?? null) !== 'S'
+            || ($payload['requestID'] ?? null) !== $requestId
+            || ! is_string($payload['message'] ?? null)
+            || ! is_string($payload['timestamp'] ?? null)) {
             return false;
         }
 

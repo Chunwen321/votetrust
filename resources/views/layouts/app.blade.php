@@ -43,9 +43,9 @@
                         </summary>
                         <div class="site-nav-dropdown__menu">
                             <a href="{{ route('elections.index') }}">Elections</a>
-                            @if (Route::has('candidate.applications.create'))
+                            @if (Route::has('candidate.applications.index'))
                                 @if (auth()->user()->isVerified())
-                                    <a href="{{ route('candidate.applications.create') }}">Candidate applications</a>
+                                    <a href="{{ route('candidate.applications.index') }}">Candidate applications</a>
                                 @else
                                     <a href="{{ route('profile.verify') }}">Verify profile to apply</a>
                                 @endif
@@ -99,7 +99,7 @@
     @if (session('error'))
         <div class="alert alert--error" role="alert">{{ session('error') }}</div>
     @endif
-    @if ($errors->any())
+    @if ($errors->any() && ! request()->routeIs('register'))
         <div class="alert alert--error" role="alert" data-validation-summary>
             <strong>Please review the following:</strong>
             <ul>

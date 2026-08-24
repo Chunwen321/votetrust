@@ -318,8 +318,8 @@
 .user-module .election-list-item__milestone--past time,
 .user-module .election-list-item__milestone--unavailable .election-list-item__milestone-label { color: #66788a; }
 .user-module .election-list-item__action { display: flex; flex: 0 0 auto; align-items: center; justify-content: flex-end; }
+.user-module .election-list-item__action .button { gap: .4rem; white-space: nowrap; }
 .user-module .election-list-item__action .button.button-quiet { border-color: #c7d8f5; background: #fff; color: var(--primary-dark); text-decoration: none; }
-.user-module .election-list-item:hover .election-list-item__action .button.button-quiet,
 .user-module .election-list-item__action .button.button-quiet:hover,
 .user-module .election-list-item__action .button.button-quiet:focus-visible { border-color: var(--primary-dark); background: var(--primary-dark); color: #fff; box-shadow: 0 10px 22px rgb(18 62 153 / 24%); }
 .user-module .election-list-item__action .button.button-quiet span { color: currentColor; }
@@ -360,6 +360,32 @@
 .user-module .verification-consent input { width: auto; min-height: auto; margin-top: 3px; }
 .user-module .profile-summary-card,
 .user-module .profile-form-card { padding: 28px; }
+.user-module .profile-summary-card > h2,
+.user-module .profile-form-card > h2,
+.user-module .password-card > h2 {
+    position: relative;
+    min-height: 42px;
+    margin: 0 0 24px;
+    padding: 4px 0 15px 17px;
+    border-bottom: 2px solid #dfe8f5;
+    color: var(--user-navy);
+    font-size: clamp(1.3rem, 2vw, 1.55rem);
+    font-weight: 850;
+    letter-spacing: -.035em;
+}
+.user-module .profile-summary-card > h2::before,
+.user-module .profile-form-card > h2::before,
+.user-module .password-card > h2::before {
+    position: absolute;
+    top: 3px;
+    bottom: 14px;
+    left: 0;
+    width: 5px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, var(--user-teal), var(--user-teal-dark));
+    box-shadow: 0 4px 10px rgb(21 94 239 / 22%);
+    content: '';
+}
 .user-module .profile-identity-edit { display: grid; gap: 9px; padding: 15px; border: 1px solid #d7e3f3; border-radius: 12px; background: #f8fbff; }
 .user-module .profile-identity-edit > div { display: grid; gap: 2px; }
 .user-module .profile-identity-edit strong { color: var(--user-navy); font-size: .9rem; }
@@ -418,6 +444,8 @@
     .user-module .auth-form-grid { grid-template-columns: 1fr; }
     .user-module .auth-field--wide { grid-column: auto; }
     .user-module .auth-showcase { display: none; }
+    .user-module .election-list-item { align-items: stretch; flex-direction: column; }
+    .user-module .election-list-item__action { justify-content: flex-start; }
 }
 
 @media (max-width: 620px) {
@@ -437,12 +465,10 @@
     .user-module .password-requirements,
     .user-module .management-add-form { grid-template-columns: 1fr; }
     .user-module .management-filter-form { grid-template-columns: 1fr; }
-    .user-module .election-list-item,
     .user-module .role-empty-state { align-items: stretch; flex-direction: column; }
     .user-module .election-hub__actions { width: 100%; justify-content: stretch; }
     .user-module .election-hub__actions .button { flex: 1 1 180px; }
     .user-module .election-hub__timezone { width: 100%; border-radius: 12px; }
     .user-module .election-list-item__milestone { width: 100%; }
-    .user-module .election-list-item__action { justify-content: flex-start; }
     .user-module .role-empty-state--action .button { margin-left: 0; }
 }

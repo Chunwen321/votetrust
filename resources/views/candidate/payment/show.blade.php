@@ -39,6 +39,6 @@
 
         <p class="candidate-help">{{ $paymentStatus->message }}</p>
 
-        <a class="candidate-button" href="{{ route('candidate.profile.show') }}">Back to my profile</a>
+        <a class="candidate-button" href="{{ route('candidate.applications.show', $candidacy) }}">Back to application</a>
     </section>
 @endsection

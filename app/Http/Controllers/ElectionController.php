@@ -13,6 +13,7 @@ use App\Http\Requests\TransitionElectionRequest;
 use App\Http\Requests\UpdateElectionRequest;
 use App\Http\Requests\UpdatePrivateVoterSelectionRequest;
 use App\Models\Election;
+use App\Services\CandidateRegistration\CandidateApplicationAccess;
 use App\Services\ElectionService;
 use App\Services\PrivateVoterRosterFile;
 use App\Services\User\VotingParticipationClient;
@@ -37,6 +38,7 @@ final class ElectionController extends Controller
         private readonly VotingParticipationClient $voting,
         private readonly PrivateVoterRosterFile $privateVoterRosterFile,
         private readonly VoterModuleClient $voterModule,
+        private readonly CandidateApplicationAccess $candidateApplications,
     ) {}
 
     public function index(Request $request): View|RedirectResponse
@@ -47,6 +49,7 @@ final class ElectionController extends Controller
         }
 
         $enrollments = $this->voters->enrollmentsForVoter((int) $user->getKey());
+        $now = CarbonImmutable::now((string) config('app.timezone'));
         $candidateElections = Election::query()
             ->whereIn('status', $this->publishedStatuses())
             ->where(fn ($query) => $query
@@ -55,14 +58,13 @@ final class ElectionController extends Controller
             ->with(['candidacies' => fn ($query) => $query->where('user_id', $user->getKey())])
             ->latest('updated_at')
             ->get()
-            ->filter(fn (Election $election): bool => $this->isPublic($election)
-                || $election->candidacies->isNotEmpty())
+            ->filter(fn (Election $election): bool => $election->candidacies->isNotEmpty()
+                || $this->isCandidateOpportunity($election, $now))
             ->values();
         $organizedElections = Election::query()
             ->where('organizer_id', $user->getKey())
             ->latest('updated_at')
             ->get();
-        $now = CarbonImmutable::now((string) config('app.timezone'));
 
         return view('elections.index', [
             'user' => $user,
@@ -103,9 +105,7 @@ final class ElectionController extends Controller
                 ),
             ]),
             'candidateApplicationsOpen' => $candidateElections->mapWithKeys(fn (Election $election): array => [
-                (int) $election->getKey() => $election->status === Election::NOMINATION_OPEN
-                    && ($election->nomination_start === null || $election->nomination_start->lte($now))
-                    && ($election->nomination_end === null || $election->nomination_end->gte($now)),
+                (int) $election->getKey() => $this->candidateApplications->canApply($user, $election),
             ]),
             'organizerMilestones' => $organizedElections->mapWithKeys(fn (Election $election): array => [
                 (int) $election->getKey() => ElectionCardMilestone::forOrganizer(
@@ -164,8 +164,7 @@ final class ElectionController extends Controller
 
             $candidacy = $record->candidacies->first();
             abort_unless($this->isPublic($record) || $candidacy !== null, 404);
-
-            $now = CarbonImmutable::now();
+            $now = CarbonImmutable::now((string) config('app.timezone'));
 
             return view('elections.details', [
                 'election' => $record,
@@ -176,12 +175,7 @@ final class ElectionController extends Controller
                     $record->nomination_end,
                     $now,
                 ),
-                'canApply' => $this->isPublic($record)
-                    && $request->user()->isVerified()
-                    && $candidacy === null
-                    && $record->status === ElectionStatus::NOMINATION_OPEN->value
-                    && ($record->nomination_start === null || $record->nomination_start->lte($now))
-                    && ($record->nomination_end === null || $record->nomination_end->gte($now)),
+                'canApply' => $this->candidateApplications->canApply($request->user(), $record),
             ]);
         }
 
@@ -390,6 +384,15 @@ final class ElectionController extends Controller
     private function isPrivate(Election $election): bool
     {
         return EligibilityRules::fromStored($election->eligibility_rules)->mode() === EligibilityRules::PRIVATE;
+    }
+
+    private function isCandidateOpportunity(Election $election, CarbonImmutable $now): bool
+    {
+        return $this->isPublic($election)
+            && $election->status === ElectionStatus::NOMINATION_OPEN->value
+            && (int) $election->organizer_id > 0
+            && trim((string) $election->position_sought) !== ''
+            && ($election->nomination_end === null || $election->nomination_end->gte($now));
     }
 
     private function canManagePrivateRoster(Election $election): bool

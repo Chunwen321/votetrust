@@ -35,7 +35,11 @@ final class ElectionModuleClient
 
         $summaries = [];
         foreach ($records as $record) {
-            if (! is_array($record) || ! is_int($record['electionId'] ?? null) || ! is_string($record['title'] ?? null) || ! is_string($record['lifecycleState'] ?? null)) {
+            if (! is_array($record)
+                || ! is_int($record['electionId'] ?? null)
+                || $record['electionId'] < 1
+                || ! is_string($record['title'] ?? null)
+                || ! is_string($record['lifecycleState'] ?? null)) {
                 continue;
             }
 
@@ -67,6 +71,59 @@ final class ElectionModuleClient
         return $this->summaries([$electionId])[$electionId] ?? null;
     }
 
+    /**
+     * @return list<array{id:int,title:string,status:string,votingAllowed:bool,eligibilityType:string,votingStart:?string,votingEnd:?string}>
+     */
+    public function voterCatalog(): array
+    {
+        $payload = $this->get('/api/v1/elections/voter-catalog', []);
+        $records = $payload['elections'] ?? null;
+        if (! is_array($records) || ! array_is_list($records)) {
+            return [];
+        }
+
+        $catalog = [];
+        foreach ($records as $record) {
+            $eligibility = is_array($record) ? ($record['eligibility'] ?? null) : null;
+            $period = is_array($record) ? ($record['votingPeriod'] ?? null) : null;
+            $type = is_array($eligibility) ? strtoupper((string) ($eligibility['type'] ?? '')) : '';
+            $status = is_array($record) ? strtoupper((string) ($record['lifecycleState'] ?? '')) : '';
+
+            if (! is_array($record)
+                || ! is_int($record['electionId'] ?? null)
+                || $record['electionId'] < 1
+                || ! is_string($record['title'] ?? null)
+                || trim($record['title']) === ''
+                || ! in_array($status, ['VOTING_OPEN', 'CLOSED'], true)
+                || ! is_bool($record['votingAllowed'] ?? null)
+                || ! in_array($type, ['PUBLIC', 'PRIVATE'], true)
+                || ! is_array($period)
+                || ! array_key_exists('start', $period)
+                || ! array_key_exists('end', $period)) {
+                continue;
+            }
+
+            $votingStart = $this->normaliseTimestamp($period['start']);
+            $votingEnd = $this->normaliseTimestamp($period['end']);
+            if (($period['start'] !== null && $votingStart === null)
+                || ($period['end'] !== null && $votingEnd === null)) {
+                continue;
+            }
+
+            $catalog[] = [
+                'id' => $record['electionId'],
+                'title' => trim($record['title']),
+                'status' => $status,
+                'votingAllowed' => $record['votingAllowed'],
+                'eligibilityType' => $type,
+                'votingStart' => $votingStart,
+                'votingEnd' => $votingEnd,
+            ];
+        }
+
+        return $catalog;
+    }
+
     /** @return array{type:string}|null */
     public function eligibilityMode(int $electionId): ?array
     {
@@ -75,6 +132,10 @@ final class ElectionModuleClient
         }
 
         $data = $this->get('/api/v1/elections/'.$electionId.'/availability', []);
+        if (($data['electionId'] ?? null) !== $electionId) {
+            return null;
+        }
+
         $rules = $data['eligibility'] ?? $data['eligibilityRules'] ?? null;
         if (! is_array($rules)) {
             return null;
@@ -101,7 +162,12 @@ final class ElectionModuleClient
 
         $result = [];
         foreach ($records as $record) {
-            if (! is_array($record) || ! is_int($record['electionId'] ?? null) || ! is_string($record['title'] ?? null) || ! is_string($record['lifecycleState'] ?? null)) {
+            if (! is_array($record)
+                || ! is_int($record['electionId'] ?? null)
+                || $record['electionId'] < 1
+                || ($record['organizerUserId'] ?? null) !== $userId
+                || ! is_string($record['title'] ?? null)
+                || ! is_string($record['lifecycleState'] ?? null)) {
                 continue;
             }
 
@@ -149,7 +215,11 @@ final class ElectionModuleClient
 
         $result = [];
         foreach ($records as $record) {
-            if (! is_array($record) || ! is_int($record['electionId'] ?? null) || ! is_string($record['title'] ?? null) || ! is_string($record['lifecycleState'] ?? null)) {
+            if (! is_array($record)
+                || ! is_int($record['electionId'] ?? null)
+                || $record['electionId'] < 1
+                || ! is_string($record['title'] ?? null)
+                || ! is_string($record['lifecycleState'] ?? null)) {
                 continue;
             }
             $result[] = [
@@ -220,7 +290,10 @@ final class ElectionModuleClient
     /** @param array<array-key, mixed> $payload */
     private function validEnvelope(array $payload, string $requestId): bool
     {
-        if (($payload['status'] ?? null) !== 'S' || ($payload['requestID'] ?? null) !== $requestId || ! is_string($payload['timestamp'] ?? null)) {
+        if (($payload['status'] ?? null) !== 'S'
+            || ($payload['requestID'] ?? null) !== $requestId
+            || ! is_string($payload['message'] ?? null)
+            || ! is_string($payload['timestamp'] ?? null)) {
             return false;
         }
 

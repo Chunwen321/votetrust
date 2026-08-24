@@ -22,7 +22,7 @@
         </div>
 
         @if ($canApply)
-            <a class="election-button election-button-primary" href="{{ route('candidate.applications.create', ['election_id' => $election->getKey()]) }}">Become a candidate</a>
+            <a class="election-button election-button-primary" href="{{ route('candidate.applications.create', $election) }}">Apply as candidate</a>
         @endif
     </header>
 
@@ -30,10 +30,10 @@
         <section class="card role-empty-state election-details-opportunity">
             <div class="role-empty-state__icon" aria-hidden="true">✓</div>
             <div>
-                <h2>You are assigned as a candidate</h2>
-                <p>Your candidate status for this election is <strong>{{ $candidacy->status }}</strong>.</p>
+                <h2>Your candidate application</h2>
+                <p>Your application status for this election is <strong>{{ $candidacy->status }}</strong>.</p>
             </div>
-            <a class="button button-quiet button-small" href="{{ route('candidate.profile.show') }}">View candidate profile</a>
+            <a class="button button-quiet button-small" href="{{ route('candidate.applications.show', $candidacy) }}">View application</a>
         </section>
     @elseif ($eligibility->mode() === \App\ValueObjects\EligibilityRules::PUBLIC)
         <section class="card role-empty-state election-details-opportunity">
@@ -43,11 +43,13 @@
                 @if (! auth()->user()->isVerified())
                     <p>Verify your profile with eKYC before applying as a candidate.</p>
                 @else
-                    <p>{{ $canApply ? 'Nominations are open. You may apply to become a candidate.' : 'Candidate applications are not currently open.' }}</p>
+                    <p>{{ $canApply ? 'Nominations are open. Review this election, then apply for its fixed candidate position.' : 'Candidate applications are not currently open.' }}</p>
                 @endif
             </div>
             @if (! auth()->user()->isVerified())
                 <a class="button button-quiet button-small" href="{{ route('profile.verify') }}">Verify profile</a>
+            @elseif ($canApply)
+                <a class="button button-quiet button-small" href="{{ route('candidate.applications.create', $election) }}">Apply as candidate</a>
             @endif
         </section>
     @endif

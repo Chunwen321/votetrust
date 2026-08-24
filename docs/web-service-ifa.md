@@ -31,16 +31,16 @@ Request data: `voterId`, `electionId`, `requestID`, `timestamp`. Success data co
 
 | IFA item | Value |
 |---|---|
-| Protocol | REST/JSON (`POST`) |
+| Protocol | REST/JSON (`GET`, `POST`, `PATCH`) |
 | Source | User/Voter module |
 | Target | Election module |
-| URLs | `/api/v1/voters/private-enrollments`; `/api/v1/voters/private-enrollments/manual` |
-| Functions | `PrivateVoterEnrollmentController::__invoke`; `ManualPrivateVoterEnrollmentController::__invoke` |
+| URLs | `/api/v1/voters/private-enrollments`; `/api/v1/voters/private-directory`; `/api/v1/voters/private-enrollments/selection` |
+| Functions | `PrivateVoterEnrollmentController::__invoke`; `PrivateVoterDirectoryController::__invoke`; `PrivateVoterSelectionController::__invoke` |
 | Authentication | `X-User-Api-Key` or `X-Internal-Api-Key` |
 
-The Election module parses an organiser CSV, XLSX, or XLS file in memory and sends only `electionId`, `organizerUserId`, and a `voters` array of `{row, fullName, identityNumber}` records. The file header remains `full_name,ic_number`; `ic_number` values may hold either a Malaysian IC or a passport number. The User/Voter provider normalises the identity number, requires an exact normalised full-name match for imports, and creates or replaces only its own `voter` records. Source files are never stored. The response returns `requested`, `assigned`, `removed`, `totalAssigned`, `unmatchedCount`, and safe row/reason diagnostics; Election stores only audit-safe counts.
+The Election module parses an organiser CSV, XLSX, or XLS file in memory and sends only `electionId`, `organizerUserId`, and a `voters` array of `{row, fullName, identityNumber}` records. The file header remains `full_name,ic_number`; `ic_number` values may hold either a Malaysian IC or a passport number. The User/Voter provider normalises the identity number, requires an exact normalised full-name match, and writes only its own `voter` records. Imports add new matches without silently removing previous assignments. Source files are never stored. The response returns `requested`, `assigned`, `skipped`, `removed`, `totalAssigned`, `unmatchedCount`, and safe row/reason diagnostics; Election stores only audit-safe counts.
 
-For an organiser's one-person assignment, Election calls the `/manual` endpoint with `electionId`, `organizerUserId`, and `identityNumber`. The provider returns only `assigned`, a safe `reasonCode`, and `totalAssigned`; it does not disclose a matched member's details. A successful manual assignment is preserved when a later spreadsheet replaces CSV/XLS/XLSX-derived rows.
+For live roster management, Election queries the paginated directory using `electionId`, `organizerUserId`, and an optional identity-number search, then sends checkbox changes with `electionId`, `organizerUserId`, `userId`, and boolean `assigned`. User identity and enrolment tables remain owned by the User/Voter provider.
 
 ### Election availability and ballot — Low Wen Kai
 
@@ -48,11 +48,11 @@ For an organiser's one-person assignment, Election calls the `/manual` endpoint 
 |---|---|
 | Protocol | REST/JSON (`GET`) |
 | Source | Election module |
-| Target | Voting module |
-| URLs | `/api/v1/elections/available`; `/api/v1/elections/{election}/availability` |
-| Functions | `ElectionAvailabilityController::index/show` |
+| Targets | User/Voter and Voting modules |
+| URLs | `/api/v1/elections/available`; `/api/v1/elections/voter-catalog`; `/api/v1/elections/{election}/availability` |
+| Functions | `ElectionAvailabilityController::index/catalog/show` |
 
-Both requests require `requestID` and `timestamp`. The list returns voting-open summaries. Detail returns lifecycle state, eligibility rules, permission booleans, periods, and an approved-only `ballot` containing `id`, `candidateId`, `name`, `position`, and `manifesto`.
+All requests require `requestID` and `timestamp`. The available list returns currently votable summaries. The voter catalog lets the User/Voter module discover public voting and closed elections while retaining enrollment-only access for private elections. Detail returns lifecycle state, eligibility rules, permission booleans, periods, and an approved-only `ballot` containing `id`, `candidateId`, `name`, `position`, and `manifesto`.
 
 The detail response keeps both `eligibilityRules` and `eligibility` keys for consumer compatibility. Both now contain the same structure:
 
@@ -83,6 +83,19 @@ The detail response keeps both `eligibilityRules` and `eligibility` keys for con
 
 Request data: candidate path ID, `electionId`, `requestID`, `timestamp`. Success data contains minimal `candidate`, `organisation`, and `candidacy` objects; private documents and identity-card details are never exposed.
 
+### Candidate participant administration — Wong Shun Bin
+
+| IFA item | Value |
+|---|---|
+| Protocol | REST/JSON (`GET`, `POST`, `PATCH`) |
+| Source | Candidate module |
+| Target | User administration module |
+| URLs | `/api/v1/elections/{election}/candidates`; `/api/v1/elections/{election}/candidates/{user}`; `/api/v1/candidates/metrics` |
+| Functions | `CandidateParticipantController::__invoke/store/update/metrics` |
+| Authentication | `X-Internal-Api-Key` |
+
+User administration uses these endpoints to list, add, and review candidate participants and to obtain aggregate dashboard metrics. It never reads or writes the Candidate-owned `candidacy` table directly.
+
 ### Voting status and tally — Goh Chun Wen
 
 | IFA item | Value |
@@ -100,8 +113,10 @@ Status request data: `voterId`, `electionId`, `requestID`, `timestamp`. It retur
 
 | Consumer (PIC) | Provider call | Purpose | Client implementation |
 |---|---|---|---|
+| User (Chew) | Election summaries, voter catalog, organiser elections, availability, and admin overview | Discover public voter elections and resolve election metadata without reading Election-owned tables | `App\Services\User\ElectionModuleClient` |
+| User (Chew) | Candidate participant and metrics endpoints | Administer candidate participation without reading or writing Candidate-owned tables | `App\Services\User\CandidateModuleClient` |
 | User (Chew) | Voting `/api/v1/votes/status` | Display participation status without reading Voting-owned tables | `App\Services\User\VotingParticipationClient` |
-| Election (Low) | User/Voter private-enrolment endpoints | Match CSV/XLSX/XLS roster rows or manually assign a voter by IC/passport without writing User/Voter tables directly | `App\Services\VoterModuleClient` |
+| Election (Low) | User/Voter private-roster endpoints | Match CSV/XLSX/XLS roster rows and manage directory selections without writing User/Voter tables directly | `App\Services\VoterModuleClient` |
 | Election (Low) | `PAYMENT_API_URL` | Verify hosting payment before lifecycle transition | `App\Services\Payment\HttpPaymentGateway` |
 | Candidate (Wong) | Payment `/api/v1/payments/{paymentId}/status` | Display/authorize actions using authoritative candidate-deposit status | `App\Services\CandidateRegistration\PaymentStatusClient` |
 | Voting (Goh) | User eligibility plus Election list/detail | Authorize voter, election state, and approved ballot through teammate APIs | `App\Services\Voting\ElectionVotingIntegration` |
