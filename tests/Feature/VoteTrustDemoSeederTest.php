@@ -111,7 +111,8 @@ final class VoteTrustDemoSeederTest extends TestCase
             'email' => 'candidateaisha@votetrust.test',
             'password' => 'Candidate!2026',
         ])->assertRedirect(route('dashboard'));
-        $this->get(route('candidate.applications.create'))
+        $candidateElection = Election::query()->where('title', self::CANDIDATE_REVIEW)->firstOrFail();
+        $this->get(route('candidate.applications.create', $candidateElection))
             ->assertOk()
             ->assertSee(self::CANDIDATE_REVIEW);
         $this->post(route('logout'))->assertRedirect(route('login'));

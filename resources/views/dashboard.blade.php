@@ -25,9 +25,9 @@
         <article class="dashboard-info-card dashboard-info-card--guide">
             <p class="eyebrow">How VoteTrust works</p>
             <h2>Clear election access, from enrolment to participation.</h2>
-            <p>Your account keeps your voter access and organiser workspace in one place. Each election is managed separately, so you only see the opportunities that apply to you.</p>
+            <p>Your account keeps your voter access and organiser workspace in one place. Public elections follow their published eligibility rules, while private access is assigned separately.</p>
             <ol class="dashboard-steps">
-                <li><span>1</span><div><strong>Access is assigned</strong><small>An election administrator enrols eligible voters.</small></div></li>
+                <li><span>1</span><div><strong>Access is determined</strong><small>Public eligibility is checked automatically; private access is assigned by an organiser.</small></div></li>
                 <li><span>2</span><div><strong>Review your elections</strong><small>See election status and when voting becomes available.</small></div></li>
                 <li><span>3</span><div><strong>Participate with confidence</strong><small>Vote once when an approved election opens.</small></div></li>
             </ol>

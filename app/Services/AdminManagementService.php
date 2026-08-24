@@ -41,7 +41,11 @@ final class AdminManagementService
      */
     public function dashboardOverview(): array
     {
-        $electionOverview = $this->elections->adminOverview();
+        $electionOverview = $this->elections->adminOverview() ?? [
+            'counts' => ['elections' => 0, 'active' => 0, 'pendingApprovals' => 0],
+            'recentElections' => [],
+            'pendingApprovals' => [],
+        ];
         $candidateMetrics = $this->candidates->metrics();
 
         return [

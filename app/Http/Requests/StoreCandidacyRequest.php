@@ -22,7 +22,6 @@ final class StoreCandidacyRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'election_id' => ['required', 'integer', 'exists:election,id'],
             ...RegistrationRules::application(),
             'candidate_introduction' => ['required', 'string', 'min:20', 'max:1000'],
             'reason_for_candidacy' => ['required', 'string', 'min:20', 'max:1000'],

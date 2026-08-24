@@ -12,6 +12,8 @@ use App\Models\User;
 use App\Security\Session\SessionTerminationStrategy;
 use App\Services\UserService;
 use App\Support\CountryList;
+use App\Support\Identity;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -65,6 +67,44 @@ final class AuthController extends Controller
         return view('auth.login', [
             'activePanel' => 'register',
             'nationalityOptions' => array_diff_key(CountryList::options(), [CountryList::ANY => true]),
+        ]);
+    }
+
+    /**
+     * Checks the two registration details that must be unique without submitting the form.
+     *
+     * The full RegisterRequest remains the authoritative validation when an account is created.
+     */
+    public function registrationAvailability(Request $request): JsonResponse
+    {
+        $field = (string) $request->input('field');
+
+        if (! in_array($field, ['email', 'ic_number'], true)) {
+            return response()->json(['message' => 'That registration field cannot be checked.'], 422);
+        }
+
+        $value = match ($field) {
+            'email' => mb_strtolower(trim((string) $request->input('value'))),
+            'ic_number' => Identity::normaliseIcNumber((string) $request->input('value')),
+        };
+
+        if ($value === '') {
+            return response()->json([
+                'field' => $field,
+                'available' => true,
+                'message' => null,
+            ]);
+        }
+
+        $column = $field === 'email' ? 'email' : 'ic_number';
+        $taken = User::query()->where($column, $value)->exists();
+
+        return response()->json([
+            'field' => $field,
+            'available' => ! $taken,
+            'message' => $taken
+                ? ($field === 'email' ? 'The email has already been taken.' : 'The IC number has already been taken.')
+                : null,
         ]);
     }
 

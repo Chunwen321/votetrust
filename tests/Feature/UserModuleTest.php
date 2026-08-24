@@ -155,7 +155,7 @@ final class UserModuleTest extends TestCase
     {
         User::factory()->create(['email' => 'existing.member@example.test']);
 
-        $this->post(route('register.store'), [
+        $this->from(route('login'))->post(route('register.store'), [
             'full_name' => 'Another Member',
             'email' => 'existing.member@example.test',
             'ic_number' => '020304101234',
@@ -163,9 +163,41 @@ final class UserModuleTest extends TestCase
             'phone_number' => '+60 12-345 6789',
             'password' => 'Strong!Password123',
             'password_confirmation' => 'Strong!Password123',
-        ])->assertSessionHasErrors('email');
+        ])
+            ->assertRedirect(route('register'))
+            ->assertSessionHasErrors('email');
 
         $this->assertGuest();
+    }
+
+    public function test_registration_availability_check_reports_taken_email_and_ic_number_in_their_normalised_forms(): void
+    {
+        User::factory()->create([
+            'email' => 'existing.member@example.test',
+            'ic_number' => '010203101234',
+        ]);
+
+        $this->postJson(route('register.availability'), [
+            'field' => 'email',
+            'value' => 'EXISTING.MEMBER@EXAMPLE.TEST',
+        ])
+            ->assertOk()
+            ->assertExactJson([
+                'field' => 'email',
+                'available' => false,
+                'message' => 'The email has already been taken.',
+            ]);
+
+        $this->postJson(route('register.availability'), [
+            'field' => 'ic_number',
+            'value' => '010203-10-1234',
+        ])
+            ->assertOk()
+            ->assertExactJson([
+                'field' => 'ic_number',
+                'available' => false,
+                'message' => 'The IC number has already been taken.',
+            ]);
     }
 
     public function test_registration_page_includes_ic_display_formatting_and_password_requirements(): void
@@ -174,6 +206,8 @@ final class UserModuleTest extends TestCase
             ->assertOk()
             ->assertSee('data-ic-number', false)
             ->assertSee('data-phone-number', false)
+            ->assertSee('data-phone-country-prefix', false)
+            ->assertSee('data-registration-availability-url', false)
             ->assertSeeText('Hyphens are added automatically.')
             ->assertSeeText('At least 12 characters')
             ->assertDontSeeText('Passwords match')
@@ -243,6 +277,7 @@ final class UserModuleTest extends TestCase
         Http::fake(function (ClientRequest $request) use ($election): mixed {
             return Http::response([
                 'status' => 'S',
+                'message' => 'Election availability retrieved.',
                 'requestID' => $request['requestID'],
                 'timestamp' => now()->toAtomString(),
                 'data' => [
@@ -324,7 +359,7 @@ final class UserModuleTest extends TestCase
             ->get(route('voting.index'))
             ->assertRedirect(route('profile.verify'));
         $this->actingAs($user)
-            ->get(route('candidate.applications.create'))
+            ->get(route('candidate.applications.index'))
             ->assertRedirect(route('profile.verify'));
     }
 

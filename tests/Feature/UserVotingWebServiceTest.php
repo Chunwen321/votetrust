@@ -26,6 +26,10 @@ final class UserVotingWebServiceTest extends TestCase
         Http::fake(function (ClientRequest $request) use ($voter, $election) {
             $query = $this->queryFrom($request);
 
+            if (str_starts_with($request->url(), 'https://election.test/api/v1/elections/summaries?')) {
+                return $this->electionSummaryResponse($query, $election);
+            }
+
             return Http::response([
                 'status' => 'S',
                 'message' => 'Voting status retrieved.',
@@ -60,11 +64,17 @@ final class UserVotingWebServiceTest extends TestCase
 
     public function test_a_mismatched_voting_response_fails_closed_on_the_voter_dashboard(): void
     {
-        [$voter] = $this->enrolledVoter();
+        [$voter, $election] = $this->enrolledVoter();
         $this->configureVotingService();
         Http::preventStrayRequests();
-        Http::fake([
-            'https://voting.test/api/v1/votes/status*' => Http::response([
+        Http::fake(function (ClientRequest $request) use ($voter, $election): mixed {
+            $query = $this->queryFrom($request);
+
+            if (str_starts_with($request->url(), 'https://election.test/api/v1/elections/summaries?')) {
+                return $this->electionSummaryResponse($query, $election);
+            }
+
+            return Http::response([
                 'status' => 'S',
                 'message' => 'Voting status retrieved.',
                 'requestID' => 'response_for_another_request',
@@ -74,8 +84,8 @@ final class UserVotingWebServiceTest extends TestCase
                     'electionId' => 999,
                     'hasVoted' => false,
                 ],
-            ]),
-        ]);
+            ]);
+        });
 
         $this->actingAs($voter)
             ->get(route('voter.dashboard'))
@@ -108,6 +118,13 @@ final class UserVotingWebServiceTest extends TestCase
 
     private function configureVotingService(): void
     {
+        config()->set('votetrust-user.services.election', [
+            'base_url' => 'https://election.test',
+            'api_key' => 'election-consumer-key',
+            'connect_timeout_seconds' => 1,
+            'timeout_seconds' => 2,
+            'response_max_age_seconds' => 300,
+        ]);
         config()->set('votetrust-user.services.voting', [
             'base_url' => 'https://voting.test',
             'api_key' => 'voting-consumer-key',
@@ -117,11 +134,35 @@ final class UserVotingWebServiceTest extends TestCase
         ]);
     }
 
-    /** @return array<string, string> */
+    /** @param array<string, mixed> $query */
+    private function electionSummaryResponse(array $query, Election $election): mixed
+    {
+        return Http::response([
+            'status' => 'S',
+            'message' => 'Election summaries retrieved.',
+            'requestID' => $query['requestID'] ?? null,
+            'timestamp' => now()->toAtomString(),
+            'data' => [
+                'elections' => [[
+                    'electionId' => $election->getKey(),
+                    'title' => $election->title,
+                    'lifecycleState' => $election->status,
+                    'organizerUserId' => $election->organizer_id,
+                    'nominationStart' => $election->nomination_start?->toAtomString(),
+                    'nominationEnd' => $election->nomination_end?->toAtomString(),
+                    'votingStart' => $election->voting_start?->toAtomString(),
+                    'votingEnd' => $election->voting_end?->toAtomString(),
+                    'updatedAt' => $election->updated_at?->toAtomString(),
+                ]],
+            ],
+        ]);
+    }
+
+    /** @return array<string, mixed> */
     private function queryFrom(ClientRequest $request): array
     {
         parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
 
-        return array_map('strval', $query);
+        return $query;
     }
 }

@@ -50,6 +50,7 @@ final class NormalUserElectionWorkspaceTest extends TestCase
             ->assertOk()
             ->assertSee('Voting elections')
             ->assertSee('Community Vote 2026')
+            ->assertSee('href="'.route('voting.ballot', $votingElection->getKey()).'" aria-label="View voting for Community Vote 2026">View voting', false)
             ->assertSee('Organised elections')
             ->assertSee('Faculty Representative Election')
             ->assertSee('Create an election');
@@ -60,12 +61,49 @@ final class NormalUserElectionWorkspaceTest extends TestCase
             ->assertSee('Use one VoteTrust account to vote in some elections and organise others.');
     }
 
+    public function test_an_eligible_public_voting_election_is_visible_without_manual_enrollment(): void
+    {
+        $member = User::factory()->create([
+            'full_name' => 'Ali',
+            'is_admin' => false,
+            'account_status' => 'ACTIVE',
+        ]);
+        $publicElection = Election::query()->create([
+            'title' => 'VOTING001',
+            'position_sought' => 'Student Representative',
+            'description' => 'A public student election.',
+            'eligibility_rules' => EligibilityRules::publicElection(16)->toStorage(),
+            'voting_start' => now()->subHour(),
+            'voting_end' => now()->addDay(),
+            'status' => Election::VOTING_OPEN,
+            'currency' => 'MYR',
+        ]);
+        $this->fakeElectionSummary($publicElection);
+
+        $this->actingAs($member)
+            ->get(route('elections.index'))
+            ->assertOk()
+            ->assertSee('VOTING001')
+            ->assertSee('Voter access: <span class="badge status-approved">Public</span>', false)
+            ->assertSee('href="'.route('voting.ballot', $publicElection->getKey()).'" aria-label="Open the ballot for VOTING001">Open ballot', false)
+            ->assertViewHas('voterEnrollments', fn ($enrollments): bool => $enrollments->pluck('election_id')->all() === [$publicElection->getKey()]);
+
+        $this->assertDatabaseMissing('voter', [
+            'user_id' => $member->getKey(),
+            'election_id' => $publicElection->getKey(),
+        ]);
+    }
+
     public function test_each_election_role_card_shows_its_next_date_and_time_with_a_clear_label(): void
     {
         $this->travelTo(Carbon::parse('2026-08-15 12:00:00'));
 
         $member = User::factory()->create([
             'full_name' => 'Election Schedule Member',
+            'is_admin' => false,
+            'account_status' => 'ACTIVE',
+        ]);
+        $candidateOrganizer = User::factory()->create([
             'is_admin' => false,
             'account_status' => 'ACTIVE',
         ]);
@@ -80,7 +118,9 @@ final class NormalUserElectionWorkspaceTest extends TestCase
             'currency' => 'MYR',
         ]);
         Election::query()->create([
+            'organizer_id' => $candidateOrganizer->getKey(),
             'title' => 'Nomination Deadline Election',
+            'position_sought' => 'Student Representative',
             'eligibility_rules' => EligibilityRules::publicElection()->toStorage(),
             'nomination_start' => '2026-08-14 09:00:00',
             'nomination_end' => '2026-08-18 17:30:00',
@@ -111,6 +151,7 @@ final class NormalUserElectionWorkspaceTest extends TestCase
         $this->actingAs($member)
             ->get(route('elections.index'))
             ->assertOk()
+            ->assertSee('href="'.route('voting.ballot', $votingElection->getKey()).'" aria-label="Open the ballot for Voting Deadline Election">Open ballot', false)
             ->assertSeeTextInOrder([
                 'Voting Deadline Election',
                 'Voting closes',
@@ -124,7 +165,7 @@ final class NormalUserElectionWorkspaceTest extends TestCase
             ]);
     }
 
-    public function test_an_expired_nomination_window_is_not_labelled_as_open(): void
+    public function test_an_expired_nomination_is_hidden_from_opportunities_and_labelled_closed_on_details(): void
     {
         $this->travelTo(Carbon::parse('2026-08-21 15:28:01'));
 
@@ -148,14 +189,7 @@ final class NormalUserElectionWorkspaceTest extends TestCase
         $this->actingAs($member)
             ->get(route('elections.index'))
             ->assertOk()
-            ->assertSee('election-state-nomination-closed', false)
-            ->assertSeeTextInOrder([
-                'Ready to Open Voting',
-                'Nominations Closed',
-                'candidate applications are closed',
-                'Nominations closed',
-            ])
-            ->assertDontSeeText('Nomination Open');
+            ->assertDontSee('Ready to Open Voting');
 
         $this->actingAs($member)
             ->get(route('elections.show', $election))
@@ -163,6 +197,86 @@ final class NormalUserElectionWorkspaceTest extends TestCase
             ->assertSee('election-status-nomination-closed', false)
             ->assertSeeText('Nominations Closed')
             ->assertDontSeeText('Nomination Open');
+    }
+
+    public function test_a_closed_voter_election_is_hidden_from_the_listing(): void
+    {
+        $member = User::factory()->create([
+            'is_admin' => false,
+            'account_status' => 'ACTIVE',
+        ]);
+        $closedElection = Election::query()->create([
+            'title' => 'Completed Community Election',
+            'eligibility_rules' => EligibilityRules::publicElection()->toStorage(),
+            'voting_start' => now()->subDays(2),
+            'voting_end' => now()->subDay(),
+            'status' => Election::CLOSED,
+            'currency' => 'MYR',
+        ]);
+        VoterEnrollment::query()->create([
+            'user_id' => $member->getKey(),
+            'election_id' => $closedElection->getKey(),
+            'status' => VoterEnrollment::APPROVED,
+        ]);
+        $this->fakeElectionSummary($closedElection);
+
+        $this->actingAs($member)
+            ->get(route('elections.index'))
+            ->assertOk()
+            ->assertDontSee('Completed Community Election')
+            ->assertDontSee('href="'.route('voting.results', $closedElection->getKey()).'"', false)
+            ->assertDontSee('href="'.route('voting.ballot', $closedElection->getKey()).'"', false);
+    }
+
+    public function test_a_voting_open_election_is_hidden_after_its_voting_end_time(): void
+    {
+        $member = User::factory()->create([
+            'is_admin' => false,
+            'account_status' => 'ACTIVE',
+        ]);
+        $endedElection = Election::query()->create([
+            'title' => 'Ended Awaiting Closure',
+            'eligibility_rules' => EligibilityRules::publicElection()->toStorage(),
+            'voting_start' => now()->subDays(2),
+            'voting_end' => now()->subMinute(),
+            'status' => Election::VOTING_OPEN,
+            'currency' => 'MYR',
+        ]);
+        $this->fakeElectionSummary($endedElection);
+
+        $this->actingAs($member)
+            ->get(route('elections.index'))
+            ->assertOk()
+            ->assertDontSee('Ended Awaiting Closure')
+            ->assertViewHas('voterEnrollments', fn ($enrollments): bool => $enrollments->isEmpty());
+    }
+
+    public function test_rejected_private_voter_access_never_displays_a_ballot_link(): void
+    {
+        $member = User::factory()->create([
+            'is_admin' => false,
+            'account_status' => 'ACTIVE',
+        ]);
+        $election = Election::query()->create([
+            'title' => 'Restricted Community Election',
+            'eligibility_rules' => EligibilityRules::privateElection()->toStorage(),
+            'voting_start' => now()->subHour(),
+            'voting_end' => now()->addHour(),
+            'status' => Election::VOTING_OPEN,
+            'currency' => 'MYR',
+        ]);
+        VoterEnrollment::query()->create([
+            'user_id' => $member->getKey(),
+            'election_id' => $election->getKey(),
+            'status' => VoterEnrollment::REJECTED,
+        ]);
+        $this->fakeElectionSummary($election);
+
+        $this->actingAs($member)
+            ->get(route('elections.index'))
+            ->assertOk()
+            ->assertSee('Voting access rejected')
+            ->assertDontSee('href="'.route('voting.ballot', $election->getKey()).'"', false);
     }
 
     public function test_a_draft_is_private_to_its_organiser_until_it_is_published(): void
@@ -330,6 +444,34 @@ final class NormalUserElectionWorkspaceTest extends TestCase
         Http::preventStrayRequests();
         Http::fake(function (ClientRequest $request) use ($election) {
             parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
+            $path = (string) parse_url($request->url(), PHP_URL_PATH);
+
+            if ($path === '/api/v1/elections/voter-catalog') {
+                $isCatalogState = in_array($election->status, [Election::VOTING_OPEN, Election::CLOSED], true);
+
+                return Http::response([
+                    'status' => 'S',
+                    'message' => 'Voter election catalog retrieved.',
+                    'requestID' => $query['requestID'] ?? null,
+                    'timestamp' => now()->toAtomString(),
+                    'data' => ['elections' => $isCatalogState ? [[
+                        'electionId' => $election->getKey(),
+                        'title' => $election->title,
+                        'positionSought' => (string) $election->position_sought,
+                        'description' => (string) $election->description,
+                        'lifecycleState' => $election->status,
+                        'votingAllowed' => $election->status === Election::VOTING_OPEN
+                            && ($election->voting_start === null || $election->voting_start->lte(now()))
+                            && ($election->voting_end === null || $election->voting_end->gte(now())),
+                        'eligibility' => EligibilityRules::fromStored($election->eligibility_rules)->toArray(),
+                        'votingPeriod' => [
+                            'start' => $election->voting_start?->toAtomString(),
+                            'end' => $election->voting_end?->toAtomString(),
+                        ],
+                        'ballotCandidateCount' => 0,
+                    ]] : []],
+                ]);
+            }
 
             return Http::response([
                 'status' => 'S',

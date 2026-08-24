@@ -6,18 +6,21 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\Election;
 use App\Models\User;
 use App\Models\VoterEnrollment;
 use App\Services\User\ElectionModuleClient;
 use App\Support\CountryList;
 use App\Support\Identity;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 final class VoterService
 {
+    /** @var list<string> */
+    private const VOTER_VISIBLE_ELECTION_STATES = ['NOMINATION_OPEN', 'VOTING_OPEN', 'CLOSED'];
+
     public function __construct(private readonly ElectionModuleClient $elections) {}
 
     /** @return Collection<int, VoterEnrollment> */
@@ -29,12 +32,52 @@ final class VoterService
             ->where("{$enrollmentTable}.user_id", $voterId)
             ->orderByDesc("{$enrollmentTable}.updated_at")
             ->orderByDesc("{$enrollmentTable}.election_id")
-            ->get();
+            ->get()
+            ->keyBy(static fn (VoterEnrollment $enrollment): int => (int) $enrollment->election_id);
 
         $summaries = $this->elections->summaries($enrollments->pluck('election_id')->all());
 
-        return $enrollments
-            ->map(function (VoterEnrollment $enrollment) use ($summaries): VoterEnrollment {
+        $visible = collect();
+        $catalogElectionIds = [];
+        foreach ($this->elections->voterCatalog() as $election) {
+            $electionId = $election['id'];
+            $catalogElectionIds[$electionId] = true;
+
+            if ($this->votingHasEnded($election['status'], $election['votingEnd'])) {
+                continue;
+            }
+
+            $enrollment = $enrollments->get($electionId);
+            $isPublic = $election['eligibilityType'] === 'PUBLIC';
+
+            if (! $isPublic && ! $enrollment instanceof VoterEnrollment) {
+                continue;
+            }
+
+            if (! $enrollment instanceof VoterEnrollment) {
+                $enrollment = new VoterEnrollment;
+                $enrollment->setAttribute('user_id', $voterId);
+                $enrollment->setAttribute('election_id', $electionId);
+            }
+            if ($isPublic) {
+                $enrollment->setAttribute('status', VoterEnrollment::APPROVED);
+            }
+
+            $enrollment->setAttribute('election_title', $election['title']);
+            $enrollment->setAttribute('election_status', $election['status']);
+            $enrollment->setAttribute('election_nomination_start', null);
+            $enrollment->setAttribute('election_nomination_end', null);
+            $enrollment->setAttribute('election_voting_start', $election['votingStart']);
+            $enrollment->setAttribute('election_voting_end', $election['votingEnd']);
+            $enrollment->setAttribute('election_voting_allowed', $election['votingAllowed']);
+            $enrollment->setAttribute('election_access_type', $election['eligibilityType']);
+
+            $visible->push($enrollment);
+        }
+
+        $enrollments
+            ->reject(static fn (VoterEnrollment $enrollment): bool => isset($catalogElectionIds[(int) $enrollment->election_id]))
+            ->each(function (VoterEnrollment $enrollment) use ($summaries, $visible): void {
                 $summary = $summaries[(int) $enrollment->election_id] ?? null;
                 $enrollment->setAttribute('election_title', $summary['title'] ?? 'Election #'.$enrollment->election_id);
                 $enrollment->setAttribute('election_status', $summary['status'] ?? 'UNAVAILABLE');
@@ -42,15 +85,35 @@ final class VoterService
                 $enrollment->setAttribute('election_nomination_end', $summary['nominationEnd'] ?? null);
                 $enrollment->setAttribute('election_voting_start', $summary['votingStart'] ?? null);
                 $enrollment->setAttribute('election_voting_end', $summary['votingEnd'] ?? null);
+                $enrollment->setAttribute('election_voting_allowed', null);
+                $enrollment->setAttribute('election_access_type', 'ENROLLED');
 
-                return $enrollment;
-            })
-            ->filter(fn (VoterEnrollment $enrollment): bool => in_array($enrollment->election_status, [
-                Election::NOMINATION_OPEN,
-                Election::VOTING_OPEN,
-                Election::CLOSED,
-            ], true))
-            ->values();
+                if (in_array($enrollment->election_status, self::VOTER_VISIBLE_ELECTION_STATES, true)
+                    && ! $this->votingHasEnded(
+                        (string) $enrollment->election_status,
+                        $enrollment->election_voting_end,
+                    )) {
+                    $visible->push($enrollment);
+                }
+            });
+
+        return $visible->values();
+    }
+
+    private function votingHasEnded(string $status, ?string $votingEnd): bool
+    {
+        if ($status === 'CLOSED') {
+            return true;
+        }
+        if ($votingEnd === null) {
+            return false;
+        }
+
+        try {
+            return CarbonImmutable::now((string) config('app.timezone'))->gt(CarbonImmutable::parse($votingEnd));
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     /** @return array{APPROVED:int,PENDING:int,REJECTED:int,SUSPENDED:int} */

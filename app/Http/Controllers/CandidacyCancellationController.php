@@ -86,7 +86,7 @@ final class CandidacyCancellationController extends Controller
         $fileStorage->deleteMany($obsoletePaths);
 
         return redirect()
-            ->route('candidate.profile.show')
+            ->route('candidate.applications.show', $candidacy)
             ->with('success', 'Your application was cancelled.');
     }
 }

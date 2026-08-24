@@ -16,6 +16,61 @@ final class CandidateWebServiceProviderTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_user_administration_manages_candidate_participants_only_through_the_rest_provider(): void
+    {
+        config(['candidate.api.key' => 'candidate-provider-secret']);
+        $candidate = User::factory()->create();
+        $election = Election::query()->create([
+            'title' => 'Candidate Administration Election',
+            'status' => Election::NOMINATION_OPEN,
+        ]);
+
+        $this->withHeader('X-Internal-Api-Key', 'candidate-provider-secret')
+            ->postJson(route('api.elections.candidates.store', $election), [
+                'electionId' => $election->getKey(),
+                'userId' => $candidate->getKey(),
+                'status' => Candidacy::PENDING,
+                'requestID' => 'user_admin_req_001',
+                'timestamp' => now()->toAtomString(),
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', 'S')
+            ->assertJsonPath('requestID', 'user_admin_req_001')
+            ->assertJsonPath('data.electionId', $election->getKey())
+            ->assertJsonPath('data.userId', $candidate->getKey())
+            ->assertJsonPath('data.status', Candidacy::PENDING);
+
+        $this->withHeader('X-Internal-Api-Key', 'candidate-provider-secret')
+            ->patchJson(route('api.elections.candidates.update', [$election, $candidate]), [
+                'electionId' => $election->getKey(),
+                'status' => Candidacy::APPROVED,
+                'requestID' => 'user_admin_req_002',
+                'timestamp' => now()->toAtomString(),
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', 'S')
+            ->assertJsonPath('requestID', 'user_admin_req_002')
+            ->assertJsonPath('data.status', Candidacy::APPROVED);
+
+        $this->withHeader('X-Internal-Api-Key', 'candidate-provider-secret')
+            ->getJson(route('api.elections.candidates', [
+                'election' => $election,
+                'electionId' => $election->getKey(),
+                'requestID' => 'user_admin_req_003',
+                'timestamp' => now()->toAtomString(),
+            ]))
+            ->assertOk()
+            ->assertJsonPath('status', 'S')
+            ->assertJsonPath('data.candidates.0.userId', $candidate->getKey())
+            ->assertJsonPath('data.candidates.0.status', Candidacy::APPROVED);
+
+        $this->assertDatabaseHas('candidacy', [
+            'election_id' => $election->getKey(),
+            'user_id' => $candidate->getKey(),
+            'status' => Candidacy::APPROVED,
+        ]);
+    }
+
     public function test_payment_can_retrieve_minimal_candidate_and_organisation_information(): void
     {
         config(['candidate.api.key' => 'candidate-provider-secret']);

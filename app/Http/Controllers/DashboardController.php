@@ -40,6 +40,7 @@ final class DashboardController extends Controller
 
             return $enrollment->status === 'APPROVED'
                 && $enrollment->election_status === 'VOTING_OPEN'
+                && $enrollment->election_voting_allowed !== false
                 && ($votingStatus['available'] ?? false)
                 && ! ($votingStatus['hasVoted'] ?? false);
         })->count();

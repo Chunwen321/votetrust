@@ -22,9 +22,9 @@ All requests carry `requestID` and an ISO-8601 `timestamp`. All responses carry 
 
 | Module | Provides | Consumes |
 |---|---|---|
-| User | `GET /api/v1/voters/eligibility` | Voting `GET /api/v1/votes/status` |
+| User | Voter eligibility, private-roster import, directory, and selection APIs | Election summaries/availability/admin overview; Candidate participants/metrics; Voting status |
 | Election | `GET /api/v1/elections/available`, `GET /api/v1/elections/{id}/availability`, admin approval | Payment verification at `PAYMENT_API_URL` |
-| Candidate | `GET /api/v1/candidates/{id}/payment-information` | Payment `GET /api/v1/payments/{paymentId}/status` |
+| Candidate | Candidate payment information and participant administration APIs | Payment `GET /api/v1/payments/{paymentId}/status` |
 | Voting | `GET /api/v1/votes/status`, `GET /api/v1/elections/{id}/tally` | User eligibility and Election availability/ballot APIs |
 | Payment | Expected to provide election/candidate payment status | Candidate/organisation information endpoint above |
 
@@ -147,7 +147,8 @@ Candidate payment status and application cancellation still require the external
 - `/` — integrated public landing page
 - `/dashboard` — member dashboard
 - `/elections` — organiser election workspace
-- `/candidate/applications/create` — candidate application
+- `/candidate/applications` — candidate application status and management
+- `/candidate/elections/{election}/applications/create` — election-scoped candidate application form
 - `/voting` — secure voter portal
 - `/admin` — administrator dashboard
 - `/api/v1/...` — module REST providers

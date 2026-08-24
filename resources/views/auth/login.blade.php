@@ -49,7 +49,7 @@
         </form>
 
         @php($isMalaysianRegistration = old('nationality_country_code', 'MY') === 'MY')
-        <form id="register-panel" class="auth-panel auth-panel--register" method="post" action="{{ route('register.store') }}" novalidate>
+        <form id="register-panel" class="auth-panel auth-panel--register" method="post" action="{{ route('register.store') }}" data-registration-availability-url="{{ route('register.availability') }}" novalidate>
             @csrf
             <div class="auth-form-grid">
                 <div class="auth-field auth-field--wide">
@@ -102,7 +102,7 @@
 
                 <div class="auth-field auth-field--wide">
                     <label for="phone-number">Phone number</label>
-                    <input id="phone-number" name="phone_number" type="tel" value="{{ old('phone_number') }}" maxlength="30" autocomplete="tel" inputmode="tel" placeholder="e.g. +60 12-345 6789" data-phone-number required>
+                    <input id="phone-number" name="phone_number" type="tel" value="{{ old('phone_number') }}" maxlength="30" autocomplete="tel" inputmode="tel" placeholder="e.g. +60 12-345 6789" data-phone-number data-phone-country-prefix required>
                     @error('phone_number')<small class="field-error">{{ $message }}</small>@enderror
                 </div>
 
@@ -294,7 +294,7 @@
         });
     };
 
-    const validationMessage = (input) => {
+    const localValidationMessage = (input) => {
         const value = input.value.trim();
         const registrationForm = input.form.id === 'register-panel';
 
@@ -340,6 +340,42 @@
         }
     };
 
+    const registrationForm = document.getElementById('register-panel');
+    const availabilityFields = new Set(['email', 'ic_number']);
+    const availabilityState = new WeakMap();
+
+    const availabilityValue = (input) => input.name === 'ic_number'
+        ? input.value.replace(/\D/g, '')
+        : input.value.trim().toLowerCase();
+
+    const clearAvailabilityResult = (input) => {
+        const state = availabilityState.get(input);
+
+        if (state?.timer) {
+            clearTimeout(state.timer);
+        }
+        state?.controller?.abort();
+
+        availabilityState.delete(input);
+        delete input.dataset.availabilityValue;
+        delete input.dataset.availabilityMessage;
+        input.removeAttribute('aria-busy');
+    };
+
+    const validationMessage = (input) => {
+        const localMessage = localValidationMessage(input);
+
+        if (localMessage !== '') {
+            return localMessage;
+        }
+
+        const value = availabilityValue(input);
+
+        return input.dataset.availabilityValue === value
+            ? (input.dataset.availabilityMessage || '')
+            : '';
+    };
+
     const validateField = (input) => {
         const field = input.closest('.auth-field');
 
@@ -374,6 +410,64 @@
         return message === '';
     };
 
+    const scheduleAvailabilityCheck = (input, delay = 400) => {
+        if (!registrationForm || !availabilityFields.has(input.name) || input.disabled || localValidationMessage(input) !== '') {
+            return;
+        }
+
+        const url = registrationForm.dataset.registrationAvailabilityUrl;
+        const token = registrationForm.querySelector('input[name="_token"]')?.value;
+        const value = availabilityValue(input);
+
+        if (!url || !token || value === '') {
+            return;
+        }
+
+        const state = {};
+        availabilityState.set(input, state);
+        state.timer = window.setTimeout(async () => {
+            const controller = new AbortController();
+            state.controller = controller;
+            input.setAttribute('aria-busy', 'true');
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        Accept: 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': token,
+                    },
+                    body: JSON.stringify({ field: input.name, value: input.value }),
+                    signal: controller.signal,
+                });
+
+                if (!response.ok) {
+                    throw new Error('The availability check could not be completed.');
+                }
+
+                const result = await response.json();
+
+                if (availabilityState.get(input) !== state || availabilityValue(input) !== value) {
+                    return;
+                }
+
+                input.dataset.availabilityValue = value;
+                input.dataset.availabilityMessage = result.available ? '' : (result.message || 'This value is already in use.');
+                validateField(input);
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    // The server performs the same validation on submission. Do not show a misleading error if a live check is unavailable.
+                }
+            } finally {
+                if (availabilityState.get(input) === state) {
+                    input.removeAttribute('aria-busy');
+                    state.controller = null;
+                }
+            }
+        }, delay);
+    };
+
     document.querySelectorAll('.auth-panel').forEach((form) => {
         if (form.id === 'login-panel') {
             return;
@@ -382,9 +476,11 @@
         const fields = Array.from(form.querySelectorAll('input:not([type="checkbox"]), select'));
 
         fields.forEach((input) => {
-            const validate = () => {
+            const validate = (event) => {
                 input.dataset.touched = 'true';
+                clearAvailabilityResult(input);
                 validateField(input);
+                scheduleAvailabilityCheck(input, event?.type === 'blur' ? 0 : 400);
 
                 if (input.id === 'register-password') {
                     const confirmation = document.getElementById('password-confirmation');
