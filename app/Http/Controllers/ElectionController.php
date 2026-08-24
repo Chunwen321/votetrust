@@ -20,6 +20,7 @@ use App\Services\VoterModuleClient;
 use App\Services\VoterService;
 use App\States\ElectionStatus;
 use App\Support\ElectionCardMilestone;
+use App\Support\ElectionCardStatus;
 use App\ValueObjects\EligibilityRules;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -77,6 +78,13 @@ final class ElectionController extends Controller
                     $now,
                 ),
             ]),
+            'voterElectionStatuses' => $enrollments->mapWithKeys(fn ($enrollment): array => [
+                (int) $enrollment->election_id => ElectionCardStatus::forSchedule(
+                    (string) $enrollment->election_status,
+                    $enrollment->election_nomination_end,
+                    $now,
+                ),
+            ]),
             'candidateMilestones' => $candidateElections->mapWithKeys(fn (Election $election): array => [
                 (int) $election->getKey() => ElectionCardMilestone::forCandidate(
                     (string) $election->status,
@@ -84,6 +92,13 @@ final class ElectionController extends Controller
                     $election->nomination_end,
                     $election->voting_start,
                     $election->voting_end,
+                    $now,
+                ),
+            ]),
+            'candidateElectionStatuses' => $candidateElections->mapWithKeys(fn (Election $election): array => [
+                (int) $election->getKey() => ElectionCardStatus::forSchedule(
+                    (string) $election->status,
+                    $election->nomination_end,
                     $now,
                 ),
             ]),
@@ -100,6 +115,13 @@ final class ElectionController extends Controller
                     $election->voting_start,
                     $election->voting_end,
                     $election->rejected_at,
+                    $now,
+                ),
+            ]),
+            'organizerElectionStatuses' => $organizedElections->mapWithKeys(fn (Election $election): array => [
+                (int) $election->getKey() => ElectionCardStatus::forSchedule(
+                    (string) $election->status,
+                    $election->nomination_end,
                     $now,
                 ),
             ]),
@@ -149,6 +171,11 @@ final class ElectionController extends Controller
                 'election' => $record,
                 'eligibility' => EligibilityRules::fromStored($record->eligibility_rules),
                 'candidacy' => $candidacy,
+                'displayStatus' => ElectionCardStatus::forSchedule(
+                    (string) $record->status,
+                    $record->nomination_end,
+                    $now,
+                ),
                 'canApply' => $this->isPublic($record)
                     && $request->user()->isVerified()
                     && $candidacy === null

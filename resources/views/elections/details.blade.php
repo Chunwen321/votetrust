@@ -11,8 +11,8 @@
     <header class="election-page-header election-details-hero">
         <div class="election-details-hero-copy">
             <div class="election-card-meta election-details-meta">
-                <span class="election-status election-status-{{ strtolower(str_replace('_', '-', $election->status)) }}">
-                    {{ str($election->status)->replace('_', ' ')->lower()->headline() }}
+                <span class="election-status election-status-{{ $displayStatus->modifier }}">
+                    {{ $displayStatus->label }}
                 </span>
                 <span class="election-details-visibility">{{ $eligibility->mode() === \App\ValueObjects\EligibilityRules::PUBLIC ? 'Public election' : 'Private election' }}</span>
             </div>
