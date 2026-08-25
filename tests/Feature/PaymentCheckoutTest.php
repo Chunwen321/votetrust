@@ -98,6 +98,29 @@ final class PaymentCheckoutTest extends TestCase
         self::assertSame('Failed', $payment->fresh()->status);
     }
 
+    public function test_an_expired_card_fails_the_payment(): void
+    {
+        $candidate = User::factory()->create();
+        $payment = Payment::query()->create([
+            'amount' => '10.00',
+            'currency' => 'MYR',
+            'status' => 'Pending',
+            'candidate_id' => $candidate->getKey(),
+            'purpose' => Payment::PURPOSE_CANDIDATE_DEPOSIT,
+        ]);
+
+        $this->actingAs($candidate)
+            ->post(route('payments.checkout.charge', $payment), [
+                'card_number' => '4242 4242 4242 4242',
+                'card_holder' => 'A. Candidate',
+                'expiry' => '01/20',
+                'cvv' => '123',
+            ])
+            ->assertRedirect(route('payments.checkout.show', $payment));
+
+        self::assertSame('Failed', $payment->fresh()->status);
+    }
+
     public function test_no_card_data_is_persisted_anywhere_on_the_payment(): void
     {
         $candidate = User::factory()->create();

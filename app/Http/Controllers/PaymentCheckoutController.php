@@ -9,6 +9,7 @@ namespace App\Http\Controllers;
 use App\Contracts\PaymentGatewayContract;
 use App\Models\Election;
 use App\Models\Payment;
+use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -74,7 +75,16 @@ final class PaymentCheckoutController extends Controller
         $declines = $request->boolean('simulate_failure')
             || str_ends_with(preg_replace('/\s+/', '', $cardNumber), '0002');
 
-        if ($declines) {
+        // The regex above only checks MM/YY format; a syntactically valid
+        // expiry can still be in the past, so decline those the same way a
+        // real gateway would reject an expired card.
+        [$expiryMonth, $expiryYear] = array_map('intval', explode('/', (string) $request->input('expiry')));
+        $expiresAt = CarbonImmutable::create(2000 + $expiryYear, $expiryMonth, 1)->endOfMonth();
+        $expired = CarbonImmutable::now()->greaterThan($expiresAt);
+
+        if ($expired) {
+            $this->gateway->fail($record, 'IDontPay99 test card has expired.');
+        } elseif ($declines) {
             $this->gateway->fail($record, 'IDontPay99 test card declined the charge.');
         } else {
             $this->gateway->confirm($record);
