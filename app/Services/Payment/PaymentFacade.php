@@ -27,8 +27,8 @@ final class PaymentFacade
     ) {}
 
     /**
-     * @param  array{paymentReference:string,payerId:int,electionId:int,expectedAmount:float,currency:string,purpose:string}  $payload
-     * @return array{paymentReference:string,paymentStatus:string,amount:float,currency:string,payerId:int,purpose:string,paymentId:int}
+     * @param  array{paymentReference:?string,payerId:int,electionId:int,expectedAmount:float,currency:string,purpose:string}  $payload
+     * @return array{paymentReference:string,paymentStatus:string,amount:float,currency:string,payerId:int,purpose:string,paymentId:int,electionId:int}
      */
     public function verifyHostingPayment(array $payload, string $requestId): array
     {
@@ -37,13 +37,26 @@ final class PaymentFacade
             Log::info('payment.verify.election_pull_unavailable', ['requestID' => $requestId, 'electionId' => $payload['electionId']]);
         }
 
-        $payment = Payment::query()
+        $reference = $payload['paymentReference'] ?? null;
+
+        $query = Payment::query()
             ->where('purpose', Payment::PURPOSE_ELECTION_HOSTING)
-            ->where('election_id', $payload['electionId'])
-            ->where('provider_reference', $payload['paymentReference'])
-            ->first();
+            ->where('election_id', $payload['electionId']);
+
+        if ($reference !== null) {
+            $payment = (clone $query)->where('provider_reference', $reference)->first();
+        } else {
+            // electionId-only lookup: resolve the latest hosting payment for
+            // this election instead of matching a specific reference. Never
+            // fabricates a payment — an election with no payment yet is a
+            // real 404, not something to auto-create around.
+            $payment = (clone $query)->whereIn('status', ['Pending', 'Paid'])->latest('id')->first();
+        }
 
         if (! $payment instanceof Payment) {
+            if ($reference === null) {
+                throw new BusinessRuleException('No hosting payment found for this election.', 404);
+            }
             if (! Election::query()->whereKey($payload['electionId'])->exists()) {
                 throw new BusinessRuleException('Election not found for this payment reference.', 404);
             }
@@ -56,7 +69,7 @@ final class PaymentFacade
             $payment->currency = strtoupper($payload['currency']);
             $payment->status = 'Pending';
             $payment->gateway = 'mock';
-            $payment->provider_reference = $payload['paymentReference'];
+            $payment->provider_reference = $reference;
             $payment->request_id = $requestId;
             $payment->save();
         }
@@ -71,6 +84,7 @@ final class PaymentFacade
             'payerId' => (int) $payment->organizer_id,
             'purpose' => Payment::PURPOSE_ELECTION_HOSTING,
             'paymentId' => (int) $payment->getKey(),
+            'electionId' => (int) $payment->election_id,
         ];
     }
 

@@ -25,7 +25,7 @@ final class PaymentVerifyController extends Controller
 
         try {
             $data = $this->payments->verifyHostingPayment([
-                'paymentReference' => (string) $input['paymentReference'],
+                'paymentReference' => isset($input['paymentReference']) ? (string) $input['paymentReference'] : null,
                 'purpose' => (string) $input['purpose'],
                 'payerId' => (int) $input['payerId'],
                 'electionId' => (int) $input['electionId'],

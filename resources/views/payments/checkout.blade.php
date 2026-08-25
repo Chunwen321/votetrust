@@ -100,7 +100,7 @@
 
                 <p class="payment-checkout-fineprint">
                     This is a fake gateway for local testing only — nothing entered here is stored or sent anywhere.
-                    Any card number works and settles as Paid; a number ending <strong>0002</strong>, or checking the box above, always declines.
+                    Any card number works and settles as Paid; a number ending <strong>0002</strong>, an expired MM/YY, or checking the box above, always declines.
                 </p>
             </form>
         @endif

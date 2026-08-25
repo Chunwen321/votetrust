@@ -29,7 +29,9 @@ final class ValidatePaymentVerifyRequest
         $validator = Validator::make($input, [
             'requestID' => ['required', 'string', 'regex:/^[A-Za-z0-9_-]{8,64}$/'],
             'timestamp' => ['required', 'string'],
-            'paymentReference' => ['required', 'string', 'regex:/^[A-Za-z0-9-]{8,64}$/'],
+            // Optional: when omitted, the caller is verifying by electionId alone
+            // (latest hosting payment for that election) instead of a specific reference.
+            'paymentReference' => ['nullable', 'string', 'regex:/^[A-Za-z0-9-]{8,64}$/'],
             'purpose' => ['required', 'string', 'in:ELECTION_HOSTING'],
             'payerId' => ['required', 'integer', 'min:1'],
             'electionId' => ['required', 'integer', 'min:1'],
