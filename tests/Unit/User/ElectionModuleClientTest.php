@@ -45,6 +45,7 @@ final class ElectionModuleClientTest extends TestCase
                 'lifecycleState' => 'VOTING_OPEN',
                 'votingAllowed' => true,
                 'eligibility' => ['type' => 'PUBLIC'],
+                'nominationPeriod' => ['start' => null, 'end' => null],
                 'votingPeriod' => ['start' => null, 'end' => null],
             ];
 

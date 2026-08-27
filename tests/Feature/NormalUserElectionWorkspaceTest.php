@@ -50,7 +50,7 @@ final class NormalUserElectionWorkspaceTest extends TestCase
             ->assertOk()
             ->assertSee('Voting elections')
             ->assertSee('Community Vote 2026')
-            ->assertSee('href="'.route('voting.ballot', $votingElection->getKey()).'" aria-label="View voting for Community Vote 2026">View voting', false)
+            ->assertSee('href="'.route('elections.show', $votingElection->getKey()).'" aria-label="View election Community Vote 2026">View election', false)
             ->assertSee('Organised elections')
             ->assertSee('Faculty Representative Election')
             ->assertSee('Create an election');
@@ -87,6 +87,44 @@ final class NormalUserElectionWorkspaceTest extends TestCase
             ->assertSee('Voter access: <span class="badge status-approved">Public</span>', false)
             ->assertSee('href="'.route('voting.ballot', $publicElection->getKey()).'" aria-label="Open the ballot for VOTING001">Open ballot', false)
             ->assertViewHas('voterEnrollments', fn ($enrollments): bool => $enrollments->pluck('election_id')->all() === [$publicElection->getKey()]);
+
+        $this->assertDatabaseMissing('voter', [
+            'user_id' => $member->getKey(),
+            'election_id' => $publicElection->getKey(),
+        ]);
+    }
+
+    public function test_a_member_who_registers_later_automatically_discovers_a_published_public_election(): void
+    {
+        $publicElection = Election::query()->create([
+            'title' => 'Future Public Student Election',
+            'position_sought' => 'Student Representative',
+            'description' => 'A published election created before this member registered.',
+            'eligibility_rules' => EligibilityRules::publicElection(16)->toStorage(),
+            'nomination_start' => now()->subHour(),
+            'nomination_end' => now()->addDay(),
+            'voting_start' => now()->addDays(2),
+            'voting_end' => now()->addDays(3),
+            'status' => Election::NOMINATION_OPEN,
+            'currency' => 'MYR',
+        ]);
+
+        $member = User::factory()->create([
+            'full_name' => 'Late Registered Member',
+            'is_admin' => false,
+            'account_status' => 'ACTIVE',
+        ]);
+        $this->fakeElectionSummary($publicElection);
+
+        $this->actingAs($member)
+            ->get(route('elections.index'))
+            ->assertOk()
+            ->assertSee('Future Public Student Election')
+            ->assertSee('Voter access: <span class="badge status-approved">Public</span>', false)
+            ->assertSee('href="'.route('elections.show', $publicElection).'" aria-label="View election Future Public Student Election">View election', false)
+            ->assertViewHas('voterEnrollments', fn ($enrollments): bool => $enrollments
+                ->pluck('election_id')
+                ->all() === [$publicElection->getKey()]);
 
         $this->assertDatabaseMissing('voter', [
             'user_id' => $member->getKey(),
@@ -447,7 +485,7 @@ final class NormalUserElectionWorkspaceTest extends TestCase
             $path = (string) parse_url($request->url(), PHP_URL_PATH);
 
             if ($path === '/api/v1/elections/voter-catalog') {
-                $isCatalogState = in_array($election->status, [Election::VOTING_OPEN, Election::CLOSED], true);
+                $isCatalogState = in_array($election->status, [Election::NOMINATION_OPEN, Election::VOTING_OPEN, Election::CLOSED], true);
 
                 return Http::response([
                     'status' => 'S',
@@ -464,6 +502,10 @@ final class NormalUserElectionWorkspaceTest extends TestCase
                             && ($election->voting_start === null || $election->voting_start->lte(now()))
                             && ($election->voting_end === null || $election->voting_end->gte(now())),
                         'eligibility' => EligibilityRules::fromStored($election->eligibility_rules)->toArray(),
+                        'nominationPeriod' => [
+                            'start' => $election->nomination_start?->toAtomString(),
+                            'end' => $election->nomination_end?->toAtomString(),
+                        ],
                         'votingPeriod' => [
                             'start' => $election->voting_start?->toAtomString(),
                             'end' => $election->voting_end?->toAtomString(),

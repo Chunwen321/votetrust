@@ -78,7 +78,7 @@ final class ElectionWebServiceTest extends TestCase
             ->assertJsonStructure(['status', 'timestamp', 'data' => ['ballot']]);
     }
 
-    public function test_voter_catalog_keeps_public_and_private_voting_history_but_excludes_unpublished_elections(): void
+    public function test_voter_catalog_includes_published_nomination_and_voting_stages_but_excludes_unpublished_elections(): void
     {
         $now = CarbonImmutable::parse('2026-08-21 12:00:00', config('app.timezone'));
         $this->travelTo($now);
@@ -98,6 +98,14 @@ final class ElectionWebServiceTest extends TestCase
             $now->subHour(),
             $now->addHour(),
             EligibilityRules::publicElection(18, 'MY'),
+            $admin,
+        );
+        $nominating = $this->catalogElection(
+            'Public Nominations Open',
+            ElectionStatus::NOMINATION_OPEN,
+            $now->addDays(2),
+            $now->addDays(3),
+            EligibilityRules::publicElection(16),
             $admin,
         );
         $closed = $this->catalogElection(
@@ -134,7 +142,7 @@ final class ElectionWebServiceTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('status', 'S')
             ->assertJsonPath('requestID', 'VOTER-CATALOG-0001')
-            ->assertJsonPath('data.count', 4)
+            ->assertJsonPath('data.count', 5)
             ->assertJsonMissing(['electionId' => $draft->getKey()]);
 
         $catalog = collect($response->json('data.elections'));
@@ -142,6 +150,7 @@ final class ElectionWebServiceTest extends TestCase
             [
                 'Ended Awaiting Closure',
                 'Active Public Election',
+                'Public Nominations Open',
                 'Closed Public Election',
                 'Closed Private Election',
             ],
@@ -150,6 +159,15 @@ final class ElectionWebServiceTest extends TestCase
 
         $byId = $catalog->keyBy('electionId');
         self::assertTrue($byId[$active->getKey()]['votingAllowed']);
+        self::assertFalse($byId[$nominating->getKey()]['votingAllowed']);
+        self::assertSame(
+            $nominating->nomination_start?->toAtomString(),
+            $byId[$nominating->getKey()]['nominationPeriod']['start'],
+        );
+        self::assertSame(
+            $nominating->nomination_end?->toAtomString(),
+            $byId[$nominating->getKey()]['nominationPeriod']['end'],
+        );
         self::assertFalse($byId[$ended->getKey()]['votingAllowed']);
         self::assertFalse($byId[$closed->getKey()]['votingAllowed']);
         self::assertSame(EligibilityRules::PUBLIC, $byId[$closed->getKey()]['eligibility']['type']);

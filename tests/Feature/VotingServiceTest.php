@@ -17,6 +17,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Mockery\MockInterface;
 use Tests\TestCase;
 
 // PIC: Goh Chun Wen - Voting Process Decorator and REST integration tests.
@@ -36,6 +37,37 @@ class VotingServiceTest extends TestCase
             'voting.services.user.base_url' => 'https://user.test',
             'voting.services.user.api_key' => 'user-consumer-key',
         ]);
+    }
+
+    public function test_voting_portal_only_lists_elections_that_are_in_the_voting_stage(): void
+    {
+        $voter = User::factory()->create();
+        $this->mock(VotingIntegration::class, function (MockInterface $mock): void {
+            $election = static fn (int $id, string $title, string $status): array => [
+                'id' => $id,
+                'title' => $title,
+                'position' => 'Student Representative',
+                'description' => 'A participant catalog election.',
+                'status' => $status,
+                'votingAllowed' => $status === Election::VOTING_OPEN,
+                'eligibility' => ['type' => 'PUBLIC'],
+                'votingPeriod' => ['start' => null, 'end' => null],
+                'approvedCandidateCount' => 1,
+            ];
+
+            $mock->shouldReceive('voterElections')->once()->andReturn([
+                $election(1, 'Upcoming Nomination Election', Election::NOMINATION_OPEN),
+                $election(2, 'Active Voting Election', Election::VOTING_OPEN),
+                $election(3, 'Closed Historical Election', Election::CLOSED),
+            ]);
+        });
+
+        $this->actingAs($voter)
+            ->get(route('voting.index'))
+            ->assertOk()
+            ->assertSee('Active Voting Election')
+            ->assertDontSee('Upcoming Nomination Election')
+            ->assertDontSee('Closed Historical Election');
     }
 
     public function test_decorated_service_consumes_teammate_apis_and_allows_exactly_one_vote(): void
