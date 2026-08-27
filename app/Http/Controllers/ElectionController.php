@@ -6,11 +6,14 @@ namespace App\Http\Controllers;
 
 use App\Exceptions\BusinessRuleException;
 use App\Exceptions\ConcurrencyException;
+use App\Http\Requests\AssignPrivateCandidateRequest;
+use App\Http\Requests\ImportPrivateCandidateListRequest;
 use App\Http\Requests\ImportPrivateVoterListRequest;
 use App\Http\Requests\ReviewCandidatesRequest;
 use App\Http\Requests\StoreElectionRequest;
 use App\Http\Requests\TransitionElectionRequest;
 use App\Http\Requests\UpdateElectionRequest;
+use App\Http\Requests\UpdatePrivateCandidateSelectionRequest;
 use App\Http\Requests\UpdatePrivateVoterSelectionRequest;
 use App\Models\Election;
 use App\Services\CandidateRegistration\CandidateApplicationAccess;
@@ -211,7 +214,7 @@ final class ElectionController extends Controller
         try {
             $record = $this->service->findOwned($request->user(), $election);
             if (! $this->canManagePrivateRoster($record)) {
-                return back()->with('error', 'Private voters can be managed while the election is a draft or nominations are open. The list locks when voting begins.');
+                return back()->with('error', 'Private voters can be managed until voting begins.');
             }
             if (! $this->isPrivate($record)) {
                 return back()->with('error', 'Only private elections can receive a voter list.');
@@ -305,11 +308,82 @@ final class ElectionController extends Controller
                 ], 422);
             }
 
-            $this->service->recordPrivateVoterSelection($request->user(), (int) $record->getKey(), $selection);
+            $updatedElection = $this->service->recordPrivateVoterSelection($request->user(), (int) $record->getKey(), $selection);
+            $selection['version'] = (int) $updatedElection->version;
 
             return response()->json(['data' => $selection]);
         } catch (BusinessRuleException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
+        }
+    }
+
+    public function downloadPrivateCandidateTemplate(): StreamedResponse
+    {
+        return response()->streamDownload(static function (): void {
+            $output = fopen('php://output', 'wb');
+            if ($output === false) {
+                return;
+            }
+
+            fwrite($output, "\xEF\xBB\xBF");
+            fputcsv($output, ['full_name', 'ic_number']);
+            fputcsv($output, ['Nur Aisyah Binti Ali', '050729-14-5232']);
+            fputcsv($output, ['Aisha Rahman', 'E1234567']);
+            fclose($output);
+        }, 'votetrust-private-candidate-template.csv', [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    public function privateCandidateDirectory(Request $request, int $election): JsonResponse
+    {
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'page' => ['nullable', 'integer', 'min:1', 'max:100000'],
+        ]);
+        $record = $this->service->findOwned($request->user(), $election);
+        abort_unless($this->canManagePrivateRoster($record) && $this->isPrivate($record), 403);
+
+        return response()->json(['data' => $this->service->privateCandidateDirectory(
+            $request->user(),
+            $record,
+            (string) ($validated['search'] ?? ''),
+            (int) ($validated['page'] ?? 1),
+        )]);
+    }
+
+    public function updatePrivateCandidateSelection(UpdatePrivateCandidateSelectionRequest $request, int $election, int $user): JsonResponse
+    {
+        try {
+            return response()->json(['data' => $this->service->setPrivateCandidateSelection(
+                $request->user(),
+                $election,
+                $user,
+                (bool) $request->validated('assigned'),
+            )]);
+        } catch (BusinessRuleException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+    }
+
+    public function importPrivateCandidates(ImportPrivateCandidateListRequest $request, int $election): RedirectResponse
+    {
+        try {
+            $summary = $this->service->importPrivateCandidates(
+                $request->user(),
+                $election,
+                $this->privateVoterRosterFile->parseCandidates($request->file('candidate_list')),
+            );
+            $message = sprintf(
+                'Private candidate list processed: %d new candidate(s) assigned%s%s.',
+                $summary['assigned'],
+                $summary['skipped'] > 0 ? ', '.$summary['skipped'].' already assigned candidate(s) skipped' : '',
+                $summary['unmatchedCount'] > 0 ? ', '.$summary['unmatchedCount'].' row(s) did not match an eligible registered member' : '',
+            );
+
+            return redirect()->to(route('elections.show', $election).'#candidates')->with('success', $message);
+        } catch (\RuntimeException|BusinessRuleException $exception) {
+            return back()->with('error', $exception->getMessage());
         }
     }
 
@@ -329,6 +403,23 @@ final class ElectionController extends Controller
                 $updated === 0 ? 'Candidate decisions are already up to date.' : "{$updated} candidate decision(s) saved.",
             );
         } catch (BusinessRuleException $exception) {
+            return back()->with('error', $exception->getMessage());
+        }
+    }
+
+    public function assignPrivateCandidate(AssignPrivateCandidateRequest $request, int $election): RedirectResponse
+    {
+        try {
+            $this->service->assignPrivateCandidate(
+                $request->user(),
+                $election,
+                (int) $request->validated('user_id'),
+                (int) $request->validated('version'),
+            );
+
+            return redirect()->to(route('elections.show', $election).'#candidates')
+                ->with('success', 'Candidate assigned to the private election.');
+        } catch (BusinessRuleException|ConcurrencyException $exception) {
             return back()->with('error', $exception->getMessage());
         }
     }
@@ -361,6 +452,7 @@ final class ElectionController extends Controller
             'availability' => $this->service->availability($election),
             'actions' => $this->service->actions($election, $request->user()),
             'candidateSummary' => $summary,
+            'canManageParticipants' => ! $isAdminView && $this->service->canManageParticipants($election),
             'logs' => $this->service->transitionLogs($election),
             'isAdminView' => $isAdminView,
         ]);
@@ -397,9 +489,6 @@ final class ElectionController extends Controller
 
     private function canManagePrivateRoster(Election $election): bool
     {
-        return in_array($election->status, [
-            ElectionStatus::DRAFT->value,
-            ElectionStatus::NOMINATION_OPEN->value,
-        ], true);
+        return $this->service->canManageParticipants($election);
     }
 }

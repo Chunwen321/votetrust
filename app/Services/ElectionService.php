@@ -19,6 +19,7 @@ use App\Services\Payment\HttpPaymentGateway;
 use App\States\ElectionLifecycle;
 use App\States\ElectionStateFactory;
 use App\States\ElectionStatus;
+use App\Support\Identity;
 use App\ValueObjects\ElectionTransitionRecord;
 use App\ValueObjects\EligibilityRules;
 use Carbon\CarbonImmutable;
@@ -26,10 +27,11 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 final class ElectionService
 {
-    private const ADMIN_ACTIONS = ['approve', 'return_for_payment', 'reject'];
+    private const ADMIN_ACTIONS = ['verify_payment', 'approve', 'return_for_payment', 'reject'];
 
     private const CANDIDACY_PENDING = 'Pending';
 
@@ -529,9 +531,358 @@ final class ElectionService
     public function candidateApplications(Election $election): Collection
     {
         return Candidacy::query()
+            ->with('user')
             ->where('election_id', $election->getKey())
             ->orderBy('registered_at')
             ->get();
+    }
+
+    public function canManageParticipants(Election $election): bool
+    {
+        return in_array($election->status, [
+            ElectionStatus::DRAFT->value,
+            ElectionStatus::PENDING_PAYMENT->value,
+            ElectionStatus::PENDING_ADMIN_APPROVAL->value,
+            ElectionStatus::NOMINATION_OPEN->value,
+        ], true);
+    }
+
+    /**
+     * @return array{users:list<array{userId:int,fullName:string,identityNumber:string,email:string,secondaryText:string,assigned:bool}>,pagination:array{page:int,perPage:int,total:int,hasMore:bool}}
+     */
+    public function privateCandidateDirectory(User $user, Election $election, string $search, int $page = 1): array
+    {
+        $this->assertOwnedBy($user, $election);
+        $this->assertPrivateCandidatesEditable($election);
+
+        $search = trim($search);
+        $identitySearch = Identity::normalisePassportNumber($search);
+        $users = User::query()
+            ->whereKeyNot($user->getKey())
+            ->where('is_admin', false)
+            ->where('account_status', 'ACTIVE')
+            ->whereNull('account_disabled_at')
+            ->where('is_verified', true)
+            ->whereNotNull('verified_at')
+            ->when($search !== '', function ($query) use ($search, $identitySearch): void {
+                $query->where(function ($memberQuery) use ($search, $identitySearch): void {
+                    $memberQuery
+                        ->where('full_name', 'like', '%'.$search.'%')
+                        ->orWhere('email', 'like', '%'.$search.'%')
+                        ->orWhere('ic_number', 'like', '%'.$identitySearch.'%')
+                        ->orWhere('passport_number', 'like', '%'.$identitySearch.'%');
+                });
+            })
+            ->orderBy('full_name')
+            ->orderBy('id')
+            ->paginate(25, ['id', 'full_name', 'email', 'ic_number', 'passport_number'], 'page', max(1, $page));
+
+        $assignedIds = Candidacy::query()
+            ->where('election_id', $election->getKey())
+            ->where('status', self::CANDIDACY_APPROVED)
+            ->whereIn('user_id', $users->getCollection()->pluck('id'))
+            ->pluck('user_id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->flip();
+
+        return [
+            'users' => $users->getCollection()
+                ->map(static function (User $candidate) use ($assignedIds): array {
+                    $identity = (string) ($candidate->ic_number ?: $candidate->passport_number);
+
+                    return [
+                        'userId' => (int) $candidate->getKey(),
+                        'fullName' => (string) $candidate->display_name,
+                        'identityNumber' => $identity,
+                        'email' => (string) $candidate->email,
+                        'secondaryText' => trim((string) $candidate->email.($identity !== '' ? ' · '.$identity : '')),
+                        'assigned' => $assignedIds->has((int) $candidate->getKey()),
+                    ];
+                })
+                ->values()
+                ->all(),
+            'pagination' => [
+                'page' => $users->currentPage(),
+                'perPage' => $users->perPage(),
+                'total' => $users->total(),
+                'hasMore' => $users->hasMorePages(),
+            ],
+        ];
+    }
+
+    /** @return array{userId:int,assigned:bool,changed:bool,reasonCode:string,totalAssigned:int,version:int} */
+    public function setPrivateCandidateSelection(User $user, int $electionId, int $candidateUserId, bool $assigned): array
+    {
+        return DB::transaction(function () use ($user, $electionId, $candidateUserId, $assigned): array {
+            $election = Election::query()->lockForUpdate()->findOrFail($electionId);
+            $this->assertOwnedBy($user, $election);
+            $this->assertPrivateCandidatesEditable($election);
+
+            $candidate = User::query()->lockForUpdate()->find($candidateUserId);
+            $application = Candidacy::query()
+                ->where('election_id', $electionId)
+                ->where('user_id', $candidateUserId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($assigned && (! $candidate instanceof User
+                || $candidate->isAdmin()
+                || ! $candidate->isActive()
+                || ! $candidate->isVerified()
+                || $candidate->is($user))) {
+                throw new BusinessRuleException('This member is no longer available for candidate assignment.');
+            }
+
+            $changed = false;
+            $reasonCode = $assigned ? 'ALREADY_ASSIGNED' : 'NOT_ASSIGNED';
+            if ($assigned && (! $application instanceof Candidacy || $application->status !== self::CANDIDACY_APPROVED)) {
+                $application ??= new Candidacy([
+                    'election_id' => $electionId,
+                    'user_id' => $candidateUserId,
+                    'registered_at' => $this->clock->now(),
+                ]);
+                $application->status = self::CANDIDACY_APPROVED;
+                $application->save();
+                $changed = true;
+                $reasonCode = 'ASSIGNED';
+            } elseif (! $assigned && $application instanceof Candidacy
+                && $application->status === self::CANDIDACY_APPROVED) {
+                $application->status = self::CANDIDACY_REJECTED;
+                $application->save();
+                $changed = true;
+                $reasonCode = 'REMOVED';
+            }
+
+            $totalAssigned = Candidacy::query()
+                ->where('election_id', $electionId)
+                ->where('status', self::CANDIDACY_APPROVED)
+                ->count();
+
+            if ($changed) {
+                $expectedVersion = $this->assertExpectedVersion($election, $election->version);
+                $requestId = $this->newRequestId();
+                $action = $assigned ? 'assign_private_candidate' : 'remove_private_candidate';
+                $this->appendTransition($election, [
+                    'actor_user_id' => $user->getKey(),
+                    'request_id' => $requestId,
+                    'action' => $action,
+                    'from_state' => $election->status,
+                    'to_state' => $election->status,
+                    'metadata' => [
+                        'candidate_user_id' => $candidateUserId,
+                        'result' => $reasonCode,
+                        'total_assigned' => $totalAssigned,
+                    ],
+                    'created_at' => $this->clock->now()->toDateTimeString(),
+                ]);
+                $this->persistWithVersion($election, $expectedVersion);
+                $this->auditLogger->log($action, [
+                    'election_id' => $electionId,
+                    'actor_user_id' => $user->getKey(),
+                    'candidate_user_id' => $candidateUserId,
+                    'request_id' => $requestId,
+                    'total_assigned' => $totalAssigned,
+                ]);
+            }
+
+            return [
+                'userId' => $candidateUserId,
+                'assigned' => $assigned && $application instanceof Candidacy
+                    && $application->status === self::CANDIDACY_APPROVED,
+                'changed' => $changed,
+                'reasonCode' => $reasonCode,
+                'totalAssigned' => $totalAssigned,
+                'version' => (int) $election->version,
+            ];
+        });
+    }
+
+    /**
+     * @param  list<array{row:int,fullName:string,identityNumber:string}>  $rows
+     * @return array{requested:int,assigned:int,skipped:int,totalAssigned:int,unmatchedCount:int,unmatchedRows:list<array{row:int,reason:string}>}
+     */
+    public function importPrivateCandidates(User $user, int $electionId, array $rows): array
+    {
+        return DB::transaction(function () use ($user, $electionId, $rows): array {
+            $election = Election::query()->lockForUpdate()->findOrFail($electionId);
+            $this->assertOwnedBy($user, $election);
+            $this->assertPrivateCandidatesEditable($election);
+
+            $normalisedRows = [];
+            $unmatchedRows = [];
+            $seen = [];
+            foreach ($rows as $row) {
+                $rowNumber = (int) ($row['row'] ?? 0);
+                $fullName = Str::lower(Str::squish((string) ($row['fullName'] ?? '')));
+                $identityNumber = $this->normaliseParticipantIdentity((string) ($row['identityNumber'] ?? ''));
+                $key = $fullName.'|'.$identityNumber;
+                if ($rowNumber < 2 || $fullName === '' || $identityNumber === null) {
+                    $unmatchedRows[] = ['row' => max(2, $rowNumber), 'reason' => 'INVALID_IDENTITY_NUMBER'];
+
+                    continue;
+                }
+                if (isset($seen[$key])) {
+                    $unmatchedRows[] = ['row' => $rowNumber, 'reason' => 'DUPLICATE_ROW'];
+
+                    continue;
+                }
+                $seen[$key] = true;
+                $normalisedRows[] = ['row' => $rowNumber, 'fullName' => $fullName, 'identityNumber' => $identityNumber];
+            }
+
+            $candidates = $this->usersForParticipantIdentities(array_column($normalisedRows, 'identityNumber'));
+            $matchedIds = [];
+            foreach ($normalisedRows as $row) {
+                $matches = $this->usersMatchingParticipantIdentity($candidates, $row['identityNumber']);
+                if ($matches->isEmpty()) {
+                    $unmatchedRows[] = ['row' => $row['row'], 'reason' => 'NO_MATCHING_ACCOUNT'];
+
+                    continue;
+                }
+                if ($matches->count() > 1) {
+                    $unmatchedRows[] = ['row' => $row['row'], 'reason' => 'IDENTITY_NUMBER_AMBIGUOUS'];
+
+                    continue;
+                }
+
+                $candidate = $matches->first();
+                if (Str::lower(Str::squish((string) $candidate->full_name)) !== $row['fullName']) {
+                    $unmatchedRows[] = ['row' => $row['row'], 'reason' => 'NAME_DOES_NOT_MATCH_IDENTIFIER'];
+
+                    continue;
+                }
+                if ($candidate->isAdmin() || ! $candidate->isActive() || ! $candidate->isVerified() || $candidate->is($user)) {
+                    $unmatchedRows[] = ['row' => $row['row'], 'reason' => 'ACCOUNT_NOT_ELIGIBLE'];
+
+                    continue;
+                }
+                $matchedIds[] = (int) $candidate->getKey();
+            }
+
+            $assigned = 0;
+            $skipped = 0;
+            foreach (array_values(array_unique($matchedIds)) as $candidateUserId) {
+                $application = Candidacy::query()->firstOrNew([
+                    'election_id' => $electionId,
+                    'user_id' => $candidateUserId,
+                ]);
+                if ($application->exists && $application->status === self::CANDIDACY_APPROVED) {
+                    $skipped++;
+
+                    continue;
+                }
+                $application->status = self::CANDIDACY_APPROVED;
+                if (! $application->exists) {
+                    $application->registered_at = $this->clock->now();
+                }
+                $application->save();
+                $assigned++;
+            }
+
+            $totalAssigned = Candidacy::query()
+                ->where('election_id', $electionId)
+                ->where('status', self::CANDIDACY_APPROVED)
+                ->count();
+            $expectedVersion = $this->assertExpectedVersion($election, $election->version);
+            $requestId = $this->newRequestId();
+            $this->appendTransition($election, [
+                'actor_user_id' => $user->getKey(),
+                'request_id' => $requestId,
+                'action' => 'import_private_candidate_list',
+                'from_state' => $election->status,
+                'to_state' => $election->status,
+                'metadata' => [
+                    'requested' => count($rows),
+                    'assigned' => $assigned,
+                    'skipped' => $skipped,
+                    'unmatched' => count($unmatchedRows),
+                    'total_assigned' => $totalAssigned,
+                ],
+                'created_at' => $this->clock->now()->toDateTimeString(),
+            ]);
+            $this->persistWithVersion($election, $expectedVersion);
+            $this->auditLogger->log('private_candidate_list_imported', [
+                'election_id' => $electionId,
+                'actor_user_id' => $user->getKey(),
+                'request_id' => $requestId,
+                'assigned' => $assigned,
+                'skipped' => $skipped,
+                'unmatched' => count($unmatchedRows),
+            ]);
+
+            return [
+                'requested' => count($rows),
+                'assigned' => $assigned,
+                'skipped' => $skipped,
+                'totalAssigned' => $totalAssigned,
+                'unmatchedCount' => count($unmatchedRows),
+                'unmatchedRows' => array_slice($unmatchedRows, 0, 100),
+            ];
+        });
+    }
+
+    public function assignPrivateCandidate(
+        User $user,
+        int $electionId,
+        int $candidateUserId,
+        ?int $submittedVersion = null,
+    ): Candidacy {
+        return DB::transaction(function () use ($user, $electionId, $candidateUserId, $submittedVersion): Candidacy {
+            $election = Election::query()->lockForUpdate()->findOrFail($electionId);
+            $this->assertOwnedBy($user, $election);
+            if (EligibilityRules::fromStored($election->eligibility_rules)->mode() !== EligibilityRules::PRIVATE) {
+                throw new BusinessRuleException('Candidates can be assigned directly only for private elections.');
+            }
+            if (! $this->canManageParticipants($election)) {
+                throw new BusinessRuleException('Private candidates can be assigned until voting begins.');
+            }
+
+            $candidate = User::query()->lockForUpdate()->find($candidateUserId);
+            if (! $candidate instanceof User
+                || $candidate->isAdmin()
+                || ! $candidate->isActive()
+                || ! $candidate->isVerified()
+                || $candidate->is($user)) {
+                throw new BusinessRuleException('Select an active, verified member who is eligible for candidate assignment.');
+            }
+            if (Candidacy::query()
+                ->where('election_id', $electionId)
+                ->where('user_id', $candidateUserId)
+                ->exists()) {
+                throw new BusinessRuleException('That member is already assigned to this election.');
+            }
+
+            $expectedVersion = $this->assertExpectedVersion($election, $submittedVersion);
+            $candidacy = Candidacy::query()->create([
+                'user_id' => $candidateUserId,
+                'election_id' => $electionId,
+                'status' => self::CANDIDACY_APPROVED,
+                'registered_at' => $this->clock->now(),
+            ]);
+            $requestId = $this->newRequestId();
+            $this->appendTransition($election, [
+                'actor_user_id' => $user->getKey(),
+                'request_id' => $requestId,
+                'action' => 'assign_candidate',
+                'from_state' => $election->status,
+                'to_state' => $election->status,
+                'metadata' => [
+                    'candidacy_id' => $candidacy->getKey(),
+                    'candidate_user_id' => $candidateUserId,
+                    'status' => self::CANDIDACY_APPROVED,
+                ],
+                'created_at' => $this->clock->now()->toDateTimeString(),
+            ]);
+            $this->persistWithVersion($election, $expectedVersion);
+            $this->auditLogger->log('private_candidate_assigned', [
+                'election_id' => $electionId,
+                'actor_user_id' => $user->getKey(),
+                'candidate_user_id' => $candidateUserId,
+                'request_id' => $requestId,
+            ]);
+
+            return $candidacy->load('user');
+        });
     }
 
     /** @return list<array{id:int,candidateId:int,name:string,position:string,manifesto:string}> */
@@ -809,12 +1160,74 @@ final class ElectionService
 
     private function assertPrivateRosterEditable(Election $election): void
     {
-        if (! in_array($election->status, [
-            ElectionStatus::DRAFT->value,
-            ElectionStatus::NOMINATION_OPEN->value,
-        ], true)) {
-            throw new BusinessRuleException('Private voters can be managed while the election is a draft or nominations are open. The list locks when voting begins.');
+        if (! $this->canManageParticipants($election)) {
+            throw new BusinessRuleException('Private voters can be managed until voting begins.');
         }
+    }
+
+    private function assertPrivateCandidatesEditable(Election $election): void
+    {
+        if (EligibilityRules::fromStored($election->eligibility_rules)->mode() !== EligibilityRules::PRIVATE) {
+            throw new BusinessRuleException('Only private elections can receive direct candidate assignments.');
+        }
+        if (! $this->canManageParticipants($election)) {
+            throw new BusinessRuleException('Private candidates can be managed until voting begins.');
+        }
+    }
+
+    /** @param list<string> $identityNumbers
+     * @return Collection<int, User> */
+    private function usersForParticipantIdentities(array $identityNumbers): Collection
+    {
+        $icNumbers = array_values(array_unique(array_filter(
+            $identityNumbers,
+            static fn (string $number): bool => Identity::isValidIcNumber($number),
+        )));
+        $passportNumbers = array_values(array_unique(array_filter(
+            array_map(static fn (string $number): string => Identity::normalisePassportNumber($number), $identityNumbers),
+            static fn (string $number): bool => Identity::isValidPassportNumber($number),
+        )));
+
+        if ($icNumbers === [] && $passportNumbers === []) {
+            return new Collection;
+        }
+
+        return User::query()
+            ->where(function ($query) use ($icNumbers, $passportNumbers): void {
+                if ($icNumbers !== []) {
+                    $query->whereIn('ic_number', $icNumbers);
+                }
+                if ($passportNumbers !== []) {
+                    $method = $icNumbers === [] ? 'whereIn' : 'orWhereIn';
+                    $query->{$method}('passport_number', $passportNumbers);
+                }
+            })
+            ->get();
+    }
+
+    /** @param Collection<int, User> $users
+     * @return Collection<int, User> */
+    private function usersMatchingParticipantIdentity(Collection $users, string $identityNumber): Collection
+    {
+        return $users->filter(function (User $candidate) use ($identityNumber): bool {
+            $icNumber = Identity::normaliseIcNumber((string) $candidate->ic_number);
+            $passportNumber = Identity::normalisePassportNumber((string) $candidate->passport_number);
+
+            return ($icNumber !== '' && hash_equals($icNumber, $identityNumber))
+                || ($passportNumber !== '' && hash_equals($passportNumber, $identityNumber));
+        });
+    }
+
+    private function normaliseParticipantIdentity(string $identityNumber): ?string
+    {
+        $icNumber = Identity::normaliseIcNumber($identityNumber);
+        if (Identity::isValidIcNumber($icNumber)) {
+            return $icNumber;
+        }
+
+        $passportNumber = Identity::normalisePassportNumber($identityNumber);
+
+        return Identity::isValidPassportNumber($passportNumber) ? $passportNumber : null;
     }
 
     private function newRequestId(): string

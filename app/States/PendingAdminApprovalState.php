@@ -18,13 +18,17 @@ final class PendingAdminApprovalState extends AbstractElectionState
 
     public function label(): string
     {
-        return 'Awaiting admin payment verification';
+        return 'Awaiting admin approval';
     }
 
     public function actions(Election $election): array
     {
+        $primaryAction = $this->paymentVerified($election)
+            ? ['action' => 'approve', 'label' => 'Approve election', 'description' => 'Payment is verified. Give final approval to open nominations.', 'tone' => 'primary', 'audience' => 'admin', 'requiresPaymentReference' => false, 'requiresReason' => false]
+            : ['action' => 'verify_payment', 'label' => 'Verify hosting payment', 'description' => 'Check the submitted reference, amount, currency, and organiser with the Payment module.', 'tone' => 'primary', 'audience' => 'admin', 'requiresPaymentReference' => false, 'requiresReason' => false];
+
         return [
-            ['action' => 'approve', 'label' => 'Verify payment & approve', 'description' => 'Checks the submitted payment with VoteTrust, then opens nominations if it is confirmed.', 'tone' => 'primary', 'audience' => 'admin', 'requiresPaymentReference' => false, 'requiresReason' => false],
+            $primaryAction,
             ['action' => 'return_for_payment', 'label' => 'Request payment resubmission', 'description' => 'Returns the election to the organizer so a corrected payment reference can be submitted.', 'tone' => 'secondary', 'audience' => 'admin', 'requiresPaymentReference' => false, 'requiresReason' => true],
             ['action' => 'reject', 'label' => 'Reject election', 'description' => 'Rejects the election permanently.', 'tone' => 'danger', 'audience' => 'admin', 'requiresPaymentReference' => false, 'requiresReason' => true],
             ['action' => 'cancel', 'label' => 'Withdraw election', 'description' => 'Withdraws the request while approval is pending.', 'tone' => 'danger', 'audience' => 'organizer', 'requiresPaymentReference' => false, 'requiresReason' => true],
@@ -36,7 +40,7 @@ final class PendingAdminApprovalState extends AbstractElectionState
         if ($this->cancel($lifecycle, $action, $context)) {
             return;
         }
-        if (! in_array($action, ['approve', 'return_for_payment', 'reject'], true)) {
+        if (! in_array($action, ['verify_payment', 'approve', 'return_for_payment', 'reject'], true)) {
             $this->reject($action);
         }
         if (! $context->actorIsAdmin()) {
@@ -63,31 +67,46 @@ final class PendingAdminApprovalState extends AbstractElectionState
             return;
         }
 
+        if ($action === 'verify_payment') {
+            if ($this->paymentVerified($election)) {
+                throw new BusinessRuleException('This hosting payment has already been verified.');
+            }
+
+            $reference = trim((string) $election->payment_reference);
+            if (! preg_match('/^[A-Za-z0-9-]{8,64}$/', $reference)) {
+                throw new BusinessRuleException('The organizer must submit a valid payment reference before verification.');
+            }
+
+            $result = $context->paymentGateway->verifyHostingPayment($election, $reference, $context->requestId, $context->now);
+            if (! $result->paid) {
+                $context->auditLogger->log('payment_lifecycle_gate_blocked', [
+                    'election_id' => $election->getKey(),
+                    'request_id' => $context->requestId,
+                    'provider_status' => $result->providerStatus,
+                ]);
+                throw new BusinessRuleException('Payment is not confirmed or does not match the election hosting fee.');
+            }
+
+            // The Payment module owns its records. Retain only its verified
+            // API response snapshot; never mirror the provider database row.
+            $election->payment_id = null;
+            $election->payment_reference = $result->paymentReference;
+            $election->payment_verified_at = $context->now;
+            $election->payment_request_id = $context->requestId;
+            $election->payment_provider_status = $result->providerStatus;
+            $election->payment_response_json = $result->rawResponse;
+            $lifecycle->moveTo(ElectionStatus::PENDING_ADMIN_APPROVAL->value, $action, [
+                'payment_reference' => $result->paymentReference,
+                'provider_status' => $result->providerStatus,
+                'verified_by' => $context->actor->getKey(),
+            ]);
+
+            return;
+        }
+
         if ($action === 'approve') {
             if (! $this->paymentVerified($election)) {
-                $reference = trim((string) $election->payment_reference);
-                if (! preg_match('/^[A-Za-z0-9-]{8,64}$/', $reference)) {
-                    throw new BusinessRuleException('The organizer must submit a valid payment reference before approval.');
-                }
-
-                $result = $context->paymentGateway->verifyHostingPayment($election, $reference, $context->requestId, $context->now);
-                if (! $result->paid) {
-                    $context->auditLogger->log('payment_lifecycle_gate_blocked', [
-                        'election_id' => $election->getKey(),
-                        'request_id' => $context->requestId,
-                        'provider_status' => $result->providerStatus,
-                    ]);
-                    throw new BusinessRuleException('Payment is not confirmed or does not match the election hosting fee.');
-                }
-
-                // The Payment module owns its records. Retain only its verified
-                // API response snapshot; never mirror the provider database row.
-                $election->payment_id = null;
-                $election->payment_reference = $result->paymentReference;
-                $election->payment_verified_at = $context->now;
-                $election->payment_request_id = $context->requestId;
-                $election->payment_provider_status = $result->providerStatus;
-                $election->payment_response_json = $result->rawResponse;
+                throw new BusinessRuleException('Verify the hosting payment before approving this election.');
             }
 
             $election->approved_by = $context->actor->getKey();

@@ -19,7 +19,7 @@ final class TransitionElectionRequest extends FormRequest
     {
         return [
             'action' => ['required', 'string', Rule::in([
-                'submit_for_payment', 'submit_payment', 'approve', 'return_for_payment', 'reject',
+                'submit_for_payment', 'submit_payment', 'verify_payment', 'approve', 'return_for_payment', 'reject',
                 'start_voting', 'close_voting', 'cancel',
             ])],
             'current_password' => ['required', 'string'],

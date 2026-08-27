@@ -33,12 +33,17 @@ document.querySelectorAll('[data-file-upload]').forEach((fileUpload) => {
     });
 });
 
-document.querySelectorAll('[data-private-voter-directory]').forEach((directory) => {
-    const searchInput = directory.querySelector('[data-voter-search]');
-    const list = directory.querySelector('[data-voter-directory-list]');
-    const summary = directory.querySelector('[data-voter-directory-summary]');
-    const loadMore = directory.querySelector('[data-voter-directory-more]');
-    const countElements = document.querySelectorAll('[data-private-voter-count]');
+document.querySelectorAll('[data-participant-directory]').forEach((directory) => {
+    const searchInput = directory.querySelector('[data-participant-search], [data-voter-search]');
+    const list = directory.querySelector('[data-participant-directory-list], [data-voter-directory-list]');
+    const summary = directory.querySelector('[data-participant-directory-summary], [data-voter-directory-summary]');
+    const loadMore = directory.querySelector('[data-participant-directory-more], [data-voter-directory-more]');
+    const singular = directory.dataset.participantSingular || 'participant';
+    const role = directory.dataset.participantRole || `${singular} assignment`;
+    const resultLabel = directory.dataset.resultLabel || 'registered user';
+    const countElements = document.querySelectorAll(directory.dataset.countSelector || '[data-private-voter-count]');
+    const emptyMessage = directory.dataset.emptyMessage || `No registered users are available to assign as ${singular}s.`;
+    const noMatchMessage = directory.dataset.noMatchMessage || 'No registered user matches that search.';
     const directoryUrl = directory.dataset.directoryUrl;
     const selectionUrlTemplate = directory.dataset.selectionUrl;
     let page = 1;
@@ -50,9 +55,17 @@ document.querySelectorAll('[data-private-voter-directory]').forEach((directory) 
         return;
     }
 
-    const setVoterCount = (total) => {
+    const setParticipantCount = (total) => {
         countElements.forEach((element) => {
             element.textContent = total;
+        });
+    };
+
+    const setElectionVersion = (version) => {
+        if (!Number.isInteger(version)) return;
+
+        document.querySelectorAll('input[name="version"]').forEach((input) => {
+            input.value = String(version);
         });
     };
 
@@ -80,17 +93,18 @@ document.querySelectorAll('[data-private-voter-directory]').forEach((directory) 
             });
             const payload = await response.json().catch(() => ({}));
             if (!response.ok || !payload?.data) {
-                throw new Error(payload?.message || 'The voter selection could not be saved.');
+                throw new Error(payload?.message || `The ${singular} selection could not be saved.`);
             }
 
             checkbox.checked = payload.data.assigned;
-            setVoterCount(payload.data.totalAssigned);
+            setParticipantCount(payload.data.totalAssigned);
+            setElectionVersion(payload.data.version);
             summary.textContent = payload.data.assigned
-                ? `${user.fullName} has voter access.`
-                : `${user.fullName} no longer has voter access.`;
+                ? `${user.fullName} now has ${role}.`
+                : `${user.fullName} no longer has ${role}.`;
         } catch (error) {
             checkbox.checked = !wantedState;
-            summary.textContent = error.message || 'The voter selection could not be saved. Please try again.';
+            summary.textContent = error.message || `The ${singular} selection could not be saved. Please try again.`;
         } finally {
             checkbox.disabled = false;
             directory.removeAttribute('aria-busy');
@@ -100,9 +114,7 @@ document.querySelectorAll('[data-private-voter-directory]').forEach((directory) 
     const renderUsers = (users, append) => {
         if (!append) list.replaceChildren();
         if (users.length === 0 && !append) {
-            showDirectoryMessage(searchInput.value.trim() === ''
-                ? 'No registered users are available to assign.'
-                : 'No registered user matches that IC or passport number.');
+            showDirectoryMessage(searchInput.value.trim() === '' ? emptyMessage : noMatchMessage);
 
             return;
         }
@@ -111,15 +123,19 @@ document.querySelectorAll('[data-private-voter-directory]').forEach((directory) 
         users.forEach((user) => {
             const label = createElement('label', 'election-directory-row');
             const copy = createElement('span', 'election-directory-user');
-            copy.append(
-                createElement('strong', '', user.fullName),
-                createElement('span', 'election-directory-identity', user.identityNumber),
-            );
+            copy.append(createElement('strong', '', user.fullName));
+            const secondaryText = user.secondaryText || user.identityNumber || user.email;
+            if (secondaryText) {
+                copy.append(createElement('span', 'election-directory-identity', secondaryText));
+            }
+            if (singular === 'voter' && user.verified === false) {
+                copy.append(createElement('span', 'election-directory-verification', 'Verification required before voting'));
+            }
 
             const control = createElement('input', 'election-directory-checkbox');
             control.type = 'checkbox';
             control.checked = user.assigned;
-            control.setAttribute('aria-label', `Grant voter access to ${user.fullName}`);
+            control.setAttribute('aria-label', `${user.assigned ? 'Remove' : 'Grant'} ${role} ${user.assigned ? 'from' : 'to'} ${user.fullName}`);
             control.addEventListener('change', () => updateSelection(control, user));
             label.append(copy, control);
             fragment.append(label);
@@ -152,7 +168,7 @@ document.querySelectorAll('[data-private-voter-directory]').forEach((directory) 
             hasMore = payload.data.pagination.hasMore;
             renderUsers(payload.data.users, append);
             loadMore.hidden = !hasMore;
-            summary.textContent = `${payload.data.pagination.total} registered user${payload.data.pagination.total === 1 ? '' : 's'} found.`;
+            summary.textContent = `${payload.data.pagination.total} ${resultLabel}${payload.data.pagination.total === 1 ? '' : 's'} found.`;
         } catch (error) {
             if (error.name !== 'AbortError') {
                 loadMore.hidden = true;

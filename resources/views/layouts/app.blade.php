@@ -17,9 +17,12 @@
 </head>
 <body>
 @php
+    $isAdministrator = auth()->check() && auth()->user()->isAdmin();
     $primaryDestination = auth()->check()
-        ? route(auth()->user()->isAdmin() ? 'admin.dashboard' : 'dashboard')
+        ? route($isAdministrator ? 'admin.dashboard' : 'dashboard')
         : route('home');
+    $dashboardDestination = $isAdministrator ? route('admin.dashboard') : route('dashboard');
+    $electionsDestination = $isAdministrator ? route('admin.elections.index') : route('elections.index');
 @endphp
 <header class="site-header">
     <div class="site-header__inner">
@@ -30,20 +33,22 @@
         <nav class="site-nav" aria-label="Primary navigation">
             @auth
                 @if (Route::has('dashboard'))
-                    <a href="{{ route('dashboard') }}" @class(['is-active' => request()->routeIs('dashboard')])>Dashboard</a>
+                    <a href="{{ $dashboardDestination }}" @class(['is-active' => request()->routeIs($isAdministrator ? 'admin.dashboard' : 'dashboard')])>Dashboard</a>
                 @endif
                 @if (Route::has('elections.index'))
                     <details @class([
                         'site-nav-dropdown',
-                        'is-active' => request()->routeIs('elections.*', 'voter.*', 'voting.*', 'candidate.*'),
+                        'is-active' => $isAdministrator
+                            ? request()->routeIs('admin.elections.*', 'admin.participants.*')
+                            : request()->routeIs('elections.*', 'voter.*', 'voting.*', 'candidate.*'),
                     ])>
                         <summary>
                             <span class="site-nav-dropdown__label">Elections</span>
                             <span class="site-nav-dropdown__chevron" aria-hidden="true"></span>
                         </summary>
                         <div class="site-nav-dropdown__menu">
-                            <a href="{{ route('elections.index') }}">Elections</a>
-                            @if (Route::has('candidate.applications.index'))
+                            <a href="{{ $electionsDestination }}">{{ $isAdministrator ? 'Election oversight' : 'Elections' }}</a>
+                            @if (! $isAdministrator && Route::has('candidate.applications.index'))
                                 @if (auth()->user()->isVerified())
                                     <a href="{{ route('candidate.applications.index') }}">Candidate applications</a>
                                 @else
@@ -54,7 +59,20 @@
                     </details>
                 @endif
                 @if (auth()->user()->isAdmin() && Route::has('admin.dashboard'))
-                    <a href="{{ route('admin.dashboard') }}" @class(['is-active' => request()->routeIs('admin.*')])>Admin</a>
+                    <details @class([
+                        'site-nav-dropdown',
+                        'is-active' => request()->routeIs('admin.users.*', 'admin.payments.*'),
+                    ])>
+                        <summary>
+                            <span class="site-nav-dropdown__label">Admin</span>
+                            <span class="site-nav-dropdown__chevron" aria-hidden="true"></span>
+                        </summary>
+                        <div class="site-nav-dropdown__menu">
+                            <a href="{{ route('admin.users.index') }}">Member accounts</a>
+                            <a href="{{ route('admin.payments.index') }}">Payment review</a>
+                            <a href="{{ route('admin.payments.health') }}">Payment API health</a>
+                        </div>
+                    </details>
                 @endif
             @endauth
             @guest

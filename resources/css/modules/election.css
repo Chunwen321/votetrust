@@ -99,6 +99,13 @@
 .admin-approvals__counter span { color: #dce8ff; font-size: .78rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .admin-approvals__counter strong { margin: .25rem 0 0; font-size: 3.15rem; line-height: 1; letter-spacing: -.06em; }
 .admin-approvals__counter small { margin-top: .55rem; color: rgb(255 255 255 / 78%); font-size: .78rem; line-height: 1.35; }
+.admin-election-filters { display: grid; grid-template-columns: minmax(250px, 1.6fr) minmax(170px, .7fr) minmax(170px, .7fr) auto auto; gap: .75rem; align-items: end; padding: 1rem; border: 1px solid #d6e2f4; border-radius: 1rem; background: rgb(255 255 255 / 94%); box-shadow: 0 12px 30px rgb(24 63 115 / 6%); }
+.admin-election-filters label { display: grid; min-width: 0; gap: .35rem; color: var(--text); font-size: .78rem; font-weight: 800; }
+.admin-election-filters input,
+.admin-election-filters select { width: 100%; min-height: 2.7rem; padding: .65rem .75rem; border: 1px solid var(--border); border-radius: .72rem; background: #fff; color: var(--text); font: inherit; }
+.admin-election-filters input:focus,
+.admin-election-filters select:focus { border-color: var(--primary); outline: 3px solid rgb(21 94 239 / 14%); }
+.admin-election-filters__clear { color: var(--primary-dark); }
 .admin-approvals__queue,
 .admin-approvals__records { margin-top: 2.5rem; }
 .admin-approvals__section-heading { display: flex; gap: 1rem; align-items: end; justify-content: space-between; margin-bottom: 1rem; }
@@ -848,6 +855,7 @@
 .election-directory-user { display: grid; min-width: 0; }
 .election-directory-user strong { overflow: hidden; color: var(--text); font-size: .9rem; text-overflow: ellipsis; white-space: nowrap; }
 .election-directory-identity { color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: .77rem; }
+.election-directory-verification { width: fit-content; margin-top: .2rem; padding: .16rem .42rem; border-radius: 999px; background: #fff3d6; color: #8a5700; font-size: .68rem; font-weight: 800; }
 .election-directory-checkbox { width: 1.1rem; height: 1.1rem; margin: 0; accent-color: var(--primary); cursor: pointer; }
 .election-directory-checkbox:disabled { cursor: wait; }
 
@@ -869,6 +877,7 @@
 .election-directory-load-more:hover { color: var(--primary); text-decoration: underline; }
 
 .election-candidate-panel { background: #fff; }
+.election-private-candidate-tools { margin-bottom: 1rem; }
 .election-candidate-form { display: grid; gap: 1rem; }
 .election-candidate-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: .85rem; }
 .election-candidate-actions label { display: grid; gap: .35rem; font-size: .85rem; font-weight: 700; }
@@ -909,8 +918,16 @@
     .election-candidate-actions { grid-template-columns: 1fr; }
     .admin-approvals__hero { grid-template-columns: 1fr; }
     .admin-approvals__counter { width: min(100%, 260px); min-height: 0; }
+    .admin-election-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .admin-election-filters__search { grid-column: 1 / -1; }
     .admin-approvals__section-heading { align-items: flex-start; flex-direction: column; }
     .admin-approval-row { grid-template-columns: 1fr; }
     .admin-approval-row__marker { display: none; }
     .admin-approval-row__action { width: 100%; }
+}
+
+@media (max-width: 560px) {
+    .admin-election-filters { grid-template-columns: 1fr; }
+    .admin-election-filters__search { grid-column: auto; }
+    .admin-election-filters .election-button { width: 100%; }
 }

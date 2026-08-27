@@ -83,7 +83,7 @@ final class VoterModuleClient
     }
 
     /**
-     * @return array{users:list<array{userId:int,fullName:string,identityNumber:string,assigned:bool}>,pagination:array{page:int,perPage:int,total:int,hasMore:bool}}|null
+     * @return array{users:list<array{userId:int,fullName:string,identityNumber:string,verified:bool,assigned:bool}>,pagination:array{page:int,perPage:int,total:int,hasMore:bool}}|null
      */
     public function privateVoterDirectory(int $electionId, int $organizerUserId, string $search, int $page = 1): ?array
     {
@@ -132,6 +132,7 @@ final class VoterModuleClient
                 || ! is_int($user['userId'] ?? null)
                 || ! is_string($user['fullName'] ?? null)
                 || ! is_string($user['identityNumber'] ?? null)
+                || ! is_bool($user['verified'] ?? null)
                 || ! is_bool($user['assigned'] ?? null)) {
                 return null;
             }
@@ -139,6 +140,7 @@ final class VoterModuleClient
                 'userId' => $user['userId'],
                 'fullName' => $user['fullName'],
                 'identityNumber' => $user['identityNumber'],
+                'verified' => $user['verified'],
                 'assigned' => $user['assigned'],
             ];
         }

@@ -193,8 +193,8 @@ final class VoterService
 
                 continue;
             }
-            if ($user->isAdmin()) {
-                $unmatchedRows[] = ['row' => $row['row'], 'reason' => 'ADMIN_ACCOUNT'];
+            if ($user->isAdmin() || ! $user->isActive()) {
+                $unmatchedRows[] = ['row' => $row['row'], 'reason' => $user->isAdmin() ? 'ADMIN_ACCOUNT' : 'ACCOUNT_INACTIVE'];
 
                 continue;
             }
@@ -252,13 +252,15 @@ final class VoterService
      * manage a private-election roster. Identity data never crosses directly
      * from the Election module to the user table.
      *
-     * @return array{users:list<array{userId:int,fullName:string,identityNumber:string,assigned:bool}>,pagination:array{page:int,perPage:int,total:int,hasMore:bool}}
+     * @return array{users:list<array{userId:int,fullName:string,identityNumber:string,verified:bool,assigned:bool}>,pagination:array{page:int,perPage:int,total:int,hasMore:bool}}
      */
     public function privateVoterDirectory(int $electionId, string $search, int $page, int $perPage): array
     {
         $search = $this->normaliseIdentitySearch($search);
         $users = User::query()
             ->where('is_admin', false)
+            ->where('account_status', 'ACTIVE')
+            ->whereNull('account_disabled_at')
             ->where(function ($query): void {
                 $query->whereNotNull('ic_number')->orWhereNotNull('passport_number');
             })
@@ -271,7 +273,7 @@ final class VoterService
             })
             ->orderBy('full_name')
             ->orderBy('id')
-            ->paginate($perPage, ['id', 'full_name', 'ic_number', 'passport_number'], 'page', $page);
+            ->paginate($perPage, ['id', 'full_name', 'ic_number', 'passport_number', 'is_verified', 'verified_at'], 'page', $page);
 
         $assignedIds = VoterEnrollment::query()
             ->where('election_id', $electionId)
@@ -287,6 +289,7 @@ final class VoterService
                     'userId' => (int) $user->getKey(),
                     'fullName' => (string) $user->full_name,
                     'identityNumber' => (string) ($user->ic_number ?: $user->passport_number),
+                    'verified' => $user->isVerified(),
                     'assigned' => $assignedIds->has((int) $user->getKey()),
                 ])
                 ->values()
@@ -304,7 +307,7 @@ final class VoterService
     public function setPrivateVoterSelection(int $electionId, int $organizerUserId, int $userId, bool $assigned): array
     {
         $user = User::query()->find($userId);
-        if (! $user instanceof User || $user->isAdmin()) {
+        if (! $user instanceof User || $user->isAdmin() || ($assigned && ! $user->isActive())) {
             return [
                 'userId' => $userId,
                 'assigned' => false,
@@ -377,7 +380,7 @@ final class VoterService
             return ['eligible' => false, 'reasonCode' => 'ADMIN_ACCOUNT', 'identity' => $identity];
         }
 
-        if (($user->account_status ?? 'ACTIVE') !== 'ACTIVE') {
+        if (! $user->isActive()) {
             return ['eligible' => false, 'reasonCode' => 'ACCOUNT_INACTIVE', 'identity' => $identity];
         }
 
@@ -450,7 +453,17 @@ final class VoterService
                     $query->{$method}('passport_number', $passportNumbers);
                 }
             })
-            ->get(['id', 'full_name', 'ic_number', 'passport_number', 'is_admin']);
+            ->get([
+                'id',
+                'full_name',
+                'ic_number',
+                'passport_number',
+                'is_admin',
+                'account_status',
+                'account_disabled_at',
+                'is_verified',
+                'verified_at',
+            ]);
     }
 
     /** @param Collection<int, User> $users

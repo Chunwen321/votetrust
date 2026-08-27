@@ -23,8 +23,12 @@ final class DraftState extends AbstractElectionState
 
     public function actions(Election $election): array
     {
+        $paymentDescription = EligibilityRules::fromStored($election->eligibility_rules)->mode() === EligibilityRules::PRIVATE
+            ? 'Assign at least one candidate, then continue with the fixed hosting fee. Voters can be added later during nominations.'
+            : 'Locks the configuration and continues with the fixed hosting fee for this election type.';
+
         return [
-            ['action' => 'submit_for_payment', 'label' => 'Continue to hosting payment', 'description' => 'Locks the configuration and continues with the fixed hosting fee for this election type.', 'tone' => 'primary', 'audience' => 'organizer', 'requiresPaymentReference' => false, 'requiresReason' => false],
+            ['action' => 'submit_for_payment', 'label' => 'Continue to hosting payment', 'description' => $paymentDescription, 'tone' => 'primary', 'audience' => 'organizer', 'requiresPaymentReference' => false, 'requiresReason' => false],
             ['action' => 'cancel', 'label' => 'Cancel election', 'description' => 'Permanently cancels this draft.', 'tone' => 'danger', 'audience' => 'organizer', 'requiresPaymentReference' => false, 'requiresReason' => true],
         ];
     }
@@ -38,8 +42,8 @@ final class DraftState extends AbstractElectionState
         if ($action === 'submit_for_payment') {
             $election = $lifecycle->election();
             if (EligibilityRules::fromStored($election->eligibility_rules)->mode() === EligibilityRules::PRIVATE
-                && $election->private_voter_list_uploaded_at === null) {
-                throw new BusinessRuleException('Upload a private voter spreadsheet or assign at least one voter before submitting this election for payment.');
+                && ! $election->candidacies()->where('status', 'Approved')->exists()) {
+                throw new BusinessRuleException('Assign at least one approved candidate before submitting this private election for payment. Voters can be assigned later while nominations are open.');
             }
 
             // Re-derive the fee at the payment boundary so a stale browser

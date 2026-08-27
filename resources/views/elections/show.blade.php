@@ -16,12 +16,10 @@
     $nominationEnd = \Carbon\CarbonImmutable::parse($election->nomination_end);
     $votingStart = \Carbon\CarbonImmutable::parse($election->voting_start);
     $votingEnd = \Carbon\CarbonImmutable::parse($election->voting_end);
-    $canManagePrivateVoters = ! $isAdminView
-        && $isPrivateElection
-        && in_array($election->status, [
-            \App\States\ElectionStatus::DRAFT->value,
-            \App\States\ElectionStatus::NOMINATION_OPEN->value,
-        ], true);
+    $canManagePrivateVoters = $canManageParticipants && $isPrivateElection;
+    $canAssignPrivateCandidates = $canManageParticipants && $isPrivateElection;
+    $canReviewCandidates = ! $isAdminView
+        && $election->status === \App\States\ElectionStatus::NOMINATION_OPEN->value;
 @endphp
 <div class="election-shell election-management">
     <a class="election-link election-back-link" href="{{ $backRoute }}">&larr; {{ $isAdminView ? 'Approval workspace' : 'All elections' }}</a>
@@ -49,6 +47,9 @@
                 @endif
                 @if ($canManagePrivateVoters)
                     <a class="election-button election-button-light" href="#private-voters">Add voters</a>
+                @endif
+                @if ($canAssignPrivateCandidates)
+                    <a class="election-button election-button-light" href="#candidates">Assign candidate</a>
                 @endif
             </div>
             <dl class="election-workspace-hero-facts">
@@ -176,7 +177,7 @@
                     <h2>{{ $canManagePrivateVoters ? 'Add voters to this election' : 'Private voter list' }}</h2>
                     <p>
                         @if ($canManagePrivateVoters)
-                            Add registered voters one at a time, or import a spreadsheet. Voter access locks automatically when voting begins.
+                            Add registered voters one at a time, or import a spreadsheet. Candidate and voter management stay available together until voting begins.
                         @else
                             {{ $election->private_voter_count }} approved voter(s) are assigned. The list is locked after the nomination stage to protect the ballot.
                         @endif
@@ -197,20 +198,27 @@
                     <section
                         class="election-roster-method election-voter-directory"
                         data-private-voter-directory
+                        data-participant-directory
+                        data-participant-singular="voter"
+                        data-participant-role="voter access"
+                        data-result-label="active registered user"
+                        data-count-selector="[data-private-voter-count]"
+                        data-empty-message="No registered users are available to assign as voters."
+                        data-no-match-message="No registered user matches that IC or passport number."
                         data-directory-url="{{ route('elections.private-voters.directory', $election) }}"
                         data-selection-url="{{ route('elections.private-voters.selection', ['election' => $election, 'user' => '__USER_ID__']) }}"
                     >
                         <span class="election-roster-method-kicker">Registered user directory</span>
                         <h3>Choose voters from your members</h3>
-                        <p>Search by Malaysian IC or passport number, then tick a user to grant voter access. Changes save immediately.</p>
+                        <p>Search by Malaysian IC or passport number, then tick an active member to assign voter access. Unverified members can be assigned now but must verify their profile before they can access the ballot and vote.</p>
                         <label class="election-directory-search" for="private-voter-search">
                             <span>Search IC or passport number</span>
-                            <input id="private-voter-search" data-voter-search type="search" maxlength="30" autocomplete="off" placeholder="e.g. 050729145232">
+                            <input id="private-voter-search" data-participant-search data-voter-search type="search" maxlength="30" autocomplete="off" placeholder="e.g. 050729145232">
                         </label>
                         <div class="election-directory-summary" data-voter-directory-summary aria-live="polite">Loading registered users…</div>
-                        <div class="election-directory-list" data-voter-directory-list aria-live="polite" aria-busy="true"></div>
-                        <button class="election-directory-load-more" data-voter-directory-more type="button" hidden>Load more users</button>
-                        <p class="election-help">Unticking a user removes only their voter assignment. Importing a spreadsheet never removes existing assigned voters.</p>
+                        <div class="election-directory-list" data-participant-directory-list data-voter-directory-list aria-live="polite" aria-busy="true"></div>
+                        <button class="election-directory-load-more" data-participant-directory-more data-voter-directory-more type="button" hidden>Load more users</button>
+                        <p class="election-help">Disabled accounts are excluded. Unticking a user removes only their voter assignment, and importing a spreadsheet never removes existing voters.</p>
                     </section>
 
                     <form class="election-roster-method" method="post" action="{{ route('elections.private-voters.import', $election) }}" enctype="multipart/form-data">
@@ -233,7 +241,7 @@
                                 <span data-file-name>No file chosen</span>
                             </div>
                         </div>
-                        <p class="election-help">For Excel files, set the <code>ic_number</code> column to <strong>Text</strong> so IC leading zeroes are retained. Existing assigned voters are skipped, and users omitted from a later import remain assigned.</p>
+                        <p class="election-help">For Excel files, set the <code>ic_number</code> column to <strong>Text</strong> so IC leading zeroes are retained. Active unverified users may be imported but must verify before voting. Existing voters are skipped, and omitted users remain assigned.</p>
                         @error('voter_list') <small class="election-field-error">{{ $message }}</small> @enderror
                         <button class="election-button election-button-primary" type="submit">Import voters</button>
                     </form>
@@ -242,19 +250,77 @@
         </section>
     @endif
 
-    @if ($election->status === \App\States\ElectionStatus::NOMINATION_OPEN->value)
-        <section class="election-card election-workspace-panel election-candidate-panel">
+    <section id="candidates" class="election-card election-workspace-panel election-candidate-panel">
             <div class="election-panel-heading">
                 <div>
-                    <span class="election-eyebrow">Candidate review</span>
-                    <h2>Build a complete ballot</h2>
-                    <p>{{ $candidateSummary['approved'] }} approved, {{ $candidateSummary['pending'] }} pending, {{ $candidateSummary['rejected'] }} rejected.</p>
+                    <span class="election-eyebrow">{{ $isPrivateElection ? 'Candidate assignment' : 'Candidate review' }}</span>
+                    <h2>{{ $isPrivateElection ? 'Assign candidates to the ballot' : 'Build a complete ballot' }}</h2>
+                    <p><span data-private-candidate-count>{{ $candidateSummary['approved'] }}</span> approved, {{ $candidateSummary['pending'] }} pending, {{ $candidateSummary['rejected'] }} rejected.</p>
                 </div>
                 <span class="election-status {{ $candidateSummary['ready'] ? 'election-status-nomination-open' : 'election-status-pending-payment' }}">{{ $candidateSummary['ready'] ? 'Ballot ready' : 'Review required' }}</span>
             </div>
+
+            @if ($canAssignPrivateCandidates)
+                <div class="election-private-voter-tools election-private-candidate-tools">
+                    <section
+                        class="election-roster-method election-voter-directory"
+                        data-private-candidate-directory
+                        data-participant-directory
+                        data-participant-singular="candidate"
+                        data-participant-role="candidate assignment"
+                        data-result-label="eligible verified member"
+                        data-count-selector="[data-private-candidate-count]"
+                        data-empty-message="No eligible verified members are available to assign as candidates."
+                        data-no-match-message="No eligible member matches that name, email, IC, or passport number."
+                        data-directory-url="{{ route('elections.private-candidates.directory', $election) }}"
+                        data-selection-url="{{ route('elections.private-candidates.selection', ['election' => $election, 'user' => '__USER_ID__']) }}"
+                    >
+                        <span class="election-roster-method-kicker">Registered user directory</span>
+                        <h3>Choose candidates from your members</h3>
+                        <p>Search by name, email, Malaysian IC, or passport number, then tick a member to assign them. Changes save immediately.</p>
+                        <label class="election-directory-search" for="private-candidate-search">
+                            <span>Search registered members</span>
+                            <input id="private-candidate-search" data-participant-search type="search" maxlength="100" autocomplete="off" placeholder="Name, email, IC, or passport">
+                        </label>
+                        <div class="election-directory-summary" data-participant-directory-summary aria-live="polite">Loading registered users&hellip;</div>
+                        <div class="election-directory-list" data-participant-directory-list aria-live="polite" aria-busy="true"></div>
+                        <button class="election-directory-load-more" data-participant-directory-more type="button" hidden>Load more users</button>
+                        <p class="election-help">Unticking a candidate marks the assignment rejected without deleting its audit history. Candidate decisions remain editable during nominations.</p>
+                    </section>
+
+                    <form class="election-roster-method" method="post" action="{{ route('elections.private-candidates.import', $election) }}" enctype="multipart/form-data">
+                        @csrf
+                        <span class="election-roster-method-kicker">Spreadsheet import</span>
+                        <h3>Import a candidate list</h3>
+                        <p>Upload a CSV, XLSX, or XLS file with the exact headers <code>full_name</code> and <code>ic_number</code>. The identity column can contain IC or passport numbers.</p>
+                        <div class="election-roster-template">
+                            <div>
+                                <strong>Start with the candidate template</strong>
+                                <p>Open it in Excel, replace the example rows, and keep both column headers unchanged.</p>
+                            </div>
+                            <a class="election-button election-button-small" href="{{ route('elections.private-candidates.template') }}" download>Download CSV template</a>
+                        </div>
+                        <div class="election-file-upload" data-file-upload>
+                            <span class="election-file-upload__title">Candidate spreadsheet</span>
+                            <input id="candidate_list" class="election-file-upload__native" name="candidate_list" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" aria-required="true" hidden>
+                            <div class="election-file-upload__control">
+                                <label for="candidate_list" tabindex="0" data-file-trigger>Choose file</label>
+                                <span data-file-name>No file chosen</span>
+                            </div>
+                        </div>
+                        <p class="election-help">For Excel files, set the <code>ic_number</code> column to <strong>Text</strong> so leading zeroes are retained. Existing candidates are skipped, and omitted candidates remain assigned.</p>
+                        @error('candidate_list') <small class="election-field-error">{{ $message }}</small> @enderror
+                        <button class="election-button election-button-primary" type="submit">Import candidates</button>
+                    </form>
+                </div>
+            @endif
+
             @if ($candidateSummary['applications']->isEmpty())
-                <div class="election-panel-empty"><strong>No candidate applications yet.</strong><p>Applications submitted during nominations will appear here for review.</p></div>
-            @elseif (! $isAdminView)
+                <div class="election-panel-empty">
+                    <strong>{{ $isPrivateElection ? 'Assign at least one candidate.' : 'No candidate applications yet.' }}</strong>
+                    <p>{{ $isPrivateElection ? 'A private election needs an approved candidate before it can continue to hosting payment. Voters may be assigned later.' : 'Applications submitted during nominations will appear here for review.' }}</p>
+                </div>
+            @elseif ($canReviewCandidates)
                 <form class="election-candidate-form" method="post" action="{{ route('elections.candidates.review', $election) }}">
                     @csrf
                     <input type="hidden" name="version" value="{{ $election->version }}">
@@ -266,9 +332,15 @@
                     </tbody></table></div>
                     <div class="election-candidate-actions"><label>Current password<input name="current_password" type="password" autocomplete="current-password" required></label><button class="election-button election-button-primary" type="submit">Save candidate decisions</button></div>
                 </form>
+            @else
+                <div class="election-table-wrap"><table class="election-table"><thead><tr><th>Candidate</th><th>Assigned</th><th>Status</th></tr></thead><tbody>
+                @foreach ($candidateSummary['applications'] as $application)
+                    @php $candidateName = $application->user?->display_name ?? 'Candidate #'.$application->user_id; @endphp
+                    <tr><td>{{ $candidateName }}</td><td>{{ \Carbon\CarbonImmutable::parse($application->registered_at)->format('d M Y, H:i') }}</td><td><span class="election-status election-status-{{ strtolower($application->status) }}">{{ $application->status }}</span></td></tr>
+                @endforeach
+                </tbody></table></div>
             @endif
-        </section>
-    @endif
+    </section>
 
     <section class="election-card election-workspace-panel election-audit-panel">
         <div class="election-panel-heading">
