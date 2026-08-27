@@ -65,8 +65,8 @@ final class VoterService
 
             $enrollment->setAttribute('election_title', $election['title']);
             $enrollment->setAttribute('election_status', $election['status']);
-            $enrollment->setAttribute('election_nomination_start', null);
-            $enrollment->setAttribute('election_nomination_end', null);
+            $enrollment->setAttribute('election_nomination_start', $election['nominationStart']);
+            $enrollment->setAttribute('election_nomination_end', $election['nominationEnd']);
             $enrollment->setAttribute('election_voting_start', $election['votingStart']);
             $enrollment->setAttribute('election_voting_end', $election['votingEnd']);
             $enrollment->setAttribute('election_voting_allowed', $election['votingAllowed']);

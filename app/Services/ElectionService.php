@@ -450,10 +450,11 @@ final class ElectionService
     }
 
     /**
-     * Elections that remain useful in the voter-facing portal. Unlike
-     * availableForVoting(), this catalog retains an open election after its
-     * scheduled end and retains closed elections so their details and results
-     * remain discoverable.
+     * Published elections that remain useful in the participant workspace.
+     * Unlike availableForVoting(), this catalog includes the nomination stage
+     * so members who register after approval can discover upcoming public
+     * elections before voting opens. It also retains an open election after
+     * its scheduled end and retains closed elections for historical access.
      *
      * @return list<array<string, mixed>>
      */
@@ -463,6 +464,7 @@ final class ElectionService
 
         return Election::query()
             ->whereIn('status', [
+                ElectionStatus::NOMINATION_OPEN->value,
                 ElectionStatus::VOTING_OPEN->value,
                 ElectionStatus::CLOSED->value,
             ])
@@ -517,6 +519,10 @@ final class ElectionService
                     'lifecycleState' => (string) $election->status,
                     'votingAllowed' => $votingAllowed,
                     'eligibility' => EligibilityRules::fromStored($election->eligibility_rules)->toArray(),
+                    'nominationPeriod' => [
+                        'start' => $election->nomination_start?->toAtomString(),
+                        'end' => $election->nomination_end?->toAtomString(),
+                    ],
                     'votingPeriod' => [
                         'start' => $election->voting_start?->toAtomString(),
                         'end' => $election->voting_end?->toAtomString(),

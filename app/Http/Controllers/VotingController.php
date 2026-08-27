@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Contracts\VotingIntegration;
 use App\Http\Requests\CastVoteRequest;
+use App\Models\Election;
 use App\Models\Vote;
 use App\Services\Voting\IntegrationException;
 use App\Services\Voting\InvalidVoteRequest;
@@ -27,6 +28,10 @@ class VotingController extends Controller
         try {
             $elections = collect($integration->voterElections($requestId, $timestamp))
                 ->filter(function (array $election) use ($integration, $request): bool {
+                    if (($election['status'] ?? null) !== Election::VOTING_OPEN) {
+                        return false;
+                    }
+
                     if (data_get($election, 'eligibility.type') !== 'PRIVATE') {
                         return true;
                     }

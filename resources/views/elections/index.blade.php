@@ -30,7 +30,7 @@
                 <div>
                     <p class="eyebrow">Your voter area</p>
                     <h2 id="voting-elections-title">Voting elections</h2>
-                    <p>Election access is granted separately for each election.</p>
+                    <p>Approved public elections appear automatically. Private elections require an organiser assignment.</p>
                 </div>
             </div>
             <span class="section-count">{{ $voterEnrollments->count() }} election{{ $voterEnrollments->count() === 1 ? '' : 's' }}</span>
@@ -41,7 +41,7 @@
                 <div class="role-empty-state__icon" aria-hidden="true">✓</div>
                 <div>
                     <h3>No voting elections yet</h3>
-                    <p>When an organiser or administrator enrols you, the election will appear here.</p>
+                    <p>Approved public elections will appear here automatically, including elections organised before you registered. Private elections appear after an organiser assigns you.</p>
                 </div>
             </article>
         @else
@@ -87,7 +87,7 @@
                             @elseif ($isVotingOpen && $isApprovedVoter)
                                 <a class="button button-small" href="{{ route('voting.ballot', $enrollment->election_id) }}" aria-label="Open the ballot for {{ $enrollment->election_title }}">Open ballot <span aria-hidden="true">&rarr;</span></a>
                             @else
-                                <a class="button button-quiet button-small" href="{{ route('voting.ballot', $enrollment->election_id) }}" aria-label="View voting for {{ $enrollment->election_title }}">View voting <span aria-hidden="true">&rarr;</span></a>
+                                <a class="button button-quiet button-small" href="{{ route('elections.show', $enrollment->election_id) }}" aria-label="View election {{ $enrollment->election_title }}">View election <span aria-hidden="true">&rarr;</span></a>
                             @endif
                         </div>
                     </article>

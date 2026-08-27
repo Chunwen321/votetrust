@@ -72,7 +72,7 @@ final class ElectionModuleClient
     }
 
     /**
-     * @return list<array{id:int,title:string,status:string,votingAllowed:bool,eligibilityType:string,votingStart:?string,votingEnd:?string}>
+     * @return list<array{id:int,title:string,status:string,votingAllowed:bool,eligibilityType:string,nominationStart:?string,nominationEnd:?string,votingStart:?string,votingEnd:?string}>
      */
     public function voterCatalog(): array
     {
@@ -85,6 +85,7 @@ final class ElectionModuleClient
         $catalog = [];
         foreach ($records as $record) {
             $eligibility = is_array($record) ? ($record['eligibility'] ?? null) : null;
+            $nominationPeriod = is_array($record) ? ($record['nominationPeriod'] ?? null) : null;
             $period = is_array($record) ? ($record['votingPeriod'] ?? null) : null;
             $type = is_array($eligibility) ? strtoupper((string) ($eligibility['type'] ?? '')) : '';
             $status = is_array($record) ? strtoupper((string) ($record['lifecycleState'] ?? '')) : '';
@@ -94,18 +95,25 @@ final class ElectionModuleClient
                 || $record['electionId'] < 1
                 || ! is_string($record['title'] ?? null)
                 || trim($record['title']) === ''
-                || ! in_array($status, ['VOTING_OPEN', 'CLOSED'], true)
+                || ! in_array($status, ['NOMINATION_OPEN', 'VOTING_OPEN', 'CLOSED'], true)
                 || ! is_bool($record['votingAllowed'] ?? null)
                 || ! in_array($type, ['PUBLIC', 'PRIVATE'], true)
+                || ! is_array($nominationPeriod)
+                || ! array_key_exists('start', $nominationPeriod)
+                || ! array_key_exists('end', $nominationPeriod)
                 || ! is_array($period)
                 || ! array_key_exists('start', $period)
                 || ! array_key_exists('end', $period)) {
                 continue;
             }
 
+            $nominationStart = $this->normaliseTimestamp($nominationPeriod['start']);
+            $nominationEnd = $this->normaliseTimestamp($nominationPeriod['end']);
             $votingStart = $this->normaliseTimestamp($period['start']);
             $votingEnd = $this->normaliseTimestamp($period['end']);
-            if (($period['start'] !== null && $votingStart === null)
+            if (($nominationPeriod['start'] !== null && $nominationStart === null)
+                || ($nominationPeriod['end'] !== null && $nominationEnd === null)
+                || ($period['start'] !== null && $votingStart === null)
                 || ($period['end'] !== null && $votingEnd === null)) {
                 continue;
             }
@@ -116,6 +124,8 @@ final class ElectionModuleClient
                 'status' => $status,
                 'votingAllowed' => $record['votingAllowed'],
                 'eligibilityType' => $type,
+                'nominationStart' => $nominationStart,
+                'nominationEnd' => $nominationEnd,
                 'votingStart' => $votingStart,
                 'votingEnd' => $votingEnd,
             ];
