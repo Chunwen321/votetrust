@@ -404,6 +404,9 @@
 .user-module .management-section { margin-top: 24px; scroll-margin-top: 100px; }
 .user-module .management-add-form { display: grid; grid-template-columns: minmax(240px, 1.5fr) minmax(160px, .7fr) auto; gap: 12px; align-items: end; margin-bottom: 24px; padding: 18px; background: var(--user-soft); border-radius: 14px; }
 .user-module .management-filter-form { display: grid; grid-template-columns: minmax(240px, 1.5fr) minmax(160px, .7fr) auto auto; gap: 12px; align-items: end; margin-bottom: 24px; padding: 18px; background: var(--user-soft); border-radius: 14px; }
+.user-module .payment-review-form { display: grid; min-width: 220px; gap: 8px; }
+.user-module .payment-review-form label { gap: 4px; font-size: .76rem; }
+.user-module .payment-review-form input { min-height: 36px; padding: 6px 9px; }
 .user-module .row-action-form { display: flex; gap: 8px; align-items: center; }
 .user-module .row-action-form select { min-width: 120px; }
 .user-module .button-danger { background: var(--user-danger); }

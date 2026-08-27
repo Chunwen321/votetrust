@@ -24,21 +24,33 @@ final class PrivateVoterRosterFile
      */
     public function parse(UploadedFile $file): array
     {
+        return $this->parseFor($file, 'voter');
+    }
+
+    /** @return list<array{row:int,fullName:string,identityNumber:string}> */
+    public function parseCandidates(UploadedFile $file): array
+    {
+        return $this->parseFor($file, 'candidate');
+    }
+
+    /** @return list<array{row:int,fullName:string,identityNumber:string}> */
+    private function parseFor(UploadedFile $file, string $participant): array
+    {
         $extension = strtolower((string) $file->getClientOriginalExtension());
 
         return match ($extension) {
-            'csv' => $this->votersFromRows($this->csvRows($file)),
-            'xlsx', 'xls' => $this->votersFromRows($this->spreadsheetRows($file)),
-            default => throw new RuntimeException('Upload a CSV, XLSX, or XLS voter list.'),
+            'csv' => $this->participantsFromRows($this->csvRows($file, $participant), $participant),
+            'xlsx', 'xls' => $this->participantsFromRows($this->spreadsheetRows($file, $participant), $participant),
+            default => throw new RuntimeException("Upload a CSV, XLSX, or XLS {$participant} list."),
         };
     }
 
     /** @return list<array{row:int,values:list<string>}> */
-    private function csvRows(UploadedFile $file): array
+    private function csvRows(UploadedFile $file, string $participant): array
     {
         $handle = fopen($file->getRealPath(), 'rb');
         if ($handle === false) {
-            throw new RuntimeException('The voter CSV could not be read.');
+            throw new RuntimeException("The {$participant} CSV could not be read.");
         }
 
         try {
@@ -47,7 +59,7 @@ final class PrivateVoterRosterFile
             while (($record = fgetcsv($handle)) !== false) {
                 $line++;
                 if ($line > self::MAX_ROWS + 1) {
-                    throw new RuntimeException('A private voter list can contain up to '.self::MAX_ROWS.' voters.');
+                    throw new RuntimeException("A private {$participant} list can contain up to ".self::MAX_ROWS." {$participant}s.");
                 }
                 $rows[] = [
                     'row' => $line,
@@ -62,7 +74,7 @@ final class PrivateVoterRosterFile
     }
 
     /** @return list<array{row:int,values:list<string>}> */
-    private function spreadsheetRows(UploadedFile $file): array
+    private function spreadsheetRows(UploadedFile $file, string $participant): array
     {
         $spreadsheet = null;
         try {
@@ -72,7 +84,7 @@ final class PrivateVoterRosterFile
             $sheet = $spreadsheet->getActiveSheet();
             $highestRow = (int) $sheet->getHighestDataRow();
             if ($highestRow > self::MAX_ROWS + 1) {
-                throw new RuntimeException('A private voter list can contain up to '.self::MAX_ROWS.' voters.');
+                throw new RuntimeException("A private {$participant} list can contain up to ".self::MAX_ROWS." {$participant}s.");
             }
 
             $highestColumn = $sheet->getHighestDataColumn();
@@ -99,7 +111,7 @@ final class PrivateVoterRosterFile
         } catch (RuntimeException $exception) {
             throw $exception;
         } catch (Throwable) {
-            throw new RuntimeException('The Excel voter list could not be read. Use a valid XLSX or XLS file.');
+            throw new RuntimeException("The Excel {$participant} list could not be read. Use a valid XLSX or XLS file.");
         } finally {
             if ($spreadsheet instanceof Spreadsheet) {
                 $spreadsheet->disconnectWorksheets();
@@ -111,11 +123,11 @@ final class PrivateVoterRosterFile
      * @param  list<array{row:int,values:list<string>}>  $rows
      * @return list<array{row:int,fullName:string,identityNumber:string}>
      */
-    private function votersFromRows(array $rows): array
+    private function participantsFromRows(array $rows, string $participant): array
     {
         $header = array_shift($rows);
         if ($header === null) {
-            throw new RuntimeException('The voter list must include a header row.');
+            throw new RuntimeException("The {$participant} list must include a header row.");
         }
 
         $columns = [];
@@ -126,7 +138,7 @@ final class PrivateVoterRosterFile
             throw new RuntimeException('Use the headers "full_name" and "ic_number". The ic_number column can contain an IC or passport number.');
         }
 
-        $voters = [];
+        $participants = [];
         foreach ($rows as $record) {
             $fullName = trim((string) ($record['values'][$columns['fullname']] ?? ''));
             $identityNumber = trim((string) ($record['values'][$columns['icnumber']] ?? ''));
@@ -134,24 +146,24 @@ final class PrivateVoterRosterFile
                 continue;
             }
             if ($fullName === '' || $identityNumber === '') {
-                throw new RuntimeException("Voter-list row {$record['row']} must include both full_name and ic_number.");
+                throw new RuntimeException(ucfirst($participant)."-list row {$record['row']} must include both full_name and ic_number.");
             }
-            if (count($voters) >= self::MAX_ROWS) {
-                throw new RuntimeException('A private voter list can contain up to '.self::MAX_ROWS.' voters.');
+            if (count($participants) >= self::MAX_ROWS) {
+                throw new RuntimeException("A private {$participant} list can contain up to ".self::MAX_ROWS." {$participant}s.");
             }
 
-            $voters[] = [
+            $participants[] = [
                 'row' => $record['row'],
                 'fullName' => $fullName,
                 'identityNumber' => $identityNumber,
             ];
         }
 
-        if ($voters === []) {
-            throw new RuntimeException('The voter list does not contain any voter rows.');
+        if ($participants === []) {
+            throw new RuntimeException("The {$participant} list does not contain any {$participant} rows.");
         }
 
-        return $voters;
+        return $participants;
     }
 
     private function normaliseHeader(string $header): string

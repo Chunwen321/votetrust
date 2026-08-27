@@ -24,8 +24,14 @@
     <a class="card admin-action-card" href="{{ route('admin.elections.index') }}">
         <span class="eyebrow">Election workflow</span>
         <h2>Review election requests</h2>
-        <p>{{ $counts['pending_election_approvals'] }} paid election{{ $counts['pending_election_approvals'] === 1 ? '' : 's' }} awaiting payment verification and approval.</p>
+        <p>{{ $counts['pending_election_approvals'] }} election {{ \Illuminate\Support\Str::plural('request', $counts['pending_election_approvals']) }} awaiting review.</p>
         <span class="back-link">Open election workspace &rarr;</span>
+    </a>
+    <a class="card admin-action-card" href="{{ route('admin.payments.index') }}">
+        <span class="eyebrow">Payment verification</span>
+        <h2>Review hosting payments</h2>
+        <p>Check submitted references and verify payment before an election can receive final approval.</p>
+        <span class="back-link">Open payment queue &rarr;</span>
     </a>
     <a class="card admin-action-card" href="{{ route('admin.users.index') }}">
         <span class="eyebrow">Account access</span>

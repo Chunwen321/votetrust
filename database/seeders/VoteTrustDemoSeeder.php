@@ -739,6 +739,13 @@ class VoteTrustDemoSeeder extends Seeder
             );
         }
 
+        $this->seedCandidacy(
+            $elections['privateDraft'],
+            $users['CandidateAisha'],
+            Candidacy::APPROVED,
+            $now->subDay(),
+        );
+
         $danielPayment = Payment::query()->updateOrCreate(
             ['request_id' => 'SEED-CANDIDATE-DANIEL-0001'],
             [

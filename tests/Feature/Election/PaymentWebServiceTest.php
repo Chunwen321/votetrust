@@ -231,6 +231,20 @@ final class PaymentWebServiceTest extends TestCase
             );
             self::fail('An unconfirmed remote payment opened the next lifecycle state.');
         } catch (BusinessRuleException $exception) {
+            self::assertStringContainsString('Verify the hosting payment', $exception->getMessage());
+        }
+        Http::assertSentCount(0);
+
+        try {
+            $service->transition(
+                $admin,
+                $election->getKey(),
+                'verify_payment',
+                'Admin!Pass1',
+                ['version' => 3],
+            );
+            self::fail('An unconfirmed remote payment passed administrator verification.');
+        } catch (BusinessRuleException $exception) {
             self::assertStringContainsString('not confirmed', $exception->getMessage());
         }
 

@@ -7,6 +7,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Exceptions\BusinessRuleException;
+use App\Models\Candidacy;
 use App\Models\Election;
 use App\Models\Organizer;
 use App\Models\User;
@@ -37,6 +38,12 @@ final class PrivateVoterRosterTest extends TestCase
         self::assertStringContainsString('full_name,ic_number', $content);
         self::assertStringContainsString('050729-14-5232', $content);
         self::assertStringContainsString('E1234567', $content);
+
+        $candidateResponse = $this->actingAs(User::factory()->create())
+            ->get(route('elections.private-candidates.template'))
+            ->assertOk()
+            ->assertDownload('votetrust-private-candidate-template.csv');
+        self::assertStringContainsString('full_name,ic_number', $candidateResponse->streamedContent());
     }
 
     public function test_the_roster_reader_accepts_xlsx_with_ic_or_passport_values(): void
@@ -61,10 +68,13 @@ final class PrivateVoterRosterTest extends TestCase
                 null,
                 true,
             );
-            self::assertSame([
+            $expected = [
                 ['row' => 2, 'fullName' => 'Nur Aisyah Binti Ali', 'identityNumber' => '050729145232'],
                 ['row' => 3, 'fullName' => 'Aisha Rahman', 'identityNumber' => 'E1234567'],
-            ], $this->app->make(PrivateVoterRosterFile::class)->parse($file));
+            ];
+            $reader = $this->app->make(PrivateVoterRosterFile::class);
+            self::assertSame($expected, $reader->parse($file));
+            self::assertSame($expected, $reader->parseCandidates($file));
         } finally {
             if (is_file($path)) {
                 unlink($path);
@@ -266,12 +276,24 @@ final class PrivateVoterRosterTest extends TestCase
             'passport_number' => 'P7654321',
             'nationality_country_code' => 'SG',
         ]);
+        $unverifiedVoter = User::factory()->unverifiedProfile()->create([
+            'full_name' => 'Unverified Directory Member',
+            'ic_number' => '060606145678',
+        ]);
+        $disabledVoter = User::factory()->create([
+            'full_name' => 'Disabled Directory Member',
+            'ic_number' => '070707145678',
+            'account_status' => 'DISABLED',
+            'account_disabled_at' => now(),
+        ]);
         User::factory()->create([
             'full_name' => 'System Administrator',
             'ic_number' => '990101145678',
             'is_admin' => true,
         ]);
         $election = Election::query()->create(['title' => 'Private Directory Election']);
+        self::assertTrue($unverifiedVoter->isActive());
+        self::assertFalse($unverifiedVoter->isVerified());
 
         $this->withHeader('X-Internal-Api-Key', 'private-roster-api-key')
             ->getJson(route('api.voters.private-directory', [
@@ -332,6 +354,114 @@ final class PrivateVoterRosterTest extends TestCase
             'user_id' => $passportHolder->getKey(),
             'election_id' => $election->getKey(),
         ]);
+
+        $this->withHeader('X-Internal-Api-Key', 'private-roster-api-key')
+            ->getJson(route('api.voters.private-directory', [
+                'electionId' => $election->getKey(),
+                'organizerUserId' => $organizer->getKey(),
+                'search' => '060606145678',
+                'page' => 1,
+                'perPage' => 25,
+                'requestID' => 'private-directory-004',
+                'timestamp' => now()->toAtomString(),
+            ]))
+            ->assertOk()
+            ->assertJsonPath('data.pagination.total', 1)
+            ->assertJsonPath('data.users.0.userId', $unverifiedVoter->getKey())
+            ->assertJsonPath('data.users.0.verified', false);
+
+        $this->withHeader('X-Internal-Api-Key', 'private-roster-api-key')
+            ->patchJson(route('api.voters.private-enrollments.selection'), [
+                'electionId' => $election->getKey(),
+                'organizerUserId' => $organizer->getKey(),
+                'userId' => $unverifiedVoter->getKey(),
+                'assigned' => true,
+                'requestID' => 'private-directory-005',
+                'timestamp' => now()->toAtomString(),
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.assigned', true)
+            ->assertJsonPath('data.totalAssigned', 1);
+
+        $this->withHeader('X-Internal-Api-Key', 'private-roster-api-key')
+            ->getJson(route('api.voters.private-directory', [
+                'electionId' => $election->getKey(),
+                'organizerUserId' => $organizer->getKey(),
+                'search' => '070707145678',
+                'page' => 1,
+                'perPage' => 25,
+                'requestID' => 'private-directory-006',
+                'timestamp' => now()->toAtomString(),
+            ]))
+            ->assertOk()
+            ->assertJsonPath('data.pagination.total', 0);
+
+        $this->withHeader('X-Internal-Api-Key', 'private-roster-api-key')
+            ->patchJson(route('api.voters.private-enrollments.selection'), [
+                'electionId' => $election->getKey(),
+                'organizerUserId' => $organizer->getKey(),
+                'userId' => $disabledVoter->getKey(),
+                'assigned' => true,
+                'requestID' => 'private-directory-007',
+                'timestamp' => now()->toAtomString(),
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.assigned', false)
+            ->assertJsonPath('data.reasonCode', 'USER_UNAVAILABLE');
+
+        $this->assertDatabaseHas('voter', [
+            'user_id' => $unverifiedVoter->getKey(),
+            'election_id' => $election->getKey(),
+            'status' => VoterEnrollment::APPROVED,
+        ]);
+        $this->assertDatabaseMissing('voter', [
+            'user_id' => $disabledVoter->getKey(),
+            'election_id' => $election->getKey(),
+        ]);
+    }
+
+    public function test_private_voter_import_accepts_unverified_members_but_rejects_disabled_accounts(): void
+    {
+        config()->set('votetrust-user.api.key', 'private-roster-api-key');
+
+        $organizer = User::factory()->create();
+        $unverifiedVoter = User::factory()->unverifiedProfile()->create([
+            'full_name' => 'Unverified Import Member',
+            'ic_number' => '080808145678',
+        ]);
+        $disabledVoter = User::factory()->create([
+            'full_name' => 'Disabled Import Member',
+            'ic_number' => '090909145678',
+            'account_status' => 'DISABLED',
+            'account_disabled_at' => now(),
+        ]);
+        $election = Election::query()->create(['title' => 'Unverified Voter Import']);
+
+        $this->withHeader('X-Internal-Api-Key', 'private-roster-api-key')
+            ->postJson(route('api.voters.private-enrollments'), [
+                'electionId' => $election->getKey(),
+                'organizerUserId' => $organizer->getKey(),
+                'voters' => [
+                    ['row' => 2, 'fullName' => 'Unverified Import Member', 'identityNumber' => '080808145678'],
+                    ['row' => 3, 'fullName' => 'Disabled Import Member', 'identityNumber' => '090909145678'],
+                ],
+                'requestID' => 'private-import-verification-001',
+                'timestamp' => now()->toAtomString(),
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.assigned', 1)
+            ->assertJsonPath('data.unmatchedCount', 1)
+            ->assertJsonPath('data.unmatchedRows.0.reason', 'ACCOUNT_INACTIVE');
+
+        $this->assertDatabaseHas('voter', [
+            'user_id' => $unverifiedVoter->getKey(),
+            'election_id' => $election->getKey(),
+            'status' => VoterEnrollment::APPROVED,
+        ]);
+        $this->assertDatabaseMissing('voter', [
+            'user_id' => $disabledVoter->getKey(),
+            'election_id' => $election->getKey(),
+        ]);
     }
 
     public function test_organizer_can_manage_private_voters_live_while_nominations_are_open(): void
@@ -368,6 +498,7 @@ final class PrivateVoterRosterTest extends TestCase
                             'userId' => 42,
                             'fullName' => 'Directory Voter',
                             'identityNumber' => '050729145232',
+                            'verified' => true,
                             'assigned' => false,
                         ]],
                         'pagination' => ['page' => 1, 'perPage' => 25, 'total' => 1, 'hasMore' => false],
@@ -420,7 +551,8 @@ final class PrivateVoterRosterTest extends TestCase
             ->patchJson(route('elections.private-voters.selection', ['election' => $election, 'user' => 42]), ['assigned' => true])
             ->assertOk()
             ->assertJsonPath('data.assigned', true)
-            ->assertJsonPath('data.totalAssigned', 2);
+            ->assertJsonPath('data.totalAssigned', 2)
+            ->assertJsonPath('data.version', 2);
 
         $election->refresh();
         self::assertNotNull($election->private_voter_list_uploaded_at);
@@ -442,14 +574,15 @@ final class PrivateVoterRosterTest extends TestCase
         });
     }
 
-    public function test_private_election_cannot_be_submitted_for_payment_before_its_csv_is_processed(): void
+    public function test_private_election_requires_a_candidate_but_not_voters_before_payment(): void
     {
         $organizer = User::factory()->create();
+        $candidate = User::factory()->create();
         $service = $this->app->make(ElectionService::class);
         $election = $service->create($organizer, [
             'title' => 'Private Payment Gate Election',
             'position_sought' => 'Class Representative',
-            'description' => 'A private election must receive its named voter list before payment.',
+            'description' => 'A private election must receive its candidate assignment before payment.',
             'eligibility_mode' => 'PRIVATE',
             'nomination_start' => now()->addDay(),
             'nomination_end' => now()->addDays(2),
@@ -457,9 +590,306 @@ final class PrivateVoterRosterTest extends TestCase
             'voting_end' => now()->addDays(4),
         ]);
 
-        $this->expectException(BusinessRuleException::class);
-        $this->expectExceptionMessage('Upload a private voter spreadsheet or assign at least one voter');
+        try {
+            $service->transition($organizer, $election->getKey(), 'submit_for_payment', 'password', ['version' => 1]);
+            self::fail('A private election continued to payment without a candidate.');
+        } catch (BusinessRuleException $exception) {
+            self::assertStringContainsString('Assign at least one approved candidate', $exception->getMessage());
+        }
 
-        $service->transition($organizer, $election->getKey(), 'submit_for_payment', 'password', ['version' => 1]);
+        $assignment = $service->assignPrivateCandidate(
+            $organizer,
+            (int) $election->getKey(),
+            (int) $candidate->getKey(),
+            1,
+        );
+
+        self::assertSame(Candidacy::APPROVED, $assignment->status);
+        self::assertNull($election->refresh()->private_voter_list_uploaded_at);
+
+        $updated = $service->transition($organizer, $election->getKey(), 'submit_for_payment', 'password', ['version' => 2]);
+        self::assertSame(Election::PENDING_PAYMENT, $updated->status);
+        self::assertSame(0, $updated->private_voter_count);
+    }
+
+    public function test_organizer_can_search_and_toggle_private_candidate_assignments(): void
+    {
+        $organizer = User::factory()->create();
+        $candidate = User::factory()->create([
+            'full_name' => 'Searchable Candidate',
+            'email' => 'searchable-candidate@example.test',
+            'ic_number' => '050729145232',
+        ]);
+        $unverifiedCandidate = User::factory()->unverifiedProfile()->create([
+            'full_name' => 'Unverified Candidate',
+            'ic_number' => '101010145678',
+        ]);
+        Organizer::query()->create(['user_id' => $organizer->getKey()]);
+        $election = Election::query()->create([
+            'organizer_id' => $organizer->getKey(),
+            'title' => 'Searchable Candidate Assignment',
+            'position_sought' => 'Class Representative',
+            'eligibility_rules' => json_encode(['type' => 'PRIVATE']),
+            'status' => Election::PENDING_ADMIN_APPROVAL,
+            'currency' => 'MYR',
+            'nomination_start' => now()->addDay(),
+            'nomination_end' => now()->addDays(2),
+            'voting_start' => now()->addDays(3),
+            'voting_end' => now()->addDays(4),
+            'version' => 1,
+        ]);
+
+        $this->actingAs($organizer)
+            ->getJson(route('elections.private-candidates.directory', [
+                'election' => $election,
+                'search' => '050729-14-5232',
+            ]))
+            ->assertOk()
+            ->assertJsonPath('data.users.0.userId', $candidate->getKey())
+            ->assertJsonPath('data.users.0.fullName', 'Searchable Candidate')
+            ->assertJsonPath('data.users.0.assigned', false);
+
+        $this->actingAs($organizer)
+            ->getJson(route('elections.private-candidates.directory', [
+                'election' => $election,
+                'search' => '101010145678',
+            ]))
+            ->assertOk()
+            ->assertJsonPath('data.pagination.total', 0);
+
+        $this->actingAs($organizer)
+            ->patchJson(route('elections.private-candidates.selection', [
+                'election' => $election,
+                'user' => $unverifiedCandidate,
+            ]), ['assigned' => true])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'This member is no longer available for candidate assignment.');
+
+        $this->actingAs($organizer)
+            ->patchJson(route('elections.private-candidates.selection', [
+                'election' => $election,
+                'user' => $candidate,
+            ]), ['assigned' => true])
+            ->assertOk()
+            ->assertJsonPath('data.assigned', true)
+            ->assertJsonPath('data.changed', true)
+            ->assertJsonPath('data.totalAssigned', 1)
+            ->assertJsonPath('data.version', 2);
+
+        $this->assertDatabaseHas('candidacy', [
+            'election_id' => $election->getKey(),
+            'user_id' => $candidate->getKey(),
+            'status' => Candidacy::APPROVED,
+        ]);
+
+        $this->actingAs($organizer)
+            ->patchJson(route('elections.private-candidates.selection', [
+                'election' => $election,
+                'user' => $candidate,
+            ]), ['assigned' => false])
+            ->assertOk()
+            ->assertJsonPath('data.assigned', false)
+            ->assertJsonPath('data.totalAssigned', 0)
+            ->assertJsonPath('data.version', 3);
+
+        $this->assertDatabaseHas('candidacy', [
+            'election_id' => $election->getKey(),
+            'user_id' => $candidate->getKey(),
+            'status' => Candidacy::REJECTED,
+        ]);
+        self::assertSame([
+            'assign_private_candidate',
+            'remove_private_candidate',
+        ], collect($election->refresh()->transition_history_json)->pluck('action')->all());
+    }
+
+    public function test_organizer_can_import_a_private_candidate_spreadsheet_without_removing_existing_candidates(): void
+    {
+        $organizer = User::factory()->create();
+        $existingCandidate = User::factory()->create();
+        $importedCandidate = User::factory()->create([
+            'full_name' => 'Imported Candidate',
+            'passport_number' => 'A1234567',
+        ]);
+        Organizer::query()->create(['user_id' => $organizer->getKey()]);
+        $election = Election::query()->create([
+            'organizer_id' => $organizer->getKey(),
+            'title' => 'Candidate Spreadsheet Election',
+            'position_sought' => 'Class Representative',
+            'eligibility_rules' => json_encode(['type' => 'PRIVATE']),
+            'status' => Election::DRAFT,
+            'currency' => 'MYR',
+            'nomination_start' => now()->addDay(),
+            'nomination_end' => now()->addDays(2),
+            'voting_start' => now()->addDays(3),
+            'voting_end' => now()->addDays(4),
+            'version' => 1,
+        ]);
+        Candidacy::query()->create([
+            'election_id' => $election->getKey(),
+            'user_id' => $existingCandidate->getKey(),
+            'status' => Candidacy::APPROVED,
+            'registered_at' => now(),
+        ]);
+
+        $this->actingAs($organizer)
+            ->post(route('elections.private-candidates.import', $election), [
+                'candidate_list' => UploadedFile::fake()->createWithContent(
+                    'private-candidates.csv',
+                    "full_name,ic_number\nImported Candidate,A1234567\nUnknown Candidate,B7654321\n",
+                ),
+            ])
+            ->assertRedirect(route('elections.show', $election).'#candidates')
+            ->assertSessionHas('success', fn (string $message): bool => str_contains($message, '1 new candidate(s) assigned')
+                && str_contains($message, '1 row(s) did not match'));
+
+        $this->assertDatabaseHas('candidacy', [
+            'election_id' => $election->getKey(),
+            'user_id' => $existingCandidate->getKey(),
+            'status' => Candidacy::APPROVED,
+        ]);
+        $this->assertDatabaseHas('candidacy', [
+            'election_id' => $election->getKey(),
+            'user_id' => $importedCandidate->getKey(),
+            'status' => Candidacy::APPROVED,
+        ]);
+        self::assertSame('import_private_candidate_list', collect($election->refresh()->transition_history_json)->last()['action'] ?? null);
+    }
+
+    public function test_organizer_can_manage_candidates_and_voters_together_during_admin_review(): void
+    {
+        config()->set('election.user_service.base_url', 'https://user.test');
+        config()->set('election.user_service.api_key', 'user-module-key');
+
+        $organizer = User::factory()->create();
+        $candidate = User::factory()->create(['full_name' => 'Review Stage Candidate']);
+        $laterCandidate = User::factory()->create(['full_name' => 'Locked Stage Candidate']);
+        Organizer::query()->create(['user_id' => $organizer->getKey()]);
+        $election = Election::query()->create([
+            'organizer_id' => $organizer->getKey(),
+            'title' => 'Participants During Admin Review',
+            'position_sought' => 'Class Representative',
+            'eligibility_rules' => json_encode(['type' => 'PRIVATE']),
+            'status' => Election::PENDING_ADMIN_APPROVAL,
+            'currency' => 'MYR',
+            'payment_reference' => 'PAY-PARTICIPANTS-01',
+            'nomination_start' => now()->addDay(),
+            'nomination_end' => now()->addDays(2),
+            'voting_start' => now()->addDays(3),
+            'voting_end' => now()->addDays(4),
+            'version' => 1,
+        ]);
+
+        Http::fake(fn (ClientRequest $request) => Http::response([
+            'status' => 'S',
+            'requestID' => $request['requestID'] ?? 'PARTICIPANT-DIRECTORY',
+            'timestamp' => now()->toAtomString(),
+            'data' => [
+                'electionId' => $election->getKey(),
+                'users' => [],
+                'pagination' => ['page' => 1, 'perPage' => 25, 'total' => 0, 'hasMore' => false],
+            ],
+        ]));
+
+        $this->actingAs($organizer)
+            ->get(route('elections.show', $election))
+            ->assertOk()
+            ->assertSeeText('Assign candidates to the ballot')
+            ->assertSeeText('Add voters to this election')
+            ->assertSee('data-private-voter-directory', false)
+            ->assertSee('data-private-candidate-directory', false)
+            ->assertSee('name="candidate_list"', false);
+
+        $this->actingAs($organizer)
+            ->getJson(route('elections.private-voters.directory', $election))
+            ->assertOk();
+
+        $this->actingAs($organizer)
+            ->post(route('elections.candidates.assign', $election), [
+                'user_id' => $candidate->getKey(),
+                'version' => 1,
+            ])
+            ->assertRedirect(route('elections.show', $election).'#candidates');
+
+        self::assertSame(Candidacy::APPROVED, Candidacy::query()
+            ->where('election_id', $election->getKey())
+            ->where('user_id', $candidate->getKey())
+            ->value('status'));
+
+        $election->forceFill(['status' => Election::VOTING_OPEN])->save();
+
+        $this->actingAs($organizer)
+            ->get(route('elections.show', $election))
+            ->assertOk()
+            ->assertSeeText('Review Stage Candidate')
+            ->assertSeeText('Private voter list')
+            ->assertDontSee('data-private-voter-directory', false)
+            ->assertDontSee('data-private-candidate-directory', false)
+            ->assertDontSee('name="candidate_list"', false);
+
+        $this->actingAs($organizer)
+            ->from(route('elections.show', $election))
+            ->post(route('elections.candidates.assign', $election), [
+                'user_id' => $laterCandidate->getKey(),
+                'version' => 2,
+            ])
+            ->assertRedirect(route('elections.show', $election))
+            ->assertSessionHas('error', 'Private candidates can be assigned until voting begins.');
+
+        $this->assertDatabaseMissing('candidacy', [
+            'election_id' => $election->getKey(),
+            'user_id' => $laterCandidate->getKey(),
+        ]);
+    }
+
+    public function test_organizer_can_assign_and_edit_private_candidates_during_the_nomination_workflow(): void
+    {
+        $organizer = User::factory()->create();
+        $candidate = User::factory()->create(['full_name' => 'Assigned Candidate']);
+        $service = $this->app->make(ElectionService::class);
+        $election = $service->create($organizer, [
+            'title' => 'Private Candidate Assignment Election',
+            'position_sought' => 'Class Representative',
+            'description' => 'A private election used to verify organizer candidate assignment controls.',
+            'eligibility_mode' => 'PRIVATE',
+            'nomination_start' => now()->addDay(),
+            'nomination_end' => now()->addDays(2),
+            'voting_start' => now()->addDays(3),
+            'voting_end' => now()->addDays(4),
+        ]);
+
+        $this->actingAs($organizer)
+            ->get(route('elections.show', $election))
+            ->assertOk()
+            ->assertSeeText('Assign candidates to the ballot')
+            ->assertSeeText('Voters may be assigned later')
+            ->assertSeeText('Choose candidates from your members')
+            ->assertSeeText('Import a candidate list');
+
+        $this->actingAs($organizer)
+            ->post(route('elections.candidates.assign', $election), [
+                'user_id' => $candidate->getKey(),
+                'version' => 1,
+            ])
+            ->assertRedirect(route('elections.show', $election).'#candidates');
+
+        $candidacy = Candidacy::query()
+            ->where('election_id', $election->getKey())
+            ->where('user_id', $candidate->getKey())
+            ->sole();
+        self::assertSame(Candidacy::APPROVED, $candidacy->status);
+        self::assertSame('assign_candidate', collect($election->refresh()->transition_history_json)->last()['action'] ?? null);
+
+        $election->forceFill(['status' => Election::NOMINATION_OPEN])->save();
+
+        $this->actingAs($organizer)
+            ->post(route('elections.candidates.review', $election), [
+                'decisions' => [$candidacy->getKey() => Candidacy::REJECTED],
+                'current_password' => 'password',
+                'version' => 2,
+            ])
+            ->assertRedirect(route('elections.show', $election));
+
+        self::assertSame(Candidacy::REJECTED, $candidacy->refresh()->status);
     }
 }
