@@ -12,7 +12,7 @@ interface PaymentGateway
 {
     public function verifyHostingPayment(
         Election $election,
-        string $paymentReference,
+        ?string $paymentReference,
         string $requestId,
         CarbonImmutable $requestedAt,
     ): PaymentResult;

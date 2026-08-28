@@ -446,6 +446,10 @@ final class ElectionController extends Controller
     private function managementView(Election $election, Request $request, bool $isAdminView): View
     {
         $summary = $this->service->candidateSummary($election);
+        $hostingPaymentReadiness = null;
+        if (! $isAdminView && $election->status === ElectionStatus::PENDING_PAYMENT->value) {
+            $hostingPaymentReadiness = $this->service->hostingPaymentReadiness($request->user(), $election);
+        }
 
         return view('elections.show', [
             'election' => $election,
@@ -455,6 +459,7 @@ final class ElectionController extends Controller
             'canManageParticipants' => ! $isAdminView && $this->service->canManageParticipants($election),
             'logs' => $this->service->transitionLogs($election),
             'isAdminView' => $isAdminView,
+            'hostingPaymentReadiness' => $hostingPaymentReadiness,
         ]);
     }
 

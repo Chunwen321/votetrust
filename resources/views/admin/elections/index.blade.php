@@ -79,7 +79,7 @@
                         <dl class="admin-approval-row__facts">
                             <div><dt>Organiser</dt><dd>{{ $election->organizer?->display_name ?? $election->organizer?->name ?? $election->organizer?->email ?? 'Unknown' }}</dd></div>
                             <div><dt>Hosting fee</dt><dd>{{ $election->currency }} {{ number_format((float) $election->hosting_fee, 2) }}</dd></div>
-                            <div><dt>Payment</dt><dd>{{ $election->payment_verified_at ? 'Verified' : ($election->payment_reference ? 'Submitted for verification' : 'Not submitted') }}</dd></div>
+                            <div><dt>Payment</dt><dd>{{ $election->payment_verified_at ? 'Verified' : ($election->status === \App\Models\Election::PENDING_ADMIN_APPROVAL ? 'Submitted for verification' : 'Not submitted') }}</dd></div>
                             <div><dt>Last updated</dt><dd>{{ $election->updated_at?->format('d M Y, g:i A') ?? 'Unavailable' }}</dd></div>
                         </dl>
                     </div>

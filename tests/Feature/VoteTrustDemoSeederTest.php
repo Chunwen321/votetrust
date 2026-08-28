@@ -152,6 +152,27 @@ final class VoteTrustDemoSeederTest extends TestCase
         try {
             $this->seed(VoteTrustDemoSeeder::class);
 
+            config()->set('election.payment.url', 'https://payments.example.test/api/v1/payments/verify');
+            config()->set('election.payment.api_key', 'payment-contract-secret');
+            Http::fake(static function (Request $request) {
+                return Http::response([
+                    'status' => 'S',
+                    'message' => 'Hosting payment confirmed.',
+                    'requestID' => $request['requestID'],
+                    'timestamp' => $request['timestamp'],
+                    'data' => [
+                        'paymentReference' => 'SEED-TEST-PAID-03',
+                        'paymentStatus' => 'CONFIRMED',
+                        'amount' => $request['expectedAmount'],
+                        'currency' => $request['currency'],
+                        'payerId' => $request['payerId'],
+                        'electionId' => $request['electionId'],
+                        'purpose' => 'ELECTION_HOSTING',
+                        'paymentId' => 903,
+                    ],
+                ]);
+            });
+
             $service = app(ElectionService::class);
             $organizer = User::query()->where('email', 'lowwenkaiorganizer@votetrust.test')->sole();
             $admin = User::query()->where('email', 'systemadmin@votetrust.test')->sole();
@@ -176,7 +197,7 @@ final class VoteTrustDemoSeederTest extends TestCase
                     (int) $pendingPayment->id,
                     'submit_payment',
                     'VoteTrust!2026',
-                    ['version' => $pendingPayment->version, 'payment_reference' => 'SEED-TEST-PAID-03'],
+                    ['version' => $pendingPayment->version],
                 )->status,
             );
 

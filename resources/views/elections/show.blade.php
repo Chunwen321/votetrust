@@ -20,6 +20,7 @@
     $canAssignPrivateCandidates = $canManageParticipants && $isPrivateElection;
     $canReviewCandidates = ! $isAdminView
         && $election->status === \App\States\ElectionStatus::NOMINATION_OPEN->value;
+    $hostingPaymentConfirmed = (bool) ($hostingPaymentReadiness['confirmed'] ?? false);
 @endphp
 <div class="election-shell election-management">
     <a class="election-link election-back-link" href="{{ $backRoute }}">&larr; {{ $isAdminView ? 'Approval workspace' : 'All elections' }}</a>
@@ -79,16 +80,36 @@
                         <h3>{{ $action['label'] }}</h3>
                         <p>{{ $action['description'] }}</p>
                     </div>
-                    @if ($action['requiresPaymentReference'])
-                        <p class="election-action-copy">First pay the hosting fee with IDontPay99 to get a payment reference, then paste that reference into the field below.</p>
-                        <a class="election-button election-button-light" href="{{ route('payments.checkout.election', $election) }}">Pay hosting fee (IDontPay99)</a>
-                        <label>Payment reference<input name="payment_reference" maxlength="64" required></label>
+                    @if ($action['action'] === 'submit_payment')
+                        <div class="election-payment-checkout{{ $hostingPaymentConfirmed ? ' is-confirmed' : '' }}">
+                            <div class="election-payment-checkout-copy">
+                                <span class="election-step-badge">Step 1</span>
+                                <div>
+                                    <strong>Pay the hosting fee</strong>
+                                    <span class="election-payment-status{{ $hostingPaymentConfirmed ? ' is-confirmed' : '' }}">{{ $hostingPaymentReadiness['label'] ?? 'Awaiting payment' }}</span>
+                                    <p>{{ $hostingPaymentReadiness['message'] ?? 'Complete the secure checkout with IDontPay99. Your payment is linked automatically to this election.' }}</p>
+                                </div>
+                            </div>
+                            <a class="election-button election-button-payment" href="{{ route('payments.checkout.election', $election) }}">
+                                {{ $hostingPaymentConfirmed ? 'View confirmed payment' : 'Pay '.$displayCurrency.' '.number_format((float) $displayHostingFee, 2).' hosting fee' }}
+                            </a>
+                        </div>
                     @endif
                     @if ($action['requiresReason'])
                         <label>Reason<input name="reason" maxlength="250" required></label>
                     @endif
-                    <label>Current password<input name="current_password" type="password" autocomplete="current-password" required></label>
-                    <button class="election-button {{ $action['tone'] === 'danger' ? 'election-button-danger' : ($action['tone'] === 'primary' ? 'election-button-primary' : '') }}" type="submit">{{ $action['label'] }}</button>
+                    <label>
+                        @if ($action['action'] === 'submit_payment')
+                            <span class="election-field-heading"><span class="election-step-badge">Step 2</span> Confirm with current password</span>
+                        @else
+                            Current password
+                        @endif
+                        <input name="current_password" type="password" autocomplete="current-password" @required($action['action'] !== 'submit_payment' || $hostingPaymentConfirmed) @disabled($action['action'] === 'submit_payment' && ! $hostingPaymentConfirmed)>
+                    </label>
+                    <button class="election-button {{ $action['tone'] === 'danger' ? 'election-button-danger' : ($action['tone'] === 'primary' ? 'election-button-primary' : '') }}" type="submit" @disabled($action['action'] === 'submit_payment' && ! $hostingPaymentConfirmed)>{{ $action['label'] }}</button>
+                    @if ($action['action'] === 'submit_payment' && ! $hostingPaymentConfirmed)
+                        <p class="election-payment-gate-note">This action unlocks only after the Payment module confirms the hosting fee.</p>
+                    @endif
                 </form>
             @empty
                 <div class="election-panel-empty">
@@ -150,8 +171,8 @@
                         <dt>Payment</dt>
                         <dd>
                             @if ($availability['hostingPaymentVerified'])
-                                Verified by administrator
-                            @elseif ($election->payment_reference)
+                                Confirmed by Payment module
+                            @elseif ($election->status === \App\States\ElectionStatus::PENDING_ADMIN_APPROVAL->value)
                                 Submitted for verification
                             @elseif ($election->status === \App\States\ElectionStatus::PENDING_PAYMENT->value)
                                 Ready for payment

@@ -23,7 +23,7 @@ final class PendingPaymentState extends AbstractElectionState
     public function actions(Election $election): array
     {
         return [
-            ['action' => 'submit_payment', 'label' => 'Submit payment for verification', 'description' => 'Pay the fixed hosting fee and send the payment reference to an administrator for verification.', 'tone' => 'primary', 'audience' => 'organizer', 'requiresPaymentReference' => true, 'requiresReason' => false],
+            ['action' => 'submit_payment', 'label' => 'Send for administrator review', 'description' => 'Complete the hosting-fee checkout first. Once payment is confirmed, enter your password to send the election for administrator approval.', 'tone' => 'primary', 'audience' => 'organizer', 'requiresPaymentReference' => false, 'requiresReason' => false],
             ['action' => 'cancel', 'label' => 'Cancel election', 'description' => 'Cancels the unpaid election.', 'tone' => 'danger', 'audience' => 'organizer', 'requiresPaymentReference' => false, 'requiresReason' => true],
         ];
     }
@@ -37,23 +37,33 @@ final class PendingPaymentState extends AbstractElectionState
             $this->reject($action);
         }
 
-        $reference = trim((string) $context->input('payment_reference', ''));
-        if (! preg_match('/^[A-Za-z0-9-]{8,64}$/', $reference)) {
-            throw new BusinessRuleException('Enter a valid payment reference before verification.');
-        }
-
         $election = $lifecycle->election();
         $election->applyDefaultHostingFee();
 
+        // The disabled browser button is only a usability guard. Always ask
+        // the Payment module again so a crafted request cannot bypass payment.
+        $result = $context->paymentGateway->verifyHostingPayment($election, null, $context->requestId, $context->now);
+        if (! $result->paid) {
+            $context->auditLogger->log('payment_lifecycle_gate_blocked', [
+                'election_id' => $election->getKey(),
+                'request_id' => $context->requestId,
+                'provider_status' => $result->providerStatus,
+            ]);
+            throw new BusinessRuleException('Hosting payment has not been confirmed. Complete the payment before sending this election for administrator review.');
+        }
+
         $election->payment_id = null;
-        $election->payment_reference = $reference;
-        $election->payment_verified_at = null;
-        $election->payment_request_id = null;
-        $election->payment_provider_status = 'SUBMITTED';
-        $election->payment_response_json = null;
+        $election->payment_reference = $result->paymentReference;
+        $election->payment_verified_at = $context->now;
+        $election->payment_request_id = $context->requestId;
+        $election->payment_provider_status = $result->providerStatus;
+        $election->payment_response_json = $result->rawResponse;
         $lifecycle->moveTo(ElectionStatus::PENDING_ADMIN_APPROVAL->value, $action, [
-            'payment_reference' => $reference,
-            'provider_status' => 'SUBMITTED',
+            'payment_id' => $result->paymentId,
+            'payment_reference' => $result->paymentReference,
+            'provider_status' => $result->providerStatus,
+            'lookup' => 'ELECTION_ID',
+            'verification_source' => 'PAYMENT_API',
             'amount_due' => (float) $election->hosting_fee,
             'currency' => (string) $election->currency,
         ]);

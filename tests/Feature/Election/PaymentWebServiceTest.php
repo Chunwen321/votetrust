@@ -57,6 +57,7 @@ final class PaymentWebServiceTest extends TestCase
                     'amount' => 100,
                     'currency' => 'MYR',
                     'payerId' => 19,
+                    'electionId' => 71,
                     'purpose' => 'ELECTION_HOSTING',
                     'paymentId' => 982,
                 ],
@@ -65,7 +66,7 @@ final class PaymentWebServiceTest extends TestCase
 
         $result = (new HttpPaymentGateway)->verifyHostingPayment(
             $election,
-            'VT-HOST-PAID-001',
+            null,
             'EL-PAYMENT-0001',
             $requestedAt,
         );
@@ -78,7 +79,7 @@ final class PaymentWebServiceTest extends TestCase
                 && ($request->header('X-API-Key')[0] ?? null) === 'payment-contract-secret'
                 && $request['requestID'] === 'EL-PAYMENT-0001'
                 && $request['timestamp'] === $requestedAt->toAtomString()
-                && $request['paymentReference'] === 'VT-HOST-PAID-001'
+                && ! isset($request['paymentReference'])
                 && $request['purpose'] === 'ELECTION_HOSTING'
                 && $request['payerId'] === 19
                 && $request['electionId'] === 71
@@ -163,7 +164,46 @@ final class PaymentWebServiceTest extends TestCase
         );
     }
 
-    public function test_admin_verification_of_unconfirmed_payment_fails_closed_without_copying_payment_records(): void
+    public function test_it_rejects_a_confirmed_payment_linked_to_another_election(): void
+    {
+        $requestedAt = CarbonImmutable::parse('2026-08-08T12:00:00+08:00');
+        $election = new Election;
+        $election->forceFill([
+            'id' => 71,
+            'organizer_id' => 19,
+            'hosting_fee' => '100.00',
+            'currency' => 'MYR',
+        ]);
+
+        Http::fake([
+            '*' => Http::response([
+                'status' => 'S',
+                'requestID' => 'EL-PAYMENT-0004',
+                'timestamp' => $requestedAt->toAtomString(),
+                'data' => [
+                    'paymentReference' => 'VT-HOST-OTHER-001',
+                    'paymentStatus' => 'CONFIRMED',
+                    'amount' => 100,
+                    'currency' => 'MYR',
+                    'payerId' => 19,
+                    'electionId' => 72,
+                    'purpose' => 'ELECTION_HOSTING',
+                    'paymentId' => 983,
+                ],
+            ]),
+        ]);
+
+        $result = (new HttpPaymentGateway)->verifyHostingPayment(
+            $election,
+            null,
+            'EL-PAYMENT-0004',
+            $requestedAt,
+        );
+
+        self::assertFalse($result->paid);
+    }
+
+    public function test_organizer_cannot_send_an_unconfirmed_payment_for_admin_review(): void
     {
         Http::fake(static function (Request $request) {
             return Http::response([
@@ -172,11 +212,12 @@ final class PaymentWebServiceTest extends TestCase
                 'requestID' => $request['requestID'],
                 'timestamp' => $request['timestamp'],
                 'data' => [
-                    'paymentReference' => $request['paymentReference'],
+                    'paymentReference' => 'VT-HOST-PENDING-001',
                     'paymentStatus' => 'PENDING',
                     'amount' => $request['expectedAmount'],
                     'currency' => $request['currency'],
                     'payerId' => $request['payerId'],
+                    'electionId' => $request['electionId'],
                     'purpose' => 'ELECTION_HOSTING',
                     'paymentId' => 999,
                 ],
@@ -189,12 +230,6 @@ final class PaymentWebServiceTest extends TestCase
             'password' => Hash::make('Correct!Pass1'),
         ]);
         Organizer::query()->create(['user_id' => $organizer->getKey()]);
-        $admin = User::query()->create([
-            'name' => 'Payment Gate Administrator',
-            'email' => 'payment-gate-admin@example.test',
-            'password' => Hash::make('Admin!Pass1'),
-            'is_admin' => true,
-        ]);
         $service = new ElectionService;
         $now = CarbonImmutable::now();
         $election = $service->create($organizer, [
@@ -216,41 +251,24 @@ final class PaymentWebServiceTest extends TestCase
             'Correct!Pass1',
             ['version' => 1],
         );
-        $election = $service->transition($organizer, $election->getKey(), 'submit_payment', 'Correct!Pass1', [
-            'version' => 2,
-            'payment_reference' => 'VT-HOST-PENDING-001',
-        ]);
-
         try {
             $service->transition(
-                $admin,
+                $organizer,
                 $election->getKey(),
-                'approve',
-                'Admin!Pass1',
-                ['version' => 3],
+                'submit_payment',
+                'Correct!Pass1',
+                ['version' => 2],
             );
-            self::fail('An unconfirmed remote payment opened the next lifecycle state.');
+            self::fail('An unconfirmed hosting payment entered the administrator queue.');
         } catch (BusinessRuleException $exception) {
-            self::assertStringContainsString('Verify the hosting payment', $exception->getMessage());
-        }
-        Http::assertSentCount(0);
-
-        try {
-            $service->transition(
-                $admin,
-                $election->getKey(),
-                'verify_payment',
-                'Admin!Pass1',
-                ['version' => 3],
-            );
-            self::fail('An unconfirmed remote payment passed administrator verification.');
-        } catch (BusinessRuleException $exception) {
-            self::assertStringContainsString('not confirmed', $exception->getMessage());
+            self::assertStringContainsString('has not been confirmed', $exception->getMessage());
         }
 
         $election->refresh();
-        self::assertSame(ElectionStatus::PENDING_ADMIN_APPROVAL->value, $election->status);
+        self::assertSame(ElectionStatus::PENDING_PAYMENT->value, $election->status);
+        self::assertSame(2, $election->version);
         self::assertNull($election->payment_verified_at);
+        self::assertNull($election->payment_reference);
         self::assertNull($election->payment_response_json);
         self::assertSame(0, DB::table('payment')->count());
         Http::assertSentCount(1);

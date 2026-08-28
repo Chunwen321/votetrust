@@ -97,9 +97,9 @@ final class PaymentCheckoutController extends Controller
      * Election-module-agnostic entry point: resolves (or opens) the hosting
      * Payment for an election and hands the organizer straight to the same
      * checkout page candidates use. Reads the shared Election model only —
-     * no Election-owned controller, route, or view is touched. After paying,
-     * the checkout page shows the settled reference so the organizer can
-     * paste it into Election's own "Submit payment" field, unchanged.
+     * no Election-owned controller, route, or view is touched. The Payment API
+     * later resolves the settled transaction by election ID, so the organizer
+     * never needs to copy a provider reference between modules.
      */
     public function payForElection(Request $request, int $election): RedirectResponse
     {

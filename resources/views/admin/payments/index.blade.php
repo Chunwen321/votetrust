@@ -28,7 +28,7 @@
         </div>
 
         <form method="get" action="{{ route('admin.payments.index') }}" class="management-filter-form">
-            <label>Search<input type="search" name="search" maxlength="100" value="{{ $filters['search'] }}" placeholder="Election, organiser, or reference"></label>
+            <label>Search<input type="search" name="search" maxlength="100" value="{{ $filters['search'] }}" placeholder="Election, organiser, or verified reference"></label>
             <label>Verification<select name="verification"><option value="">All submitted</option><option value="awaiting" @selected($filters['verification'] === 'awaiting')>Awaiting verification</option><option value="verified" @selected($filters['verification'] === 'verified')>Verified</option></select></label>
             <button type="submit">Filter payments</button>
             @if ($hasFilters)<a class="button button-quiet" href="{{ route('admin.payments.index') }}">Clear</a>@endif
@@ -46,7 +46,13 @@
                             <td><strong>{{ $payment->title }}</strong><br><small>Election #{{ $payment->getKey() }}</small></td>
                             <td>{{ $payment->organizer?->display_name ?? $payment->organizer?->email ?? 'Unknown' }}</td>
                             <td>{{ $payment->currency }} {{ number_format((float) $payment->hosting_fee, 2) }}</td>
-                            <td><code>{{ $payment->payment_reference }}</code></td>
+                            <td>
+                                @if ($payment->payment_reference)
+                                    <code>{{ $payment->payment_reference }}</code>
+                                @else
+                                    <small>Matched by election ID</small>
+                                @endif
+                            </td>
                             <td>
                                 @if ($payment->payment_verified_at)
                                     <span class="badge status-approved">Verified</span><br><small>{{ $payment->payment_verified_at->format('d M Y, g:i A') }}</small>
