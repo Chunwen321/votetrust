@@ -97,6 +97,72 @@ final class PaymentWebServiceProviderTest extends TestCase
             ->assertJsonPath('data.paymentStatus', 'FAILED');
     }
 
+    public function test_it_finds_an_existing_hosting_payment_by_election_id_without_a_reference(): void
+    {
+        $organizer = User::factory()->create();
+        $election = Election::query()->create([
+            'organizer_id' => $organizer->getKey(),
+            'title' => 'Election ID Payment Lookup',
+            'position_sought' => 'President',
+            'status' => Election::PENDING_ADMIN_APPROVAL,
+            'hosting_fee' => '100.00',
+            'currency' => 'MYR',
+        ]);
+        $payment = Payment::query()->create([
+            'amount' => '100.00',
+            'currency' => 'MYR',
+            'status' => 'Paid',
+            'gateway' => 'idontpay99',
+            'organizer_id' => $organizer->getKey(),
+            'election_id' => $election->getKey(),
+            'purpose' => Payment::PURPOSE_ELECTION_HOSTING,
+            'provider_reference' => 'VT-HOST-BY-ELECTION',
+        ]);
+
+        $this->withHeader('X-API-Key', 'payment-provider-secret')
+            ->postJson('/api/v1/payments/verify', [
+                'requestID' => 'EL-PAYMENT-LOOKUP-01',
+                'timestamp' => now()->toAtomString(),
+                'purpose' => 'ELECTION_HOSTING',
+                'payerId' => $organizer->getKey(),
+                'electionId' => $election->getKey(),
+                'expectedAmount' => 100,
+                'currency' => 'MYR',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', 'S')
+            ->assertJsonPath('data.paymentId', $payment->getKey())
+            ->assertJsonPath('data.electionId', $election->getKey())
+            ->assertJsonPath('data.paymentReference', 'VT-HOST-BY-ELECTION')
+            ->assertJsonPath('data.paymentStatus', 'CONFIRMED');
+    }
+
+    public function test_election_id_lookup_fails_when_no_hosting_payment_exists(): void
+    {
+        $organizer = User::factory()->create();
+        $election = Election::query()->create([
+            'organizer_id' => $organizer->getKey(),
+            'title' => 'Unpaid Election Lookup',
+            'position_sought' => 'President',
+            'status' => Election::PENDING_ADMIN_APPROVAL,
+            'hosting_fee' => '100.00',
+            'currency' => 'MYR',
+        ]);
+
+        $this->withHeader('X-API-Key', 'payment-provider-secret')
+            ->postJson('/api/v1/payments/verify', [
+                'requestID' => 'EL-PAYMENT-LOOKUP-02',
+                'timestamp' => now()->toAtomString(),
+                'purpose' => 'ELECTION_HOSTING',
+                'payerId' => $organizer->getKey(),
+                'electionId' => $election->getKey(),
+                'expectedAmount' => 100,
+                'currency' => 'MYR',
+            ])
+            ->assertNotFound()
+            ->assertJsonPath('status', 'F');
+    }
+
     public function test_verify_rejects_an_invalid_api_key(): void
     {
         $this->withHeader('X-API-Key', 'wrong-secret')

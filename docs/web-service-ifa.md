@@ -122,6 +122,8 @@ Status request data: `voterId`, `electionId`, `requestID`, `timestamp`. It retur
 | Voting (Goh) | User eligibility plus Election list/detail | Authorize voter, election state, and approved ballot through teammate APIs | `App\Services\Voting\ElectionVotingIntegration` |
 | Payment (Puah) | Candidate payment-information endpoint | Obtain candidate and organisation information | Implemented in the separate Payment module when supplied |
 
+Election verifies hosting payments with `POST /api/v1/payments/verify`. It sends the authenticated organiser, election ID, fixed amount, currency, purpose, request ID, and timestamp without a browser-supplied payment reference. Payment resolves the latest hosting transaction for that election and returns its `paymentId`, `paymentReference`, `paymentStatus`, `electionId`, payer, amount, currency, and purpose. Election treats the response as confirmed only when every returned value matches its own expected election data.
+
 ## Local configuration
 
 Provider keys have no insecure application defaults. Configure matching consumer keys in `.env`; see `.env.example`. Payment runs as a separate teammate service (default local port `8081`). Candidate and Election integrations fail closed while it is unavailable.

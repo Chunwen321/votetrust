@@ -46,9 +46,9 @@ final class AdminPaymentReviewTest extends TestCase
         $admin = User::factory()->create(['is_admin' => true]);
         $organizer = User::factory()->create(['full_name' => 'Queue Organizer']);
         Organizer::query()->create(['user_id' => $organizer->getKey()]);
-        $awaiting = $this->paymentElection($organizer, 'Awaiting Payment Review', 'VT-HOST-AWAITING-01');
+        $awaiting = $this->paymentElection($organizer, 'Awaiting Payment Review', null);
         $verified = $this->paymentElection($organizer, 'Verified Payment Review', 'VT-HOST-VERIFIED-01', true);
-        $this->paymentElection($organizer, 'Not In Payment Queue', null);
+        $this->paymentElection($organizer, 'Not In Payment Queue', null, false, Election::PENDING_PAYMENT);
 
         $this->actingAs($admin)
             ->get(route('admin.payments.index'))
@@ -82,7 +82,7 @@ final class AdminPaymentReviewTest extends TestCase
         ]);
         $organizer = User::factory()->create();
         Organizer::query()->create(['user_id' => $organizer->getKey()]);
-        $election = $this->paymentElection($organizer, 'Separate Payment Approval', 'VT-HOST-PAID-009');
+        $election = $this->paymentElection($organizer, 'Separate Payment Approval', null);
 
         $this->actingAs($admin)
             ->from(route('admin.elections.show', $election))
@@ -102,11 +102,12 @@ final class AdminPaymentReviewTest extends TestCase
                 'requestID' => $request['requestID'],
                 'timestamp' => $request['timestamp'],
                 'data' => [
-                    'paymentReference' => $request['paymentReference'],
+                    'paymentReference' => 'VT-HOST-PAID-009',
                     'paymentStatus' => 'CONFIRMED',
                     'amount' => $request['expectedAmount'],
                     'currency' => $request['currency'],
                     'payerId' => $request['payerId'],
+                    'electionId' => $request['electionId'],
                     'purpose' => 'ELECTION_HOSTING',
                     'paymentId' => 909,
                 ],
@@ -123,6 +124,7 @@ final class AdminPaymentReviewTest extends TestCase
         $election->refresh();
         self::assertSame(Election::PENDING_ADMIN_APPROVAL, $election->status);
         self::assertNotNull($election->payment_verified_at);
+        self::assertSame('VT-HOST-PAID-009', $election->payment_reference);
         self::assertNull($election->approved_at);
         self::assertSame(2, $election->version);
 
@@ -138,6 +140,7 @@ final class AdminPaymentReviewTest extends TestCase
         self::assertSame(Election::NOMINATION_OPEN, $election->status);
         self::assertNotNull($election->approved_at);
         Http::assertSentCount(1);
+        Http::assertSent(fn (Request $request): bool => ! isset($request['paymentReference']));
     }
 
     private function paymentElection(
@@ -145,6 +148,7 @@ final class AdminPaymentReviewTest extends TestCase
         string $title,
         ?string $reference,
         bool $verified = false,
+        string $status = Election::PENDING_ADMIN_APPROVAL,
     ): Election {
         return Election::query()->create([
             'organizer_id' => $organizer->getKey(),
@@ -158,7 +162,7 @@ final class AdminPaymentReviewTest extends TestCase
             'voting_end' => now()->addDays(4),
             'hosting_fee' => '100.00',
             'currency' => 'MYR',
-            'status' => $reference === null ? Election::PENDING_PAYMENT : Election::PENDING_ADMIN_APPROVAL,
+            'status' => $status,
             'payment_reference' => $reference,
             'payment_verified_at' => $verified ? now() : null,
             'payment_provider_status' => $verified ? 'CONFIRMED' : 'SUBMITTED',

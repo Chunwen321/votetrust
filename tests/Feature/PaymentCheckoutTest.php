@@ -3,9 +3,12 @@
 namespace Tests\Feature;
 
 use App\Models\Election;
+use App\Models\Organizer;
 use App\Models\Payment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 /**
@@ -172,8 +175,9 @@ final class PaymentCheckoutTest extends TestCase
     public function test_the_organizer_can_reach_election_checkout_and_it_creates_a_hosting_payment(): void
     {
         $organizer = User::factory()->create();
+        $organizerRecord = Organizer::query()->create(['user_id' => $organizer->getKey()]);
         $election = Election::query()->create([
-            'organizer_id' => $organizer->getKey(),
+            'organizer_id' => $organizerRecord->getKey(),
             'title' => 'Checkout Bridge Election',
             'position_sought' => 'President',
             'status' => Election::PENDING_PAYMENT,
@@ -190,6 +194,120 @@ final class PaymentCheckoutTest extends TestCase
         self::assertSame('Pending', $payment->status);
         self::assertSame((int) $organizer->getKey(), (int) $payment->organizer_id);
         self::assertNotNull($payment->provider_reference);
+    }
+
+    public function test_pending_payment_page_disables_admin_review_until_payment_is_confirmed(): void
+    {
+        config()->set('election.payment.url', 'https://payments.example.test/api/v1/payments/verify');
+        config()->set('election.payment.api_key', 'payment-contract-secret');
+        Http::fake(static function (Request $request) {
+            return Http::response([
+                'status' => 'F',
+                'message' => 'Payment is pending.',
+                'requestID' => $request['requestID'],
+                'timestamp' => $request['timestamp'],
+                'data' => [
+                    'paymentReference' => 'VT-HOST-PENDING-001',
+                    'paymentStatus' => 'PENDING',
+                    'amount' => $request['expectedAmount'],
+                    'currency' => $request['currency'],
+                    'payerId' => $request['payerId'],
+                    'electionId' => $request['electionId'],
+                    'purpose' => 'ELECTION_HOSTING',
+                    'paymentId' => 991,
+                ],
+            ]);
+        });
+
+        $organizer = User::factory()->create();
+        $organizerRecord = Organizer::query()->create(['user_id' => $organizer->getKey()]);
+        $election = Election::query()->create([
+            'organizer_id' => $organizerRecord->getKey(),
+            'title' => 'Reference Free Checkout Election',
+            'position_sought' => 'President',
+            'description' => 'An election whose hosting payment is matched automatically.',
+            'nomination_start' => now()->addDay(),
+            'nomination_end' => now()->addDays(2),
+            'voting_start' => now()->addDays(3),
+            'voting_end' => now()->addDays(4),
+            'status' => Election::PENDING_PAYMENT,
+            'hosting_fee' => '100.00',
+            'currency' => 'MYR',
+            'version' => 1,
+        ]);
+
+        $response = $this->actingAs($organizer)
+            ->get(route('elections.show', $election));
+
+        $response
+            ->assertOk()
+            ->assertSee('Pay MYR 100.00 hosting fee')
+            ->assertSee('Send for administrator review')
+            ->assertSee('election-button-payment', false)
+            ->assertSee('Awaiting payment')
+            ->assertSee('name="current_password"', false)
+            ->assertDontSee('name="payment_reference"', false);
+        self::assertMatchesRegularExpression(
+            '/<button[^>]*type="submit"[^>]*disabled[^>]*>Send for administrator review<\/button>/',
+            (string) $response->getContent(),
+        );
+        self::assertMatchesRegularExpression(
+            '/<input[^>]*name="current_password"[^>]*disabled[^>]*>/',
+            (string) $response->getContent(),
+        );
+    }
+
+    public function test_confirmed_payment_enables_admin_review_submission(): void
+    {
+        config()->set('election.payment.url', 'https://payments.example.test/api/v1/payments/verify');
+        config()->set('election.payment.api_key', 'payment-contract-secret');
+        Http::fake(static function (Request $request) {
+            return Http::response([
+                'status' => 'S',
+                'message' => 'Hosting payment confirmed.',
+                'requestID' => $request['requestID'],
+                'timestamp' => $request['timestamp'],
+                'data' => [
+                    'paymentReference' => 'VT-HOST-PAID-001',
+                    'paymentStatus' => 'CONFIRMED',
+                    'amount' => $request['expectedAmount'],
+                    'currency' => $request['currency'],
+                    'payerId' => $request['payerId'],
+                    'electionId' => $request['electionId'],
+                    'purpose' => 'ELECTION_HOSTING',
+                    'paymentId' => 992,
+                ],
+            ]);
+        });
+
+        $organizer = User::factory()->create();
+        $organizerRecord = Organizer::query()->create(['user_id' => $organizer->getKey()]);
+        $election = Election::query()->create([
+            'organizer_id' => $organizerRecord->getKey(),
+            'title' => 'Confirmed Hosting Payment Election',
+            'position_sought' => 'President',
+            'description' => 'An election with a confirmed hosting payment.',
+            'nomination_start' => now()->addDay(),
+            'nomination_end' => now()->addDays(2),
+            'voting_start' => now()->addDays(3),
+            'voting_end' => now()->addDays(4),
+            'status' => Election::PENDING_PAYMENT,
+            'hosting_fee' => '100.00',
+            'currency' => 'MYR',
+            'version' => 1,
+        ]);
+
+        $response = $this->actingAs($organizer)
+            ->get(route('elections.show', $election));
+
+        $response
+            ->assertOk()
+            ->assertSee('Payment confirmed')
+            ->assertSee('View confirmed payment');
+        self::assertMatchesRegularExpression(
+            '/<button[^>]*type="submit"(?![^>]*disabled)[^>]*>Send for administrator review<\/button>/',
+            (string) $response->getContent(),
+        );
     }
 
     public function test_election_checkout_reuses_the_existing_payment_instead_of_duplicating(): void
@@ -243,7 +361,7 @@ final class PaymentCheckoutTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_paying_the_election_hosting_fee_shows_the_reference_to_copy_back(): void
+    public function test_paying_the_election_hosting_fee_returns_to_the_linked_election_without_copying_a_reference(): void
     {
         $organizer = User::factory()->create();
         $election = Election::query()->create([
@@ -268,8 +386,10 @@ final class PaymentCheckoutTest extends TestCase
         $this->actingAs($organizer)
             ->get(route('payments.checkout.show', $payment))
             ->assertOk()
-            ->assertSee('Payment reference')
-            ->assertSee($payment->fresh()->provider_reference)
+            ->assertSee('Hosting fee paid')
+            ->assertSee('Payment linked to Election #'.$election->getKey())
+            ->assertSee('No payment reference is required')
+            ->assertDontSee($payment->fresh()->provider_reference)
             ->assertSee('Back to my election');
     }
 }

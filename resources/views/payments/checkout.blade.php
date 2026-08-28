@@ -50,9 +50,9 @@
 
             @if($status->value === 'Paid' && $payment->purpose === \App\Models\Payment::PURPOSE_ELECTION_HOSTING)
                 <div class="payment-checkout-reference">
-                    <span>Payment reference</span>
-                    <strong>{{ $payment->provider_reference }}</strong>
-                    <p>Copy this reference into your election's <em>Submit payment for verification</em> form. Your payment will be verified automatically.</p>
+                    <span>Hosting fee paid</span>
+                    <strong>Payment linked to Election #{{ $payment->election_id }}</strong>
+                    <p>Return to the election to continue. VoteTrust will check this payment again before sending the election for administrator approval.</p>
                     @if($payment->election_id)
                         <a class="payment-checkout-pay-button payment-checkout-pay-button--secondary" href="{{ route('elections.show', $payment->election_id) }}">Back to my election</a>
                     @endif

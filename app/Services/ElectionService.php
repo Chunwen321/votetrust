@@ -256,6 +256,62 @@ final class ElectionService
     }
 
     /**
+     * Read-only payment status used to render the organiser's lifecycle gate.
+     * The transition repeats this check and remains the authoritative guard.
+     *
+     * @return array{confirmed:bool,status:string,label:string,message:string}
+     */
+    public function hostingPaymentReadiness(User $user, Election $election): array
+    {
+        $this->assertOwnedBy($user, $election);
+
+        if ($election->status !== ElectionStatus::PENDING_PAYMENT->value) {
+            return [
+                'confirmed' => $this->paymentVerified($election),
+                'status' => (string) ($election->payment_provider_status ?: 'NOT_APPLICABLE'),
+                'label' => $this->paymentVerified($election) ? 'Payment confirmed' : 'Not awaiting payment',
+                'message' => 'This election is not currently awaiting a hosting payment.',
+            ];
+        }
+
+        try {
+            $result = $this->paymentGateway->verifyHostingPayment(
+                $election,
+                null,
+                $this->newRequestId(),
+                $this->clock->now(),
+            );
+        } catch (BusinessRuleException) {
+            return [
+                'confirmed' => false,
+                'status' => 'UNAVAILABLE',
+                'label' => 'Status unavailable',
+                'message' => 'Payment status could not be checked. Review submission remains locked; refresh the page or try again shortly.',
+            ];
+        }
+
+        if ($result->paid) {
+            return [
+                'confirmed' => true,
+                'status' => $result->providerStatus,
+                'label' => 'Payment confirmed',
+                'message' => 'IDontPay99 confirmed this hosting payment and matched it to this election.',
+            ];
+        }
+
+        $failed = in_array(strtoupper($result->providerStatus), ['FAILED', 'CANCELLED', 'REFUNDED'], true);
+
+        return [
+            'confirmed' => false,
+            'status' => $result->providerStatus,
+            'label' => $failed ? 'Payment unsuccessful' : 'Awaiting payment',
+            'message' => $failed
+                ? 'The previous payment was not successful. Retry the hosting-fee checkout before continuing.'
+                : 'No confirmed hosting payment was found. Complete checkout, then return here to continue.',
+        ];
+    }
+
+    /**
      * Stores only the import summary. User/Voter owns the roster rows and has
      * already processed them through its API before this method is called.
      *

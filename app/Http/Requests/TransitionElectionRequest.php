@@ -23,7 +23,6 @@ final class TransitionElectionRequest extends FormRequest
                 'start_voting', 'close_voting', 'cancel',
             ])],
             'current_password' => ['required', 'string'],
-            'payment_reference' => ['nullable', 'required_if:action,submit_payment', 'regex:/^[A-Za-z0-9-]{8,64}$/'],
             'reason' => ['nullable', 'required_if:action,reject,return_for_payment', 'string', 'max:250'],
             'version' => ['required', 'integer', 'min:1'],
         ];

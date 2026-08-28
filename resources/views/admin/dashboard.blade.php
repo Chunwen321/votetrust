@@ -30,7 +30,7 @@
     <a class="card admin-action-card" href="{{ route('admin.payments.index') }}">
         <span class="eyebrow">Payment verification</span>
         <h2>Review hosting payments</h2>
-        <p>Check submitted references and verify payment before an election can receive final approval.</p>
+        <p>Match hosting payments by election ID and verify them before an election can receive final approval.</p>
         <span class="back-link">Open payment queue &rarr;</span>
     </a>
     <a class="card admin-action-card" href="{{ route('admin.users.index') }}">

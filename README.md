@@ -129,7 +129,7 @@ The scenario dates are calculated relative to the time `php artisan db:seed` run
 |---|---|
 | `[Demo] 01 - Editable Public Draft` | Edit a public draft, continue to hosting payment, or cancel it. |
 | `[Demo] 02 - Private Roster Draft` | Search and assign private voters, import a roster, download the template, or continue to payment. |
-| `[Demo] 03 - Awaiting Hosting Payment` | Submit a hosting-payment reference or cancel the request. |
+| `[Demo] 03 - Awaiting Hosting Payment` | Pay the hosting fee, submit it for automatic election-ID matching, or cancel the request. |
 | `[Demo] 04 - Awaiting Administrator Approval` | As the administrator, approve, return, or reject the request; as its organiser, withdraw it. |
 | `[Demo] 05 - Candidate Review` | Apply as CandidateAisha, or review CandidateDaniel's pending application as the primary organiser. |
 | `[Demo] 06 - Ready to Open Voting` | Open voting after the completed nomination and candidate-review gates. |

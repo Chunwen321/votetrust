@@ -25,11 +25,11 @@ final class PendingAdminApprovalState extends AbstractElectionState
     {
         $primaryAction = $this->paymentVerified($election)
             ? ['action' => 'approve', 'label' => 'Approve election', 'description' => 'Payment is verified. Give final approval to open nominations.', 'tone' => 'primary', 'audience' => 'admin', 'requiresPaymentReference' => false, 'requiresReason' => false]
-            : ['action' => 'verify_payment', 'label' => 'Verify hosting payment', 'description' => 'Check the submitted reference, amount, currency, and organiser with the Payment module.', 'tone' => 'primary', 'audience' => 'admin', 'requiresPaymentReference' => false, 'requiresReason' => false];
+            : ['action' => 'verify_payment', 'label' => 'Verify hosting payment', 'description' => 'Find this election\'s hosting payment and check its status, amount, currency, and organiser with the Payment module.', 'tone' => 'primary', 'audience' => 'admin', 'requiresPaymentReference' => false, 'requiresReason' => false];
 
         return [
             $primaryAction,
-            ['action' => 'return_for_payment', 'label' => 'Request payment resubmission', 'description' => 'Returns the election to the organizer so a corrected payment reference can be submitted.', 'tone' => 'secondary', 'audience' => 'admin', 'requiresPaymentReference' => false, 'requiresReason' => true],
+            ['action' => 'return_for_payment', 'label' => 'Request payment resubmission', 'description' => 'Returns the election to the organizer so the hosting payment can be retried.', 'tone' => 'secondary', 'audience' => 'admin', 'requiresPaymentReference' => false, 'requiresReason' => true],
             ['action' => 'reject', 'label' => 'Reject election', 'description' => 'Rejects the election permanently.', 'tone' => 'danger', 'audience' => 'admin', 'requiresPaymentReference' => false, 'requiresReason' => true],
             ['action' => 'cancel', 'label' => 'Withdraw election', 'description' => 'Withdraws the request while approval is pending.', 'tone' => 'danger', 'audience' => 'organizer', 'requiresPaymentReference' => false, 'requiresReason' => true],
         ];
@@ -72,12 +72,7 @@ final class PendingAdminApprovalState extends AbstractElectionState
                 throw new BusinessRuleException('This hosting payment has already been verified.');
             }
 
-            $reference = trim((string) $election->payment_reference);
-            if (! preg_match('/^[A-Za-z0-9-]{8,64}$/', $reference)) {
-                throw new BusinessRuleException('The organizer must submit a valid payment reference before verification.');
-            }
-
-            $result = $context->paymentGateway->verifyHostingPayment($election, $reference, $context->requestId, $context->now);
+            $result = $context->paymentGateway->verifyHostingPayment($election, null, $context->requestId, $context->now);
             if (! $result->paid) {
                 $context->auditLogger->log('payment_lifecycle_gate_blocked', [
                     'election_id' => $election->getKey(),
@@ -87,8 +82,8 @@ final class PendingAdminApprovalState extends AbstractElectionState
                 throw new BusinessRuleException('Payment is not confirmed or does not match the election hosting fee.');
             }
 
-            // The Payment module owns its records. Retain only its verified
-            // API response snapshot; never mirror the provider database row.
+            // The Payment module owns the transaction. Retain the verified
+            // provider reference and API response without copying its row.
             $election->payment_id = null;
             $election->payment_reference = $result->paymentReference;
             $election->payment_verified_at = $context->now;
@@ -96,6 +91,7 @@ final class PendingAdminApprovalState extends AbstractElectionState
             $election->payment_provider_status = $result->providerStatus;
             $election->payment_response_json = $result->rawResponse;
             $lifecycle->moveTo(ElectionStatus::PENDING_ADMIN_APPROVAL->value, $action, [
+                'payment_id' => $result->paymentId,
                 'payment_reference' => $result->paymentReference,
                 'provider_status' => $result->providerStatus,
                 'verified_by' => $context->actor->getKey(),

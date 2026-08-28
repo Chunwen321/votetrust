@@ -30,8 +30,7 @@ final class PaymentReviewController extends Controller
         $verification = $filters['verification'] ?? null;
 
         $reviewable = Election::query()
-            ->where('status', Election::PENDING_ADMIN_APPROVAL)
-            ->whereNotNull('payment_reference');
+            ->where('status', Election::PENDING_ADMIN_APPROVAL);
 
         $awaitingCount = (clone $reviewable)->whereNull('payment_verified_at')->count();
         $verifiedCount = (clone $reviewable)->whereNotNull('payment_verified_at')->count();
