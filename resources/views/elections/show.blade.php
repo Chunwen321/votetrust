@@ -369,15 +369,25 @@
     <section class="election-card election-workspace-panel election-audit-panel">
         <div class="election-panel-heading">
             <div><span class="election-eyebrow">Activity</span><h2>Election audit trail</h2><p>Every configuration and lifecycle change is recorded here.</p></div>
-            <span class="election-audit-version">Version {{ $election->version }}</span>
+            <span class="election-audit-version" title="Election record revision used to prevent conflicting updates.">Revision {{ $election->version }}</span>
         </div>
         @if ($logs === [])
             <div class="election-panel-empty"><strong>No lifecycle events recorded.</strong><p>The first election action will appear here.</p></div>
         @else
-            <div class="election-table-wrap"><table class="election-table"><thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Transition</th></tr></thead><tbody>
+            <div class="election-table-wrap"><table class="election-table"><thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Lifecycle effect</th></tr></thead><tbody>
             @foreach ($logs as $log)
-                @php $actor = $log->actor(); @endphp
-                <tr><td>{{ \Carbon\CarbonImmutable::parse($log->get('created_at'))->format('d M Y H:i') }}</td><td>{{ $actor?->name ?? $actor?->email ?? 'User #'.$log->get('actor_user_id') }}</td><td>{{ str($log->get('action'))->replace('_', ' ')->headline() }}</td><td><code>{{ $log->get('from_state') }}</code> &rarr; <code>{{ $log->get('to_state') }}</code></td></tr>
+                <tr>
+                    <td>{{ \Carbon\CarbonImmutable::parse($log->get('created_at'))->format('d M Y H:i') }}</td>
+                    <td>{{ $log->actorLabel() }}</td>
+                    <td>{{ str($log->get('action'))->replace('_', ' ')->headline() }}</td>
+                    <td>
+                        @if ($log->changesLifecycleState())
+                            <code>{{ $log->get('from_state') }}</code> &rarr; <code>{{ $log->get('to_state') }}</code>
+                        @else
+                            State unchanged &mdash; <code>{{ $log->get('to_state') }}</code>
+                        @endif
+                    </td>
+                </tr>
             @endforeach
             </tbody></table></div>
         @endif
