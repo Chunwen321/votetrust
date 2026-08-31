@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Services\CandidateRegistration\PaymentStatusClient;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -13,6 +14,8 @@ use Tests\TestCase;
  */
 final class CandidatePaymentStatusClientTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_it_consumes_a_correlated_payment_status_response(): void
     {
         $this->configureClient();

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Candidacy;
 use App\Models\Election;
+use App\Models\Payment;
 use App\Models\User;
 use App\Services\CandidateRegistration\RealRegistrationService;
 use App\Services\CandidateRegistration\RegistrationProxy;
@@ -32,6 +33,8 @@ final class CandidateRegistrationHttpTest extends TestCase
             ->assertSee($election->title)
             ->assertSee($election->position_sought)
             ->assertSee(route('candidate.applications.store', $election))
+            ->assertSee('data-live-length', false)
+            ->assertSee('manifesto-live-error')
             ->assertDontSee('name="election_id"', false)
             ->assertDontSee('<select id="election_id"', false);
     }
@@ -70,7 +73,7 @@ final class CandidateRegistrationHttpTest extends TestCase
             ->where('election_id', $election->getKey())
             ->firstOrFail();
 
-        $response->assertRedirect(route('candidate.applications.show', $application));
+        $response->assertRedirect(route('candidate.payments.show', $application->payment_id));
 
         $this->assertDatabaseHas('candidacy', [
             'user_id' => $candidate->getKey(),
@@ -83,6 +86,14 @@ final class CandidateRegistrationHttpTest extends TestCase
         $this->assertDatabaseMissing('candidacy', [
             'user_id' => $candidate->getKey(),
             'election_id' => $otherElection->getKey(),
+        ]);
+        $this->assertDatabaseHas('payment', [
+            'id' => $application->payment_id,
+            'candidate_id' => $candidate->getKey(),
+            'election_id' => $election->getKey(),
+            'purpose' => Payment::PURPOSE_CANDIDATE_DEPOSIT,
+            'currency' => 'MYR',
+            'status' => 'Pending',
         ]);
     }
 
@@ -150,6 +161,7 @@ final class CandidateRegistrationHttpTest extends TestCase
         config(['candidate.disk' => 'candidate-test']);
         [$candidate, $election] = $this->candidateAndOpenElection();
         $candidacy = $this->application($candidate, $election);
+        $candidacy->payment()->update(['status' => 'Paid', 'verified_at' => now()]);
         $this->fakePaymentStatus('CONFIRMED');
 
         $this->actingAs($candidate)
@@ -167,6 +179,37 @@ final class CandidateRegistrationHttpTest extends TestCase
             $request->url(),
             "/api/v1/payments/{$candidacy->payment_id}/status",
         ));
+    }
+
+    public function test_a_new_deposit_stays_pending_until_candidate_completes_checkout(): void
+    {
+        Storage::fake('candidate-test');
+        config([
+            'candidate.disk' => 'candidate-test',
+            'candidate.services.payment.base_url' => 'https://payment.test',
+            'candidate.services.payment.api_key' => 'candidate-payment-secret',
+        ]);
+        Http::fake(fn () => Http::response([
+            'status' => 'S',
+            'message' => 'Candidate deposit status retrieved.',
+            'requestID' => 'unexpected',
+            'timestamp' => now()->toAtomString(),
+            'data' => ['paymentStatus' => 'CONFIRMED'],
+        ]));
+
+        [$candidate, $election] = $this->candidateAndOpenElection();
+        $candidacy = $this->application($candidate, $election);
+        $payment = $candidacy->payment()->firstOrFail();
+
+        $this->actingAs($candidate)
+            ->get(route('candidate.payments.show', $payment))
+            ->assertOk()
+            ->assertSee('Pending')
+            ->assertSee('Pay now')
+            ->assertDontSee('Confirmed');
+
+        self::assertSame('Pending', $payment->fresh()->status);
+        Http::assertNothingSent();
     }
 
     public function test_candidate_profile_links_to_the_dedicated_application_workspace(): void

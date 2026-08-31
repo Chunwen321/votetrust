@@ -9,6 +9,10 @@
         <h1>Candidate payment</h1>
     </div>
 
+    @if (session('success'))
+        <p class="candidate-payment-notice" role="status">{{ session('success') }}</p>
+    @endif
+
     <section class="candidate-card">
         <h2>{{ $candidacy->election?->title ?? 'Election' }}</h2>
         <dl class="candidate-definition-list">
