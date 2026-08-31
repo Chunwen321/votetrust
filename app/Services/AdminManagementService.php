@@ -19,12 +19,6 @@ use Illuminate\Validation\ValidationException;
 final class AdminManagementService
 {
     /** @var list<string> */
-    public const VOTER_STATUSES = ['PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED'];
-
-    /** @var list<string> */
-    public const CANDIDATE_STATUSES = ['Pending', 'Approved', 'Rejected'];
-
-    /** @var list<string> */
     public const ACCOUNT_STATUSES = ['ACTIVE', 'DISABLED'];
 
     public function __construct(
@@ -119,48 +113,6 @@ final class AdminManagementService
             ->values();
     }
 
-    /** @return EloquentCollection<int, User> */
-    public function eligibleUsers(): EloquentCollection
-    {
-        return User::query()
-            ->select(['id', 'full_name', 'email'])
-            ->where('is_admin', false)
-            ->where('account_status', 'ACTIVE')
-            ->orderBy('full_name')
-            ->orderBy('email')
-            ->get();
-    }
-
-    /** @return EloquentCollection<int, User> */
-    public function availableVoters(int $electionId): EloquentCollection
-    {
-        return User::query()
-            ->select(['id', 'full_name', 'email'])
-            ->where('is_admin', false)
-            ->where('account_status', 'ACTIVE')
-            ->whereNotIn('id', VoterEnrollment::query()
-                ->select('user_id')
-                ->where('election_id', $electionId))
-            ->orderBy('full_name')
-            ->orderBy('email')
-            ->get();
-    }
-
-    /** @return EloquentCollection<int, User> */
-    public function availableCandidates(int $electionId): EloquentCollection
-    {
-        $candidateIds = array_column($this->candidates->participants($electionId), 'userId');
-
-        return User::query()
-            ->select(['id', 'full_name', 'email'])
-            ->where('is_admin', false)
-            ->where('account_status', 'ACTIVE')
-            ->whereNotIn('id', $candidateIds)
-            ->orderBy('full_name')
-            ->orderBy('email')
-            ->get();
-    }
-
     /** @return LengthAwarePaginator<int, User> */
     public function members(string $search = '', ?string $status = null): LengthAwarePaginator
     {
@@ -216,58 +168,6 @@ final class AdminManagementService
         ];
     }
 
-    public function saveVoter(int $electionId, int $userId, string $status, int $adminId): void
-    {
-        $this->election($electionId);
-        $user = $this->eligibleUser($userId);
-        $status = strtoupper(trim($status));
-        $this->assertStatus($status, self::VOTER_STATUSES, 'voter');
-
-        $enrollment = VoterEnrollment::query()->firstOrNew([
-            'user_id' => $user->getKey(),
-            'election_id' => $electionId,
-        ]);
-        $enrollment->status = $status;
-        $enrollment->added_by = $adminId;
-        $enrollment->save();
-    }
-
-    public function changeVoterStatus(int $electionId, int $userId, string $status, int $adminId): void
-    {
-        $status = strtoupper(trim($status));
-        $this->assertStatus($status, self::VOTER_STATUSES, 'voter');
-
-        $enrollment = VoterEnrollment::query()
-            ->where('user_id', $userId)
-            ->where('election_id', $electionId)
-            ->firstOrFail();
-        $enrollment->status = $status;
-        $enrollment->added_by = $adminId;
-        $enrollment->save();
-    }
-
-    public function saveCandidate(int $electionId, int $userId, string $status): void
-    {
-        $this->election($electionId);
-        $user = $this->eligibleUser($userId);
-        $status = ucfirst(strtolower(trim($status)));
-        $this->assertStatus($status, self::CANDIDATE_STATUSES, 'candidate');
-
-        if (! $this->candidates->saveParticipant($electionId, (int) $user->getKey(), $status)) {
-            throw ValidationException::withMessages(['candidate' => 'The Candidate Module could not save this participant.']);
-        }
-    }
-
-    public function changeCandidateStatus(int $electionId, int $candidateId, string $status): void
-    {
-        $status = ucfirst(strtolower(trim($status)));
-        $this->assertStatus($status, self::CANDIDATE_STATUSES, 'candidate');
-
-        if (! $this->candidates->changeParticipantStatus($electionId, $candidateId, $status)) {
-            throw ValidationException::withMessages(['candidate' => 'The Candidate Module could not update this participant.']);
-        }
-    }
-
     public function changeMemberAccountStatus(User $administrator, User $member, string $status): void
     {
         $status = strtoupper(trim($status));
@@ -293,18 +193,6 @@ final class AdminManagementService
                     : null,
             ])->save();
         });
-    }
-
-    private function eligibleUser(int $userId): User
-    {
-        $user = User::query()->find($userId);
-        if (! $user instanceof User || (bool) $user->is_admin || ($user->account_status ?? 'ACTIVE') !== 'ACTIVE') {
-            throw ValidationException::withMessages([
-                'user_id' => 'Choose an active non-administrator user.',
-            ]);
-        }
-
-        return $user;
     }
 
     /**

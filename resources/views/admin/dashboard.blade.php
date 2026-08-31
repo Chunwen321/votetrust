@@ -8,8 +8,8 @@
 <section class="dashboard-hero admin-hero">
     <div>
         <p class="eyebrow">System administration</p>
-        <h1>Election participant control</h1>
-        <p>Review election activity, manage member access, and control voter and candidate participation.</p>
+        <h1>Election oversight</h1>
+        <p>Review election activity, inspect participant records, and approve or reject election requests.</p>
     </div>
 </section>
 
@@ -17,7 +17,7 @@
     <article class="metric-card"><span>Total elections</span><strong>{{ $counts['elections'] }}</strong><small>All election records</small></article>
     <article class="metric-card status-approved"><span>Active elections</span><strong>{{ $counts['active'] }}</strong><small>Approved, nomination, or voting</small></article>
     <article class="metric-card"><span>Approved voters</span><strong>{{ $counts['voters'] }}</strong><small>Across all elections</small></article>
-    <article class="metric-card status-pending"><span>Pending candidates</span><strong>{{ $counts['pending_candidates'] }}</strong><small>Require an admin decision</small></article>
+    <article class="metric-card status-pending"><span>Pending candidates</span><strong>{{ $counts['pending_candidates'] }}</strong><small>Awaiting organiser review</small></article>
 </section>
 
 <section class="admin-action-grid" aria-label="Administrator tools">
@@ -69,7 +69,7 @@
                         <td><strong>{{ $election['title'] }}</strong><br><small>#{{ $election['id'] }}</small></td>
                         <td><span class="badge status-{{ strtolower($election['status']) }}">{{ str_replace('_', ' ', $election['status']) }}</span></td>
                         <td>{{ $election['updatedAt'] ? \Carbon\CarbonImmutable::parse($election['updatedAt'])->format('d M Y, g:i A') : 'Unavailable' }}</td>
-                        <td><div class="admin-table-actions"><a class="button button-small" href="{{ route('admin.participants.show', $election['id']) }}">Participants</a><a class="button button-small button-quiet" href="{{ route('admin.elections.show', $election['id']) }}">Review</a></div></td>
+                        <td><div class="admin-table-actions"><a class="button button-small" href="{{ route('admin.participants.show', $election['id']) }}">View participants</a><a class="button button-small button-quiet" href="{{ route('admin.elections.show', $election['id']) }}">Review election</a></div></td>
                     </tr>
                 @endforeach
                 </tbody>

@@ -37,11 +37,7 @@ final class CandidateModuleClientTest extends TestCase
                     'candidates' => 1,
                     'pending' => 0,
                 ],
-                default => [
-                    'electionId' => 14,
-                    'userId' => 22,
-                    'status' => 'Approved',
-                ],
+                default => [],
             };
 
             return Http::response([
@@ -57,21 +53,19 @@ final class CandidateModuleClientTest extends TestCase
 
         self::assertSame(22, $client->participants(14)[0]['userId'] ?? null);
         self::assertSame(1, $client->metrics()['candidates'] ?? null);
-        self::assertTrue($client->saveParticipant(14, 22, 'Approved'));
-        self::assertTrue($client->changeParticipantStatus(14, 22, 'Approved'));
 
-        Http::assertSentCount(4);
+        Http::assertSentCount(2);
         foreach (Http::recorded() as [$request]) {
             $input = $this->requestInput($request);
 
-            self::assertTrue(in_array($request->method(), ['GET', 'POST', 'PATCH'], true));
+            self::assertSame('GET', $request->method());
             self::assertTrue($request->hasHeader('X-Internal-Api-Key', 'candidate-consumer-key'));
             self::assertMatchesRegularExpression('/\Ausr_[a-f0-9]{32}\z/', (string) ($input['requestID'] ?? ''));
             self::assertSame($now->toAtomString(), $input['timestamp'] ?? null);
         }
     }
 
-    public function test_candidate_responses_must_correlate_to_the_requested_participant(): void
+    public function test_candidate_read_responses_must_match_the_requested_contract(): void
     {
         config()->set('votetrust-user.services.candidate', [
             'base_url' => 'https://candidate.test',
@@ -90,17 +84,14 @@ final class CandidateModuleClientTest extends TestCase
                 'message' => 'Candidate data retrieved.',
                 'requestID' => $input['requestID'] ?? null,
                 'timestamp' => now()->toAtomString(),
-                'data' => $request->method() === 'GET'
-                    ? ['electionId' => 999, 'candidates' => []]
-                    : ['electionId' => 999, 'userId' => 888, 'status' => 'Rejected'],
+                'data' => ['electionId' => 999, 'candidates' => []],
             ]);
         });
 
         $client = app(CandidateModuleClient::class);
 
         self::assertSame([], $client->participants(14));
-        self::assertFalse($client->saveParticipant(14, 22, 'Approved'));
-        self::assertFalse($client->changeParticipantStatus(14, 22, 'Approved'));
+        self::assertNull($client->metrics());
     }
 
     /** @return array<string, mixed> */

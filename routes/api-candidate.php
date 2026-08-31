@@ -21,13 +21,6 @@ Route::middleware(['throttle:60,1', ValidateCandidateApiRequest::class])
     ->name('api.elections.candidates');
 
 Route::middleware(['throttle:60,1', ValidateCandidateServiceRequest::class])->group(function (): void {
-    Route::post('/v1/elections/{election}/candidates', [CandidateParticipantController::class, 'store'])
-        ->whereNumber('election')
-        ->name('api.elections.candidates.store');
-    Route::patch('/v1/elections/{election}/candidates/{user}', [CandidateParticipantController::class, 'update'])
-        ->whereNumber('election')
-        ->whereNumber('user')
-        ->name('api.elections.candidates.update');
     Route::get('/v1/candidates/metrics', [CandidateParticipantController::class, 'metrics'])
         ->name('api.candidates.metrics');
 });

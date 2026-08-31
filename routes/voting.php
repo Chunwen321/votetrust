@@ -4,14 +4,15 @@ use App\Http\Controllers\VotingController;
 use Illuminate\Support\Facades\Route;
 
 // PIC: Goh Chun Wen - Voting Process module routes.
+Route::get('/voting/elections/{election}/results', [VotingController::class, 'results'])
+    ->whereNumber('election')
+    ->name('voting.results');
+
 Route::middleware(['auth', 'active.account', 'verified.profile'])->prefix('voting')->name('voting.')->group(function (): void {
     Route::get('/', [VotingController::class, 'index'])->name('index');
     Route::get('/elections/{election}', [VotingController::class, 'ballot'])
         ->whereNumber('election')
         ->name('ballot');
-    Route::get('/elections/{election}/results', [VotingController::class, 'results'])
-        ->whereNumber('election')
-        ->name('results');
     Route::post('/elections/{election}/votes', [VotingController::class, 'cast'])
         ->middleware('throttle:voting.cast')
         ->whereNumber('election')

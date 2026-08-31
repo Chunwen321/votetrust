@@ -22,8 +22,6 @@ final class UserModuleRestBoundaryTest extends TestCase
             'api.elections.admin-overview',
             'api.elections.availability',
             'api.elections.candidates',
-            'api.elections.candidates.store',
-            'api.elections.candidates.update',
             'api.candidates.metrics',
             'api.votes.status',
         ] as $routeName) {

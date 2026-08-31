@@ -72,54 +72,50 @@ class VotingController extends Controller
         Request $request,
         int $election,
         VotingIntegration $integration,
-        VoterEligibilityAuthorizer $eligibilityAuthorizer,
         VoteTallyService $tallyService,
     ): Response|View {
         [$requestId, $timestamp] = $this->newEnvelope();
 
         try {
             $details = $integration->election($election, $requestId, $timestamp);
-
-            if ($details['eligibility']['type'] === 'PRIVATE') {
-                [$eligibilityRequestId, $eligibilityTimestamp] = $this->newEnvelope();
-                $voterEligibility = $integration->voterEligibility(
-                    (int) $request->user()->getKey(),
-                    $election,
-                    $eligibilityRequestId,
-                    $eligibilityTimestamp,
-                );
-
-                try {
-                    $eligibilityAuthorizer->assertEligible($voterEligibility, $details['eligibility']);
-                } catch (VoteAccessDenied) {
-                    abort(404);
-                }
-            }
         } catch (IntegrationException) {
             return response()->view('voting.error', [
                 'message' => 'A required teammate web service is temporarily unavailable.',
             ], 503);
         }
 
-        abort_unless(
-            in_array($details['status'], ['VOTING_OPEN', 'CLOSED'], true),
-            404,
+        abort_unless($details['status'] === 'CLOSED', 404);
+
+        $tally = $tallyService->tally($election, $details['candidacies']);
+        $results = $tally['tally'];
+        usort($results, static fn (array $left, array $right): int => $right['votes'] <=> $left['votes']
+                ?: strcasecmp($left['candidateName'], $right['candidateName'])
         );
 
-        $hasVoted = Vote::query()
-            ->where('voter_id', $request->user()->id)
+        $totalVotes = $tally['totalVotes'];
+        $highestVoteCount = $totalVotes > 0 ? (int) ($results[0]['votes'] ?? 0) : 0;
+        $winnerCount = $highestVoteCount > 0
+            ? count(array_filter($results, static fn (array $result): bool => $result['votes'] === $highestVoteCount))
+            : 0;
+
+        $results = array_map(static fn (array $result): array => [
+            ...$result,
+            'percentage' => $totalVotes > 0 ? round(($result['votes'] / $totalVotes) * 100, 1) : 0.0,
+            'isWinner' => $highestVoteCount > 0 && $result['votes'] === $highestVoteCount,
+        ], $results);
+
+        $userId = $request->user()?->getAuthIdentifier();
+        $hasVoted = $userId !== null && Vote::query()
+            ->where('voter_id', $userId)
             ->where('election_id', $election)
             ->exists();
-
-        $tally = $details['status'] === 'CLOSED'
-            ? $tallyService->tally($election, $details['candidacies'])
-            : ['tally' => [], 'totalVotes' => 0];
 
         return response()
             ->view('voting.results', [
                 'election' => $details,
-                'results' => $tally['tally'],
-                'totalVotes' => $tally['totalVotes'],
+                'results' => $results,
+                'totalVotes' => $totalVotes,
+                'winnerCount' => $winnerCount,
                 'hasVoted' => $hasVoted,
             ])
             ->header('Cache-Control', 'private, no-store, max-age=0');

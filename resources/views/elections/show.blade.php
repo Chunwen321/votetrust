@@ -43,6 +43,9 @@
 
         <div class="election-workspace-hero-side">
             <div class="election-workspace-hero-actions">
+                @if ($election->status === \App\States\ElectionStatus::CLOSED->value)
+                    <a class="election-button election-button-light" href="{{ route('voting.results', $election) }}">View results</a>
+                @endif
                 @if (! $isAdminView && $election->status === \App\States\ElectionStatus::DRAFT->value)
                     <a class="election-button election-button-light" href="{{ route('elections.edit', $election) }}">Edit election</a>
                 @endif

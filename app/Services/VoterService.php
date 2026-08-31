@@ -103,7 +103,9 @@ final class VoterService
     private function votingHasEnded(string $status, ?string $votingEnd): bool
     {
         if ($status === 'CLOSED') {
-            return true;
+            // Closed elections remain in the member workspace so their
+            // published aggregate results are easy to find.
+            return false;
         }
         if ($votingEnd === null) {
             return false;

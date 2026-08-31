@@ -42,13 +42,5 @@ Route::middleware(['auth', 'active.account'])->group(function (): void {
         Route::patch('/users/{user}', [AdminUserController::class, 'update'])->name('users.update');
         Route::get('/elections/{election}/participants', [ParticipantController::class, 'show'])
             ->name('participants.show');
-        Route::post('/elections/{election}/participants/voters', [ParticipantController::class, 'storeVoter'])
-            ->name('participants.voters.store');
-        Route::patch('/elections/{election}/participants/voters/{user}', [ParticipantController::class, 'updateVoter'])
-            ->name('participants.voters.update');
-        Route::post('/elections/{election}/participants/candidates', [ParticipantController::class, 'storeCandidate'])
-            ->name('participants.candidates.store');
-        Route::patch('/elections/{election}/participants/candidates/{user}', [ParticipantController::class, 'updateCandidate'])
-            ->name('participants.candidates.update');
     });
 });

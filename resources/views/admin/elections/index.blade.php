@@ -123,7 +123,11 @@
                         <div><dt>Organiser</dt><dd>{{ $election->organizer?->display_name ?? $election->organizer?->name ?? $election->organizer?->email ?? 'Unknown' }}</dd></div>
                         <div><dt>Payment</dt><dd>{{ $election->payment_verified_at ? 'Verified' : 'Not verified' }}</dd></div>
                     </dl>
-                    <a class="election-link" href="{{ route('admin.elections.show', $election) }}">Open election <span aria-hidden="true">&rarr;</span></a>
+                    @if ($election->status === \App\Models\Election::CLOSED)
+                        <a class="election-link" href="{{ route('voting.results', $election) }}">View results <span aria-hidden="true">&rarr;</span></a>
+                    @else
+                        <a class="election-link" href="{{ route('admin.elections.show', $election) }}">Open election <span aria-hidden="true">&rarr;</span></a>
+                    @endif
                 </article>
             @empty
                 @if ($pendingElections->isEmpty())
