@@ -84,6 +84,7 @@ final class ElectionService
             'status' => ElectionStatus::DRAFT->value,
             'version' => 1,
             'transition_history_json' => [[
+                'type' => ElectionTransitionRecord::LIFECYCLE_TRANSITION,
                 'actor_user_id' => $user->getKey(),
                 'request_id' => $requestId,
                 'action' => 'create',
@@ -1163,6 +1164,10 @@ final class ElectionService
     /** @param array<string, mixed> $record */
     private function appendTransition(Election $election, array $record): void
     {
+        $record['type'] ??= ($record['from_state'] ?? null) === ($record['to_state'] ?? null)
+            ? ElectionTransitionRecord::DOMAIN_EVENT
+            : ElectionTransitionRecord::LIFECYCLE_TRANSITION;
+
         $history = $this->storedArray($election->transition_history_json);
         $history[] = $record;
         $election->transition_history_json = $history;
