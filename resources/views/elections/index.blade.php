@@ -69,11 +69,7 @@
                         </div>
                         <div class="election-list-item__action">
                             @if ($isClosed)
-                                @if ($user->isVerified() && $isApprovedVoter)
-                                    <a class="button button-quiet button-small" href="{{ route('voting.results', $enrollment->election_id) }}" aria-label="View results for {{ $enrollment->election_title }}">View results <span aria-hidden="true">&rarr;</span></a>
-                                @else
-                                    <span class="item-note">Election ended</span>
-                                @endif
+                                <a class="button button-quiet button-small" href="{{ route('voting.results', $enrollment->election_id) }}" aria-label="View results for {{ $enrollment->election_title }}">View results <span aria-hidden="true">&rarr;</span></a>
                             @elseif (in_array($enrollment->status, [\App\Models\VoterEnrollment::REJECTED, \App\Models\VoterEnrollment::SUSPENDED], true))
                                 <span class="badge status-{{ strtolower($enrollment->status) }}">Voting access {{ str($enrollment->status)->lower() }}</span>
                             @elseif (! $user->isVerified())
@@ -148,7 +144,11 @@
                             @include('elections.partials.card-milestone', ['milestone' => $milestone])
                         </div>
                         <div class="election-list-item__action">
-                            <a class="button button-quiet button-small" href="{{ route('elections.show', $election) }}" aria-label="View {{ $election->title }}">View election <span aria-hidden="true">&rarr;</span></a>
+                            @if ($election->status === \App\Models\Election::CLOSED)
+                                <a class="button button-quiet button-small" href="{{ route('voting.results', $election) }}" aria-label="View results for {{ $election->title }}">View results <span aria-hidden="true">&rarr;</span></a>
+                            @else
+                                <a class="button button-quiet button-small" href="{{ route('elections.show', $election) }}" aria-label="View {{ $election->title }}">View election <span aria-hidden="true">&rarr;</span></a>
+                            @endif
                         </div>
                     </article>
                 @endforeach
@@ -203,7 +203,9 @@
                             @include('elections.partials.card-milestone', ['milestone' => $milestone])
                         </div>
                         <div class="election-list-item__action">
-                            @if ($election->status === \App\Models\Election::DRAFT)
+                            @if ($election->status === \App\Models\Election::CLOSED)
+                                <a class="button button-quiet button-small" href="{{ route('voting.results', $election) }}" aria-label="View results for {{ $election->title }}">View results <span aria-hidden="true">&rarr;</span></a>
+                            @elseif ($election->status === \App\Models\Election::DRAFT)
                                 <a class="button button-quiet button-small" href="{{ route('elections.edit', $election) }}" aria-label="Continue setting up {{ $election->title }}">Continue setup <span aria-hidden="true">&rarr;</span></a>
                             @else
                                 <a class="button button-quiet button-small" href="{{ route('elections.show', $election) }}" aria-label="Manage {{ $election->title }}">Manage election <span aria-hidden="true">&rarr;</span></a>

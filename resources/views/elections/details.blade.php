@@ -21,7 +21,9 @@
             <p class="election-details-description">{{ $election->description }}</p>
         </div>
 
-        @if ($canApply)
+        @if ($election->status === \App\Models\Election::CLOSED)
+            <a class="election-button election-button-primary" href="{{ route('voting.results', $election) }}">View results</a>
+        @elseif ($canApply)
             <a class="election-button election-button-primary" href="{{ route('candidate.applications.create', $election) }}">Apply as candidate</a>
         @endif
     </header>

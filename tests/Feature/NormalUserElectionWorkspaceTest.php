@@ -237,7 +237,7 @@ final class NormalUserElectionWorkspaceTest extends TestCase
             ->assertDontSeeText('Nomination Open');
     }
 
-    public function test_a_closed_voter_election_is_hidden_from_the_listing(): void
+    public function test_a_closed_voter_election_remains_visible_with_a_results_link(): void
     {
         $member = User::factory()->create([
             'is_admin' => false,
@@ -261,8 +261,9 @@ final class NormalUserElectionWorkspaceTest extends TestCase
         $this->actingAs($member)
             ->get(route('elections.index'))
             ->assertOk()
-            ->assertDontSee('Completed Community Election')
-            ->assertDontSee('href="'.route('voting.results', $closedElection->getKey()).'"', false)
+            ->assertSee('Completed Community Election')
+            ->assertSee('href="'.route('voting.results', $closedElection->getKey()).'"', false)
+            ->assertSee('View results')
             ->assertDontSee('href="'.route('voting.ballot', $closedElection->getKey()).'"', false);
     }
 

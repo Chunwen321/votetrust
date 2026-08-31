@@ -83,18 +83,18 @@ The detail response keeps both `eligibilityRules` and `eligibility` keys for con
 
 Request data: candidate path ID, `electionId`, `requestID`, `timestamp`. Success data contains minimal `candidate`, `organisation`, and `candidacy` objects; private documents and identity-card details are never exposed.
 
-### Candidate participant administration — Wong Shun Bin
+### Candidate participant reporting — Wong Shun Bin
 
 | IFA item | Value |
 |---|---|
-| Protocol | REST/JSON (`GET`, `POST`, `PATCH`) |
+| Protocol | REST/JSON (`GET`) |
 | Source | Candidate module |
 | Target | User administration module |
-| URLs | `/api/v1/elections/{election}/candidates`; `/api/v1/elections/{election}/candidates/{user}`; `/api/v1/candidates/metrics` |
-| Functions | `CandidateParticipantController::__invoke/store/update/metrics` |
+| URLs | `/api/v1/elections/{election}/candidates`; `/api/v1/candidates/metrics` |
+| Functions | `CandidateParticipantController::__invoke/metrics` |
 | Authentication | `X-Internal-Api-Key` |
 
-User administration uses these endpoints to list, add, and review candidate participants and to obtain aggregate dashboard metrics. It never reads or writes the Candidate-owned `candidacy` table directly.
+User administration uses these read-only endpoints to display candidate participants and aggregate dashboard metrics. Candidate decisions remain owned by the election organiser workflow; administration never writes the Candidate-owned `candidacy` table.
 
 ### Voting status and tally — Goh Chun Wen
 
@@ -114,7 +114,7 @@ Status request data: `voterId`, `electionId`, `requestID`, `timestamp`. It retur
 | Consumer (PIC) | Provider call | Purpose | Client implementation |
 |---|---|---|---|
 | User (Chew) | Election summaries, voter catalog, organiser elections, availability, and admin overview | Discover public voter elections and resolve election metadata without reading Election-owned tables | `App\Services\User\ElectionModuleClient` |
-| User (Chew) | Candidate participant and metrics endpoints | Administer candidate participation without reading or writing Candidate-owned tables | `App\Services\User\CandidateModuleClient` |
+| User (Chew) | Candidate participant and metrics endpoints | Display read-only participant records without reading or writing Candidate-owned tables | `App\Services\User\CandidateModuleClient` |
 | User (Chew) | Voting `/api/v1/votes/status` | Display participation status without reading Voting-owned tables | `App\Services\User\VotingParticipationClient` |
 | Election (Low) | User/Voter private-roster endpoints | Match CSV/XLSX/XLS roster rows and manage directory selections without writing User/Voter tables directly | `App\Services\VoterModuleClient` |
 | Election (Low) | `PAYMENT_API_URL` | Verify hosting payment before lifecycle transition | `App\Services\Payment\HttpPaymentGateway` |

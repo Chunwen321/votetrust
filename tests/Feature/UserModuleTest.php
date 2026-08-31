@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Models\Candidacy;
 use App\Models\Election;
 use App\Models\User;
 use App\Models\VoterEnrollment;
@@ -553,7 +554,7 @@ final class UserModuleTest extends TestCase
         self::assertNotFalse(strtotime((string) $response->json('timestamp')));
     }
 
-    public function test_an_administrator_can_manage_election_participants(): void
+    public function test_an_administrator_can_only_view_election_participants(): void
     {
         $admin = User::factory()->create([
             'email' => 'system.admin@example.test',
@@ -572,50 +573,55 @@ final class UserModuleTest extends TestCase
             'status' => Election::DRAFT,
             'currency' => 'MYR',
         ]);
+        VoterEnrollment::query()->create([
+            'user_id' => $member->getKey(),
+            'election_id' => $election->getKey(),
+            'status' => VoterEnrollment::APPROVED,
+        ]);
+        Candidacy::query()->create([
+            'user_id' => $member->getKey(),
+            'election_id' => $election->getKey(),
+            'status' => Candidacy::APPROVED,
+        ]);
         $this->configureElectionAndCandidateServices();
         Http::preventStrayRequests();
         Http::fake(fn (ClientRequest $request) => $this->crossModuleResponse($request, $election));
 
-        $this->actingAs($admin)->post(route('admin.participants.voters.store', $election->getKey()), [
+        $this->actingAs($admin)->post("/admin/elections/{$election->getKey()}/participants/voters", [
             'user_id' => $member->getKey(),
-            'status' => VoterEnrollment::APPROVED,
-        ])->assertRedirect(route('admin.participants.show', $election->getKey()).'#voters');
+            'status' => VoterEnrollment::REJECTED,
+        ])->assertNotFound();
 
-        $this->actingAs($admin)->post(route('admin.participants.candidates.store', $election->getKey()), [
-            'user_id' => $member->getKey(),
-            'status' => 'Approved',
-        ])->assertRedirect(route('admin.participants.show', $election->getKey()).'#candidates');
+        $this->actingAs($admin)->patch("/admin/elections/{$election->getKey()}/participants/candidates/{$member->getKey()}", [
+            'status' => Candidacy::REJECTED,
+        ])->assertNotFound();
 
         $this->assertDatabaseHas('voter', [
             'user_id' => $member->getKey(),
             'election_id' => $election->getKey(),
             'status' => VoterEnrollment::APPROVED,
-            'added_by' => $admin->getKey(),
         ]);
-        $this->assertDatabaseMissing('candidacy', [
+        $this->assertDatabaseHas('candidacy', [
             'user_id' => $member->getKey(),
             'election_id' => $election->getKey(),
+            'status' => Candidacy::APPROVED,
         ]);
-        Http::assertSent(function (ClientRequest $request) use ($election, $member): bool {
-            $payload = $this->requestInput($request);
-
-            return $request->method() === 'POST'
-                && str_starts_with($request->url(), 'https://candidate.test/api/v1/elections/'.$election->getKey().'/candidates')
-                && $request->hasHeader('X-Internal-Api-Key', 'candidate-consumer-key')
-                && ($payload['electionId'] ?? null) === $election->getKey()
-                && ($payload['userId'] ?? null) === $member->getKey()
-                && ($payload['status'] ?? null) === 'Approved'
-                && preg_match('/\Ausr_[a-f0-9]{32}\z/', (string) ($payload['requestID'] ?? '')) === 1;
-        });
 
         $this->actingAs($admin)
             ->get(route('admin.dashboard'))
             ->assertOk()
-            ->assertSee('Election participant control');
+            ->assertSee('Election oversight')
+            ->assertSee('Awaiting organiser review');
         $this->actingAs($admin)
             ->get(route('admin.participants.show', $election->getKey()))
             ->assertOk()
-            ->assertSee('Election Member');
+            ->assertSee('Election Member')
+            ->assertSee('Participant records are read-only')
+            ->assertSee('Candidate decisions and voter access are managed by the election organiser.')
+            ->assertDontSee('<select', false)
+            ->assertDontSee('Save candidate');
+
+        Http::assertNotSent(fn (ClientRequest $request): bool => $request->method() !== 'GET');
     }
 
     public function test_an_administrator_can_filter_and_change_member_account_access(): void
@@ -816,7 +822,18 @@ final class UserModuleTest extends TestCase
             if (str_contains($request->url(), '/metrics')) {
                 $data = ['candidates' => 0, 'pending' => 0];
             } elseif ($request->method() === 'GET') {
-                $data = ['electionId' => $election->getKey(), 'candidates' => []];
+                $data = [
+                    'electionId' => $election->getKey(),
+                    'candidates' => Candidacy::query()
+                        ->where('election_id', $election->getKey())
+                        ->get()
+                        ->map(static fn (Candidacy $candidacy): array => [
+                            'userId' => (int) $candidacy->user_id,
+                            'status' => (string) $candidacy->status,
+                            'registeredAt' => $candidacy->registered_at?->toAtomString(),
+                        ])
+                        ->all(),
+                ];
             } else {
                 $data = [
                     'electionId' => $input['electionId'] ?? null,

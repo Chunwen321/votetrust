@@ -109,7 +109,7 @@ Alternatively, clone the repository directly as `C:\laragon\www\votetrust`; no j
 |---|---|---|
 | Primary organiser - owns scenarios 01-03 and 05-09 | `lowwenkaiorganizer@votetrust.test` | `VoteTrust!2026` |
 | Secondary organiser - owns scenario 04 for the administrator handoff | `organizeradmin@votetrust.test` | `VoteTrust!2026` |
-| System administrator - approvals, participants, and member access | `systemadmin@votetrust.test` | `VoteTrustAdmin!2026` |
+| System administrator - election approvals, participant review, and member access | `systemadmin@votetrust.test` | `VoteTrustAdmin!2026` |
 | Candidate - ready to apply in scenario 05 and appears on seeded ballots | `candidateaisha@votetrust.test` | `Candidate!2026` |
 | Candidate - pending application for organizer review in scenario 05 | `candidatedaniel@votetrust.test` | `Candidate!2026` |
 | Voter - approved and ready to cast in active elections | `voterjohn@votetrust.test` | `VoteTrustVoter!2026` |
