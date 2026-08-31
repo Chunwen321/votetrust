@@ -49,23 +49,27 @@
             @csrf
 
             <label for="manifesto">Manifesto</label>
-            <textarea id="manifesto" name="manifesto" minlength="50" maxlength="5000" required>{{ old('manifesto') }}</textarea>
-            <p class="candidate-help">Describe the priorities and commitments you would bring to this position. Between 50 and 5,000 characters.</p>
+            <textarea id="manifesto" name="manifesto" minlength="50" maxlength="5000" required data-live-length aria-describedby="manifesto-help manifesto-live-error">{{ old('manifesto') }}</textarea>
+            <p id="manifesto-help" class="candidate-help">Describe the priorities and commitments you would bring to this position. Between 50 and 5,000 characters.</p>
+            <p id="manifesto-live-error" class="candidate-live-validation" aria-live="polite"></p>
             @error('manifesto')<p class="candidate-field-error">{{ $message }}</p>@enderror
 
             <label for="candidate_introduction">Candidate introduction</label>
-            <textarea id="candidate_introduction" name="candidate_introduction" minlength="20" maxlength="1000" required>{{ old('candidate_introduction') }}</textarea>
-            <p class="candidate-help">Briefly introduce yourself, such as your course, year, or department.</p>
+            <textarea id="candidate_introduction" name="candidate_introduction" minlength="20" maxlength="1000" required data-live-length aria-describedby="candidate-introduction-help candidate-introduction-live-error">{{ old('candidate_introduction') }}</textarea>
+            <p id="candidate-introduction-help" class="candidate-help">Briefly introduce yourself, such as your course, year, or department.</p>
+            <p id="candidate-introduction-live-error" class="candidate-live-validation" aria-live="polite"></p>
             @error('candidate_introduction')<p class="candidate-field-error">{{ $message }}</p>@enderror
 
             <label for="qualifications">Qualifications / experience</label>
-            <textarea id="qualifications" name="qualifications" maxlength="1000">{{ old('qualifications') }}</textarea>
-            <p class="candidate-help">Optional relevant experience, such as committee or club leadership.</p>
+            <textarea id="qualifications" name="qualifications" maxlength="1000" data-live-length aria-describedby="qualifications-help qualifications-live-error">{{ old('qualifications') }}</textarea>
+            <p id="qualifications-help" class="candidate-help">Optional relevant experience, such as committee or club leadership.</p>
+            <p id="qualifications-live-error" class="candidate-live-validation" aria-live="polite"></p>
             @error('qualifications')<p class="candidate-field-error">{{ $message }}</p>@enderror
 
             <label for="reason_for_candidacy">Reason for candidacy</label>
-            <textarea id="reason_for_candidacy" name="reason_for_candidacy" minlength="20" maxlength="1000" required>{{ old('reason_for_candidacy') }}</textarea>
-            <p class="candidate-help">Explain why you want to stand for this position.</p>
+            <textarea id="reason_for_candidacy" name="reason_for_candidacy" minlength="20" maxlength="1000" required data-live-length aria-describedby="reason-help reason-live-error">{{ old('reason_for_candidacy') }}</textarea>
+            <p id="reason-help" class="candidate-help">Explain why you want to stand for this position.</p>
+            <p id="reason-live-error" class="candidate-live-validation" aria-live="polite"></p>
             @error('reason_for_candidacy')<p class="candidate-field-error">{{ $message }}</p>@enderror
 
             <label for="profile_photo">Candidate photo</label>

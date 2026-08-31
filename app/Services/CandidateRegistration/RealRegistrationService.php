@@ -110,9 +110,13 @@ final class RealRegistrationService implements RegistrationService
 
                 $payment = new Payment;
                 $payment->amount = (string) config('candidate.deposit_amount', '10.00');
+                $payment->currency = 'MYR';
                 $payment->status = 'Pending';
+                $payment->gateway = 'idontpay99';
                 $payment->organizer_id = $election->organizer_id;
                 $payment->candidate_id = $userId;
+                $payment->election_id = $election->getKey();
+                $payment->purpose = Payment::PURPOSE_CANDIDATE_DEPOSIT;
                 $payment->save();
 
                 $candidacy->payment_id = $payment->getKey();

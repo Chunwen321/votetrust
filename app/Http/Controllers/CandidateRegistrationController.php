@@ -94,7 +94,7 @@ final class CandidateRegistrationController extends Controller
         );
 
         return redirect()
-            ->route('candidate.applications.show', $application)
-            ->with('success', 'Your application was submitted with Pending status.');
+            ->route('candidate.payments.show', $application->payment_id)
+            ->with('success', 'Your application was submitted. Complete the security deposit to continue.');
     }
 }

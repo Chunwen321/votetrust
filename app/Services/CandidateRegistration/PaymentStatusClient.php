@@ -2,6 +2,7 @@
 
 namespace App\Services\CandidateRegistration;
 
+use App\Models\Payment;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Str;
@@ -17,6 +18,25 @@ final class PaymentStatusClient
 
     public function fetch(int $paymentId, int $candidateId): CandidatePaymentStatus
     {
+        // The Payment module's local mock settles a pending record when its
+        // status endpoint is queried. Keep newly created Candidate deposits
+        // pending until checkout has actually changed the Payment record.
+        $pendingDeposit = Payment::query()
+            ->whereKey($paymentId)
+            ->where('candidate_id', $candidateId)
+            ->where('purpose', Payment::PURPOSE_CANDIDATE_DEPOSIT)
+            ->where('status', 'Pending')
+            ->exists();
+
+        if ($pendingDeposit) {
+            return new CandidatePaymentStatus(
+                available: true,
+                status: 'PENDING',
+                paid: false,
+                message: 'Complete the security-deposit checkout before payment can be confirmed.',
+            );
+        }
+
         $baseUrl = rtrim((string) config('candidate.services.payment.base_url', ''), '/');
         $apiKey = (string) config('candidate.services.payment.api_key', '');
 

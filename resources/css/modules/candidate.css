@@ -132,6 +132,23 @@
     font-weight: 700;
 }
 
+.candidate-live-validation {
+    min-height: 1.25rem;
+    margin: -0.35rem 0 0.85rem;
+    color: var(--candidate-muted, #52627a);
+    font-size: 0.875rem;
+}
+
+.candidate-live-validation--error {
+    color: #b42318;
+    font-weight: 700;
+}
+
+.candidate-card textarea.candidate-input--invalid {
+    border-color: #d92d20;
+    box-shadow: 0 0 0 3px rgb(217 45 32 / 12%);
+}
+
 .candidate-optional {
     color: var(--muted);
     font-size: .8rem;
