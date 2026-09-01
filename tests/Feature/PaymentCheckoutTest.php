@@ -6,6 +6,7 @@ use App\Models\Election;
 use App\Models\Organizer;
 use App\Models\Payment;
 use App\Models\User;
+use App\ValueObjects\EligibilityRules;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -194,6 +195,117 @@ final class PaymentCheckoutTest extends TestCase
         self::assertSame('Pending', $payment->status);
         self::assertSame((int) $organizer->getKey(), (int) $payment->organizer_id);
         self::assertNotNull($payment->provider_reference);
+    }
+
+    public function test_overdue_public_election_expires_before_checkout_creates_a_payment(): void
+    {
+        Http::fake();
+        $organizer = User::factory()->create();
+        Organizer::query()->create(['user_id' => $organizer->getKey()]);
+        $election = Election::query()->create([
+            'organizer_id' => $organizer->getKey(),
+            'title' => 'Expired Checkout Election',
+            'position_sought' => 'President',
+            'description' => 'A public election that must expire before checkout begins.',
+            'eligibility_rules' => EligibilityRules::publicElection()->toStorage(),
+            'nomination_start' => now()->subDays(2),
+            'nomination_end' => now()->subDay(),
+            'voting_start' => now()->addDay(),
+            'voting_end' => now()->addDays(2),
+            'status' => Election::PENDING_PAYMENT,
+            'hosting_fee' => '100.00',
+            'currency' => 'MYR',
+            'transition_history_json' => [],
+            'version' => 1,
+        ]);
+
+        $this->actingAs($organizer)
+            ->get(route('payments.checkout.election', $election))
+            ->assertRedirect(route('elections.show', $election))
+            ->assertSessionHas('error', fn (string $message): bool => str_contains($message, 'expired'));
+
+        self::assertSame(Election::EXPIRED, $election->refresh()->status);
+        self::assertSame(0, Payment::query()->where('election_id', $election->getKey())->count());
+
+        $this->actingAs($organizer)
+            ->get(route('elections.show', $election))
+            ->assertOk()
+            ->assertSee('Schedule expired')
+            ->assertSee('Organise a new election');
+        Http::assertNothingSent();
+    }
+
+    public function test_overdue_private_election_remains_eligible_for_checkout(): void
+    {
+        $organizer = User::factory()->create();
+        Organizer::query()->create(['user_id' => $organizer->getKey()]);
+        $election = Election::query()->create([
+            'organizer_id' => $organizer->getKey(),
+            'title' => 'Private Checkout Election',
+            'position_sought' => 'Class Representative',
+            'description' => 'A private election remains outside the public schedule-expiry rule.',
+            'eligibility_rules' => EligibilityRules::privateElection()->toStorage(),
+            'nomination_start' => now()->subDays(2),
+            'nomination_end' => now()->subDay(),
+            'voting_start' => now()->addDay(),
+            'voting_end' => now()->addDays(2),
+            'status' => Election::PENDING_PAYMENT,
+            'hosting_fee' => '120.00',
+            'currency' => 'MYR',
+            'transition_history_json' => [],
+            'version' => 1,
+        ]);
+
+        $response = $this->actingAs($organizer)
+            ->get(route('payments.checkout.election', $election));
+
+        $payment = Payment::query()->where('election_id', $election->getKey())->firstOrFail();
+        $response->assertRedirect(route('payments.checkout.show', $payment));
+        self::assertSame(Election::PENDING_PAYMENT, $election->refresh()->status);
+    }
+
+    public function test_stale_hosting_checkout_cannot_charge_after_public_nomination_ends(): void
+    {
+        $organizer = User::factory()->create();
+        Organizer::query()->create(['user_id' => $organizer->getKey()]);
+        $election = Election::query()->create([
+            'organizer_id' => $organizer->getKey(),
+            'title' => 'Stale Hosting Checkout',
+            'position_sought' => 'President',
+            'description' => 'A checkout opened before its public election schedule expired.',
+            'eligibility_rules' => EligibilityRules::publicElection()->toStorage(),
+            'nomination_start' => now()->subDays(2),
+            'nomination_end' => now()->subDay(),
+            'voting_start' => now()->addDay(),
+            'voting_end' => now()->addDays(2),
+            'status' => Election::PENDING_PAYMENT,
+            'hosting_fee' => '100.00',
+            'currency' => 'MYR',
+            'transition_history_json' => [],
+            'version' => 1,
+        ]);
+        $payment = Payment::query()->create([
+            'amount' => '100.00',
+            'currency' => 'MYR',
+            'status' => 'Pending',
+            'organizer_id' => $organizer->getKey(),
+            'election_id' => $election->getKey(),
+            'purpose' => Payment::PURPOSE_ELECTION_HOSTING,
+            'provider_reference' => 'VT-HOST-STALE-CHECKOUT',
+        ]);
+
+        $this->actingAs($organizer)
+            ->post(route('payments.checkout.charge', $payment), [
+                'card_number' => '4242 4242 4242 4242',
+                'card_holder' => 'Org Anizer',
+                'expiry' => '12/29',
+                'cvv' => '123',
+            ])
+            ->assertRedirect(route('elections.show', $election));
+
+        self::assertSame(Election::EXPIRED, $election->refresh()->status);
+        self::assertSame('Pending', $payment->refresh()->status);
+        self::assertNull($payment->verified_at);
     }
 
     public function test_pending_payment_page_disables_admin_review_until_payment_is_confirmed(): void

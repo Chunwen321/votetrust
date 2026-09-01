@@ -40,6 +40,10 @@ final class DraftState extends AbstractElectionState
         }
 
         if ($action === 'submit_for_payment') {
+            if ($this->expireOverduePublicElection($lifecycle, $context, $action)) {
+                return;
+            }
+
             $election = $lifecycle->election();
             if (EligibilityRules::fromStored($election->eligibility_rules)->mode() === EligibilityRules::PRIVATE
                 && ! $election->candidacies()->where('status', 'Approved')->exists()) {

@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Services\ElectionService;
 use App\Services\Payment\PaymentResult;
 use App\States\ElectionStatus;
+use App\ValueObjects\EligibilityRules;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -74,10 +75,10 @@ final class ElectionLifecycleTest extends TestCase
             'eligibility_mode' => 'PUBLIC',
             'eligibility_minimum_age' => 18,
             'eligibility_nationality' => 'ANY',
-            'nomination_start' => $clock->now()->subDays(2),
-            'nomination_end' => $clock->now()->subHour(),
-            'voting_start' => $clock->now()->subMinutes(30),
-            'voting_end' => $clock->now()->addHour(),
+            'nomination_start' => $clock->now()->subDay(),
+            'nomination_end' => $clock->now()->addHour(),
+            'voting_start' => $clock->now()->addHours(2),
+            'voting_end' => $clock->now()->addHours(4),
         ]);
         self::assertSame(ElectionStatus::DRAFT->value, $election->status);
         self::assertSame('100.00', $election->hosting_fee);
@@ -115,6 +116,7 @@ final class ElectionLifecycleTest extends TestCase
             'status' => Candidacy::APPROVED,
         ]);
 
+        $clock->current = $clock->now()->addHours(2);
         $election = $service->transition($organizerUser, $election->getKey(), 'start_voting', 'Correct!Pass1', ['version' => 4]);
         self::assertSame(ElectionStatus::VOTING_OPEN->value, $election->status);
 
@@ -125,9 +127,71 @@ final class ElectionLifecycleTest extends TestCase
             self::assertStringContainsString('before the configured voting end', $exception->getMessage());
         }
 
-        $clock->current = $clock->now()->addHours(2);
+        $clock->current = $clock->now()->addHours(3);
         $election = $service->transition($organizerUser, $election->getKey(), 'close_voting', 'Correct!Pass1', ['version' => 5]);
         self::assertSame(ElectionStatus::CLOSED->value, $election->status);
         self::assertCount(6, $service->transitionLogs($election));
+    }
+
+    public function test_overdue_public_pending_payment_expires_without_calling_the_payment_gateway(): void
+    {
+        $clock = new class(CarbonImmutable::parse('2026-08-08 12:00:00')) implements Clock
+        {
+            public function __construct(public CarbonImmutable $current) {}
+
+            public function now(): CarbonImmutable
+            {
+                return $this->current;
+            }
+        };
+        $gateway = new class implements PaymentGateway
+        {
+            public int $verificationCalls = 0;
+
+            public function verifyHostingPayment(
+                Election $election,
+                ?string $paymentReference,
+                string $requestId,
+                CarbonImmutable $requestedAt,
+            ): PaymentResult {
+                $this->verificationCalls++;
+
+                throw new \RuntimeException('The Payment API must not be called for an expired election.');
+            }
+        };
+        $service = new ElectionService(paymentGateway: $gateway, clock: $clock);
+        $organizer = User::factory()->create(['password' => Hash::make('Correct!Pass1')]);
+        Organizer::query()->create(['user_id' => $organizer->getKey()]);
+        $election = Election::query()->create([
+            'organizer_id' => $organizer->getKey(),
+            'title' => 'Expired Public Payment Election',
+            'position_sought' => 'President',
+            'description' => 'A public election whose nomination schedule ended before payment.',
+            'eligibility_rules' => EligibilityRules::publicElection()->toStorage(),
+            'nomination_start' => $clock->now()->subDays(2),
+            'nomination_end' => $clock->now(),
+            'voting_start' => $clock->now()->addDay(),
+            'voting_end' => $clock->now()->addDays(2),
+            'status' => Election::PENDING_PAYMENT,
+            'hosting_fee' => '100.00',
+            'currency' => 'MYR',
+            'transition_history_json' => [],
+            'version' => 1,
+        ]);
+
+        $expired = $service->transition(
+            $organizer,
+            (int) $election->getKey(),
+            'submit_payment',
+            'Correct!Pass1',
+            ['version' => 1],
+        );
+
+        self::assertSame(Election::EXPIRED, $expired->status);
+        self::assertSame(0, $gateway->verificationCalls);
+        self::assertNull($expired->payment_verified_at);
+        self::assertSame('expire_schedule', $service->transitionLogs($expired)[0]->get('action'));
+        self::assertSame('PUBLIC_NOMINATION_ENDED_BEFORE_PUBLICATION', $service->transitionLogs($expired)[0]->get('metadata')['reason']);
+        self::assertSame([], $service->actions($expired, $organizer));
     }
 }

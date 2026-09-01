@@ -9,6 +9,8 @@ namespace App\Http\Controllers;
 use App\Contracts\PaymentGatewayContract;
 use App\Models\Election;
 use App\Models\Payment;
+use App\Services\ElectionService;
+use App\Support\PublicElectionExpiry;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\RedirectResponse;
@@ -24,12 +26,18 @@ use Illuminate\View\View;
  */
 final class PaymentCheckoutController extends Controller
 {
-    public function __construct(private readonly PaymentGatewayContract $gateway) {}
+    public function __construct(
+        private readonly PaymentGatewayContract $gateway,
+        private readonly ElectionService $elections,
+    ) {}
 
-    public function show(Request $request, int $payment): View
+    public function show(Request $request, int $payment): View|RedirectResponse
     {
         $record = Payment::query()->findOrFail($payment);
         $this->authorizeAccess($request, $record);
+        if ($redirect = $this->expireHostingElection($request, $record, 'payment_checkout_view')) {
+            return $redirect;
+        }
 
         return view('payments.checkout', ['payment' => $record]);
     }
@@ -53,6 +61,9 @@ final class PaymentCheckoutController extends Controller
     {
         $record = Payment::query()->findOrFail($payment);
         $this->authorizeAccess($request, $record);
+        if ($redirect = $this->expireHostingElection($request, $record, 'payment_checkout_charge')) {
+            return $redirect;
+        }
 
         $request->validate([
             'card_number' => ['required', 'string', 'regex:/^[0-9 ]{12,23}$/'],
@@ -114,6 +125,16 @@ final class PaymentCheckoutController extends Controller
             throw new AuthorizationException('This election is not currently awaiting hosting payment.');
         }
 
+        $expired = $this->elections->expireOverduePublicElection(
+            $request->user(),
+            (int) $record->getKey(),
+            'payment_checkout_open',
+        );
+        if ($expired instanceof Election) {
+            return redirect()->route('elections.show', $expired)
+                ->with('error', PublicElectionExpiry::MESSAGE);
+        }
+
         $payment = Payment::query()
             ->where('purpose', Payment::PURPOSE_ELECTION_HOSTING)
             ->where('election_id', $record->getKey())
@@ -135,6 +156,28 @@ final class PaymentCheckoutController extends Controller
         }
 
         return redirect()->route('payments.checkout.show', $payment);
+    }
+
+    private function expireHostingElection(
+        Request $request,
+        Payment $payment,
+        string $trigger,
+    ): ?RedirectResponse {
+        if ($payment->purpose !== Payment::PURPOSE_ELECTION_HOSTING || $payment->election_id === null) {
+            return null;
+        }
+
+        $expired = $this->elections->expireOverduePublicElection(
+            $request->user(),
+            (int) $payment->election_id,
+            $trigger,
+        );
+        if (! $expired instanceof Election) {
+            return null;
+        }
+
+        return redirect()->route('elections.show', $expired)
+            ->with('error', PublicElectionExpiry::MESSAGE);
     }
 
     private function authorizeAccess(Request $request, Payment $payment): void

@@ -52,7 +52,7 @@
                 <div class="payment-checkout-reference">
                     <span>Hosting fee paid</span>
                     <strong>Payment linked to Election #{{ $payment->election_id }}</strong>
-                    <p>Return to the election to continue. VoteTrust will check this payment again before sending the election for administrator approval.</p>
+                    <p>No payment reference is required. Return to the election to continue; VoteTrust will check this payment again before sending the election for administrator approval.</p>
                     @if($payment->election_id)
                         <a class="payment-checkout-pay-button payment-checkout-pay-button--secondary" href="{{ route('elections.show', $payment->election_id) }}">Back to my election</a>
                     @endif

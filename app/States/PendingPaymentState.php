@@ -36,6 +36,9 @@ final class PendingPaymentState extends AbstractElectionState
         if ($action !== 'submit_payment') {
             $this->reject($action);
         }
+        if ($this->expireOverduePublicElection($lifecycle, $context, $action)) {
+            return;
+        }
 
         $election = $lifecycle->election();
         $election->applyDefaultHostingFee();

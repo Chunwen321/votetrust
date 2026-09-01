@@ -143,6 +143,66 @@ final class AdminPaymentReviewTest extends TestCase
         Http::assertSent(fn (Request $request): bool => ! isset($request['paymentReference']));
     }
 
+    public function test_admin_approval_expires_a_public_election_when_nominations_already_ended(): void
+    {
+        $admin = User::factory()->create([
+            'is_admin' => true,
+            'password' => Hash::make('Admin!Pass1'),
+        ]);
+        $organizer = User::factory()->create();
+        Organizer::query()->create(['user_id' => $organizer->getKey()]);
+        $election = $this->paymentElection($organizer, 'Expired Administrator Review', 'VT-HOST-PAID-LATE', true);
+        $election->forceFill([
+            'nomination_start' => now()->subDays(2),
+            'nomination_end' => now()->subDay(),
+        ])->save();
+
+        $this->actingAs($admin)
+            ->post(route('admin.elections.transition', $election), [
+                'action' => 'approve',
+                'current_password' => 'Admin!Pass1',
+                'version' => 1,
+            ])
+            ->assertRedirect(route('admin.elections.show', $election))
+            ->assertSessionHas('error', fn (string $message): bool => str_contains($message, 'expired'));
+
+        $election->refresh();
+        self::assertSame(Election::EXPIRED, $election->status);
+        self::assertNull($election->approved_at);
+        self::assertSame('expire_schedule', collect($election->transition_history_json)->last()['action']);
+    }
+
+    public function test_admin_does_not_call_payment_api_for_an_expired_public_election(): void
+    {
+        config()->set('election.payment.url', 'https://payments.example.test/api/v1/payments/verify');
+        config()->set('election.payment.api_key', 'payment-contract-secret');
+        Http::fake();
+
+        $admin = User::factory()->create([
+            'is_admin' => true,
+            'password' => Hash::make('Admin!Pass1'),
+        ]);
+        $organizer = User::factory()->create();
+        Organizer::query()->create(['user_id' => $organizer->getKey()]);
+        $election = $this->paymentElection($organizer, 'Expired Payment Verification', null);
+        $election->forceFill([
+            'nomination_start' => now()->subDays(2),
+            'nomination_end' => now()->subDay(),
+        ])->save();
+
+        $this->actingAs($admin)
+            ->post(route('admin.payments.verify', $election), [
+                'current_password' => 'Admin!Pass1',
+                'version' => 1,
+            ])
+            ->assertRedirect(route('admin.elections.show', $election))
+            ->assertSessionHas('error', fn (string $message): bool => str_contains($message, 'expired'));
+
+        self::assertSame(Election::EXPIRED, $election->refresh()->status);
+        self::assertNull($election->payment_verified_at);
+        Http::assertNothingSent();
+    }
+
     private function paymentElection(
         User $organizer,
         string $title,

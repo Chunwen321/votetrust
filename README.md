@@ -138,7 +138,7 @@ The scenario dates are calculated relative to the time `php artisan db:seed` run
 | `[Demo] 09 - Ready to Close` | Close an election whose configured voting period has ended. |
 | `VoteTrust Student Council Election 2026` | Inspect a closed election with stable historical candidacies, enrolments, and votes. |
 
-Organizer and administrator lifecycle forms require the current password shown above. Re-running `php artisan db:seed` refreshes the relative dates and resets the reserved demo personas and scenarios, so manual changes to those fixtures are not permanent.
+Organizer and administrator lifecycle decisions, candidate reviews, and every private voter or candidate import, assignment, or removal require a fresh current-password check for each critical action. Password confirmation is not reused between actions. Re-running `php artisan db:seed` refreshes the relative dates and resets the reserved demo personas and scenarios, so manual changes to those fixtures are not permanent.
 
 Candidate payment status and application cancellation still require the external Payment API. Local payment rows alone deliberately do not enable those payment-dependent actions.
 
@@ -152,6 +152,10 @@ Candidate payment status and application cancellation still require the external
 - `/voting` — secure voter portal
 - `/admin` — administrator dashboard
 - `/api/v1/...` — module REST providers
+
+## Public-election schedule expiry
+
+An unpublished public election becomes terminally `EXPIRED` when its nomination period ends while it is still a draft, awaiting hosting payment, or awaiting administrator approval. VoteTrust checks this before opening or charging checkout, before calling the Payment API, and before an administrator verifies or approves payment. An expired election cannot be edited or resumed; the organiser must create a new election with a future schedule. Private elections are not subject to this public schedule-expiry rule.
 
 ## Verification
 

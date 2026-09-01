@@ -18,6 +18,7 @@ final class AssignPrivateCandidateRequest extends FormRequest
     {
         return [
             'user_id' => ['required', 'integer', 'exists:user,id'],
+            'current_password' => ['required', 'string'],
             'version' => ['required', 'integer', 'min:1'],
         ];
     }

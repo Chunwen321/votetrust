@@ -7,11 +7,31 @@ namespace App\States;
 use App\Exceptions\BusinessRuleException;
 use App\Models\Election;
 use App\Services\TransitionContext;
+use App\Support\PublicElectionExpiry;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\AuthorizationException;
 
 abstract class AbstractElectionState implements ElectionState
 {
+    protected function expireOverduePublicElection(
+        ElectionLifecycle $lifecycle,
+        TransitionContext $context,
+        string $trigger,
+    ): bool {
+        $election = $lifecycle->election();
+        if (! PublicElectionExpiry::shouldExpire($election, $context->now)) {
+            return false;
+        }
+
+        $lifecycle->moveTo(
+            ElectionStatus::EXPIRED->value,
+            'expire_schedule',
+            PublicElectionExpiry::metadata($election, $trigger),
+        );
+
+        return true;
+    }
+
     public function canRegisterCandidate(Election $election, CarbonImmutable $now): bool
     {
         return false;

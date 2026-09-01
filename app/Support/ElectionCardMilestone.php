@@ -57,7 +57,7 @@ final readonly class ElectionCardMilestone
                 : new self('Voting ended', $end, 'past');
         }
 
-        if (in_array($status, [Election::CANCELLED, Election::REJECTED], true)) {
+        if (in_array($status, [Election::CANCELLED, Election::EXPIRED, Election::REJECTED], true)) {
             return self::unavailable();
         }
 
@@ -170,6 +170,10 @@ final readonly class ElectionCardMilestone
 
         if ($status === Election::CANCELLED) {
             return new self('Cancelled', null, 'past');
+        }
+
+        if ($status === Election::EXPIRED) {
+            return new self('Schedule expired', $nominationEnd, 'past');
         }
 
         return self::unavailable();

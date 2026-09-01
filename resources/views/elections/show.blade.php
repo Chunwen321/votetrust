@@ -63,6 +63,16 @@
         </div>
     </section>
 
+    @if ($election->status === \App\States\ElectionStatus::EXPIRED->value)
+        <section class="election-callout election-expired-callout" role="alert">
+            <strong>Schedule expired</strong>
+            <p>{{ \App\Support\PublicElectionExpiry::MESSAGE }}</p>
+            @if (! $isAdminView)
+                <a class="election-button election-button-primary" href="{{ route('elections.create') }}">Organise a new election</a>
+            @endif
+        </section>
+    @endif
+
     <section class="election-workspace-grid">
         <article class="election-card election-workspace-panel election-lifecycle-panel">
             <div class="election-panel-heading">
@@ -239,6 +249,11 @@
                             <span>Search IC or passport number</span>
                             <input id="private-voter-search" data-participant-search data-voter-search type="search" maxlength="30" autocomplete="off" placeholder="e.g. 050729145232">
                         </label>
+                        <label class="election-critical-password" for="private-voter-password">
+                            <span>Current password</span>
+                            <input id="private-voter-password" data-participant-password type="password" autocomplete="current-password" required>
+                        </label>
+                        <p class="election-help">Enter your password before each voter assignment or removal. It is cleared after every attempt.</p>
                         <div class="election-directory-summary" data-voter-directory-summary aria-live="polite">Loading registered users…</div>
                         <div class="election-directory-list" data-participant-directory-list data-voter-directory-list aria-live="polite" aria-busy="true"></div>
                         <button class="election-directory-load-more" data-participant-directory-more data-voter-directory-more type="button" hidden>Load more users</button>
@@ -267,6 +282,11 @@
                         </div>
                         <p class="election-help">For Excel files, set the <code>ic_number</code> column to <strong>Text</strong> so IC leading zeroes are retained. Active unverified users may be imported but must verify before voting. Existing voters are skipped, and omitted users remain assigned.</p>
                         @error('voter_list') <small class="election-field-error">{{ $message }}</small> @enderror
+                        <label class="election-critical-password">
+                            <span>Current password</span>
+                            <input name="current_password" type="password" autocomplete="current-password" required>
+                        </label>
+                        @error('current_password') <small class="election-field-error">{{ $message }}</small> @enderror
                         <button class="election-button election-button-primary" type="submit">Import voters</button>
                     </form>
                 </div>
@@ -306,6 +326,11 @@
                             <span>Search registered members</span>
                             <input id="private-candidate-search" data-participant-search type="search" maxlength="100" autocomplete="off" placeholder="Name, email, IC, or passport">
                         </label>
+                        <label class="election-critical-password" for="private-candidate-password">
+                            <span>Current password</span>
+                            <input id="private-candidate-password" data-participant-password type="password" autocomplete="current-password" required>
+                        </label>
+                        <p class="election-help">Enter your password before each candidate assignment or removal. It is cleared after every attempt.</p>
                         <div class="election-directory-summary" data-participant-directory-summary aria-live="polite">Loading registered users&hellip;</div>
                         <div class="election-directory-list" data-participant-directory-list aria-live="polite" aria-busy="true"></div>
                         <button class="election-directory-load-more" data-participant-directory-more type="button" hidden>Load more users</button>
@@ -334,6 +359,11 @@
                         </div>
                         <p class="election-help">For Excel files, set the <code>ic_number</code> column to <strong>Text</strong> so leading zeroes are retained. Existing candidates are skipped, and omitted candidates remain assigned.</p>
                         @error('candidate_list') <small class="election-field-error">{{ $message }}</small> @enderror
+                        <label class="election-critical-password">
+                            <span>Current password</span>
+                            <input name="current_password" type="password" autocomplete="current-password" required>
+                        </label>
+                        @error('current_password') <small class="election-field-error">{{ $message }}</small> @enderror
                         <button class="election-button election-button-primary" type="submit">Import candidates</button>
                     </form>
                 </div>

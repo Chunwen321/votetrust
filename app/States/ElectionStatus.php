@@ -13,5 +13,6 @@ enum ElectionStatus: string
     case VOTING_OPEN = 'VOTING_OPEN';
     case CLOSED = 'CLOSED';
     case CANCELLED = 'CANCELLED';
+    case EXPIRED = 'EXPIRED';
     case REJECTED = 'REJECTED';
 }
