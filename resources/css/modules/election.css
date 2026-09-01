@@ -81,10 +81,14 @@
 .election-callout { padding: .9rem 1rem; border-left: 4px solid var(--primary); border-radius: 0 .7rem .7rem 0; background: var(--primary-soft); }
 .election-callout strong { display: block; color: var(--primary-dark); }
 .election-callout p { margin: .25rem 0 0; color: var(--muted); font-size: .9rem; }
+.election-expired-callout { margin-bottom: 1.5rem; border-left-color: var(--danger); background: var(--danger-soft); }
+.election-expired-callout strong { color: var(--danger); }
+.election-expired-callout .election-button { margin-top: 1rem; }
 .election-status-nomination-open,
 .election-status-voting-open { background: var(--success-soft); color: var(--success); }
 .election-status-rejected,
-.election-status-cancelled { background: var(--danger-soft); color: var(--danger); }
+.election-status-cancelled,
+.election-status-expired { background: var(--danger-soft); color: var(--danger); }
 .election-status-closed { background: #e8e3fb; color: #4b358f; }
 
 .admin-approvals { width: min(1320px, calc(100% - 2rem)); }
@@ -888,8 +892,10 @@
 
 .election-voter-directory { min-height: 0; }
 
-.election-directory-search { display: grid; gap: .35rem; font-size: .85rem; font-weight: 750; }
-.election-directory-search input {
+.election-directory-search,
+.election-critical-password { display: grid; gap: .35rem; font-size: .85rem; font-weight: 750; }
+.election-directory-search input,
+.election-critical-password input {
     width: 100%;
     padding: .7rem .8rem;
     border: 1px solid #b8cce7;
@@ -899,7 +905,8 @@
     font: inherit;
 }
 
-.election-directory-search input:focus { border-color: var(--primary); outline: 3px solid rgb(21 94 239 / 14%); }
+.election-directory-search input:focus,
+.election-critical-password input:focus { border-color: var(--primary); outline: 3px solid rgb(21 94 239 / 14%); }
 
 .election-directory-summary {
     min-height: 1.35rem;

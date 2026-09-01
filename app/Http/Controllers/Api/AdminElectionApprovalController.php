@@ -10,6 +10,8 @@ use App\Models\User;
 use App\Security\ApiRequestValidator;
 use App\Services\ApiEnvelope;
 use App\Services\ElectionService;
+use App\States\ElectionStatus;
+use App\Support\PublicElectionExpiry;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
@@ -65,7 +67,9 @@ final class AdminElectionApprovalController extends Controller
                 'decision' => $decision,
                 'lifecycleState' => (string) $record->status,
                 'administratorUserID' => (int) $admin->getKey(),
-            ], 'Administrator decision recorded.'));
+            ], $record->status === ElectionStatus::EXPIRED->value
+                ? PublicElectionExpiry::MESSAGE
+                : 'Administrator decision recorded.'));
         } catch (ValidationException $exception) {
             return response()->json(ApiEnvelope::failure($requestId, 'The API request is invalid.', $exception->errors()), 422);
         } catch (AuthorizationException $exception) {

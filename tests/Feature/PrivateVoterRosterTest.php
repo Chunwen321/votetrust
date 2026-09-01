@@ -98,9 +98,56 @@ final class PrivateVoterRosterTest extends TestCase
             ->from(route('elections.show', $election))
             ->post(route('elections.private-voters.import', $election), [
                 'voter_list' => UploadedFile::fake()->create('private-voters.txt', 1, 'text/plain'),
+                'current_password' => 'password',
             ])
             ->assertRedirect(route('elections.show', $election))
             ->assertSessionHasErrors('voter_list');
+    }
+
+    public function test_private_participant_mutations_reject_an_incorrect_current_password_before_saving(): void
+    {
+        $organizer = User::factory()->create();
+        $candidate = User::factory()->create();
+        Organizer::query()->create(['user_id' => $organizer->getKey()]);
+        $election = Election::query()->create([
+            'organizer_id' => $organizer->getKey(),
+            'title' => 'Protected Participant Election',
+            'position_sought' => 'Representative',
+            'eligibility_rules' => json_encode(['type' => 'PRIVATE']),
+            'status' => Election::DRAFT,
+            'currency' => 'MYR',
+            'version' => 1,
+        ]);
+        Http::fake();
+
+        $this->actingAs($organizer)
+            ->post(route('elections.private-voters.import', $election), [
+                'voter_list' => UploadedFile::fake()->createWithContent(
+                    'private-voters.csv',
+                    "full_name,ic_number\nExample Voter,050729145232\n",
+                ),
+                'current_password' => 'incorrect-password',
+            ])
+            ->assertForbidden();
+
+        Http::assertNothingSent();
+        self::assertNull($election->refresh()->private_voter_list_uploaded_at);
+
+        $this->actingAs($organizer)
+            ->patchJson(route('elections.private-candidates.selection', [
+                'election' => $election,
+                'user' => $candidate,
+            ]), [
+                'assigned' => true,
+                'current_password' => 'incorrect-password',
+            ])
+            ->assertForbidden();
+
+        $this->assertDatabaseMissing('candidacy', [
+            'election_id' => $election->getKey(),
+            'user_id' => $candidate->getKey(),
+        ]);
+        self::assertSame(1, $election->refresh()->version);
     }
 
     public function test_user_voter_api_matches_full_name_and_ic_or_passport_and_keeps_existing_import_rows(): void
@@ -236,6 +283,7 @@ final class PrivateVoterRosterTest extends TestCase
                     'private-voters.csv',
                     "full_name,ic_number\nNur Aisyah Binti Ali,050729145232\nUnknown Member,991231145678\n",
                 ),
+                'current_password' => 'password',
             ])
             ->assertRedirect(route('elections.show', $election))
             ->assertSessionHas('success', 'Private voter list processed: 1 new voter(s) assigned, 1 row(s) did not match a registered user.');
@@ -548,7 +596,10 @@ final class PrivateVoterRosterTest extends TestCase
             ->assertJsonPath('data.users.0.assigned', false);
 
         $this->actingAs($organizer)
-            ->patchJson(route('elections.private-voters.selection', ['election' => $election, 'user' => 42]), ['assigned' => true])
+            ->patchJson(route('elections.private-voters.selection', ['election' => $election, 'user' => 42]), [
+                'assigned' => true,
+                'current_password' => 'password',
+            ])
             ->assertOk()
             ->assertJsonPath('data.assigned', true)
             ->assertJsonPath('data.totalAssigned', 2)
@@ -601,6 +652,7 @@ final class PrivateVoterRosterTest extends TestCase
             $organizer,
             (int) $election->getKey(),
             (int) $candidate->getKey(),
+            'password',
             1,
         );
 
@@ -661,7 +713,7 @@ final class PrivateVoterRosterTest extends TestCase
             ->patchJson(route('elections.private-candidates.selection', [
                 'election' => $election,
                 'user' => $unverifiedCandidate,
-            ]), ['assigned' => true])
+            ]), ['assigned' => true, 'current_password' => 'password'])
             ->assertUnprocessable()
             ->assertJsonPath('message', 'This member is no longer available for candidate assignment.');
 
@@ -669,7 +721,7 @@ final class PrivateVoterRosterTest extends TestCase
             ->patchJson(route('elections.private-candidates.selection', [
                 'election' => $election,
                 'user' => $candidate,
-            ]), ['assigned' => true])
+            ]), ['assigned' => true, 'current_password' => 'password'])
             ->assertOk()
             ->assertJsonPath('data.assigned', true)
             ->assertJsonPath('data.changed', true)
@@ -686,7 +738,7 @@ final class PrivateVoterRosterTest extends TestCase
             ->patchJson(route('elections.private-candidates.selection', [
                 'election' => $election,
                 'user' => $candidate,
-            ]), ['assigned' => false])
+            ]), ['assigned' => false, 'current_password' => 'password'])
             ->assertOk()
             ->assertJsonPath('data.assigned', false)
             ->assertJsonPath('data.totalAssigned', 0)
@@ -738,6 +790,7 @@ final class PrivateVoterRosterTest extends TestCase
                     'private-candidates.csv',
                     "full_name,ic_number\nImported Candidate,A1234567\nUnknown Candidate,B7654321\n",
                 ),
+                'current_password' => 'password',
             ])
             ->assertRedirect(route('elections.show', $election).'#candidates')
             ->assertSessionHas('success', fn (string $message): bool => str_contains($message, '1 new candidate(s) assigned')
@@ -798,6 +851,9 @@ final class PrivateVoterRosterTest extends TestCase
             ->assertSeeText('Add voters to this election')
             ->assertSee('data-private-voter-directory', false)
             ->assertSee('data-private-candidate-directory', false)
+            ->assertSee('data-participant-password', false)
+            ->assertSee('name="current_password"', false)
+            ->assertSeeText('It is cleared after every attempt.')
             ->assertSee('name="candidate_list"', false);
 
         $this->actingAs($organizer)
@@ -807,6 +863,7 @@ final class PrivateVoterRosterTest extends TestCase
         $this->actingAs($organizer)
             ->post(route('elections.candidates.assign', $election), [
                 'user_id' => $candidate->getKey(),
+                'current_password' => 'password',
                 'version' => 1,
             ])
             ->assertRedirect(route('elections.show', $election).'#candidates');
@@ -831,6 +888,7 @@ final class PrivateVoterRosterTest extends TestCase
             ->from(route('elections.show', $election))
             ->post(route('elections.candidates.assign', $election), [
                 'user_id' => $laterCandidate->getKey(),
+                'current_password' => 'password',
                 'version' => 2,
             ])
             ->assertRedirect(route('elections.show', $election))
@@ -869,6 +927,7 @@ final class PrivateVoterRosterTest extends TestCase
         $this->actingAs($organizer)
             ->post(route('elections.candidates.assign', $election), [
                 'user_id' => $candidate->getKey(),
+                'current_password' => 'password',
                 'version' => 1,
             ])
             ->assertRedirect(route('elections.show', $election).'#candidates');

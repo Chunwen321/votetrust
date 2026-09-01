@@ -29,6 +29,8 @@ class Election extends Model
 
     public const CANCELLED = 'CANCELLED';
 
+    public const EXPIRED = 'EXPIRED';
+
     public static function hostingFeeForMode(string $mode): string
     {
         $amount = $mode === EligibilityRules::PRIVATE

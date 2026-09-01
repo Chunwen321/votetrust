@@ -11,6 +11,8 @@ use App\Exceptions\ConcurrencyException;
 use App\Http\Controllers\Controller;
 use App\Models\Election;
 use App\Services\ElectionService;
+use App\States\ElectionStatus;
+use App\Support\PublicElectionExpiry;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -71,13 +73,18 @@ final class PaymentReviewController extends Controller
         ]);
 
         try {
-            $this->elections->transition(
+            $record = $this->elections->transition(
                 $request->user(),
                 $election,
                 'verify_payment',
                 (string) $input['current_password'],
                 ['version' => (int) $input['version']],
             );
+
+            if ($record->status === ElectionStatus::EXPIRED->value) {
+                return redirect()->route('admin.elections.show', $record)
+                    ->with('error', PublicElectionExpiry::MESSAGE);
+            }
 
             return redirect()->route('admin.payments.index')
                 ->with('success', 'Hosting payment verified. The election is now ready for final approval.');

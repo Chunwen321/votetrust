@@ -18,6 +18,7 @@ final class ElectionStateFactory
             ElectionStatus::VOTING_OPEN->value => new VotingOpenState,
             ElectionStatus::CLOSED->value => new ClosedState,
             ElectionStatus::CANCELLED->value => new CancelledState,
+            ElectionStatus::EXPIRED->value => new ExpiredState,
             ElectionStatus::REJECTED->value => new RejectedState,
             default => throw new BusinessRuleException("Unknown election lifecycle state: {$state}"),
         };

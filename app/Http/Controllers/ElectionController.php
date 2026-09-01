@@ -25,6 +25,7 @@ use App\Services\VoterService;
 use App\States\ElectionStatus;
 use App\Support\ElectionCardMilestone;
 use App\Support\ElectionCardStatus;
+use App\Support\PublicElectionExpiry;
 use App\ValueObjects\EligibilityRules;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -182,6 +183,12 @@ final class ElectionController extends Controller
             ]);
         }
 
+        $record = $this->service->expireOverduePublicElection(
+            $request->user(),
+            (int) $record->getKey(),
+            'organizer_view',
+        ) ?? $record;
+
         return $this->managementView($record, $request, false);
     }
 
@@ -212,7 +219,12 @@ final class ElectionController extends Controller
     public function importPrivateVoters(ImportPrivateVoterListRequest $request, int $election): RedirectResponse
     {
         try {
-            $record = $this->service->findOwned($request->user(), $election);
+            $record = $this->service->reauthenticateOrganizer(
+                $request->user(),
+                $election,
+                (string) $request->validated('current_password'),
+                'import_private_voter_list',
+            );
             if (! $this->canManagePrivateRoster($record)) {
                 return back()->with('error', 'Private voters can be managed until voting begins.');
             }
@@ -288,14 +300,20 @@ final class ElectionController extends Controller
     public function updatePrivateVoterSelection(UpdatePrivateVoterSelectionRequest $request, int $election, int $user): JsonResponse
     {
         try {
-            $record = $this->service->findOwned($request->user(), $election);
+            $assigned = (bool) $request->validated('assigned');
+            $record = $this->service->reauthenticateOrganizer(
+                $request->user(),
+                $election,
+                (string) $request->validated('current_password'),
+                $assigned ? 'assign_private_voter' : 'remove_private_voter',
+            );
             abort_unless($this->canManagePrivateRoster($record) && $this->isPrivate($record), 403);
 
             $selection = $this->voterModule->setPrivateVoterSelection(
                 (int) $record->getKey(),
                 (int) $request->user()->getKey(),
                 $user,
-                (bool) $request->validated('assigned'),
+                $assigned,
             );
             if ($selection === null) {
                 return response()->json([
@@ -360,6 +378,7 @@ final class ElectionController extends Controller
                 $election,
                 $user,
                 (bool) $request->validated('assigned'),
+                (string) $request->validated('current_password'),
             )]);
         } catch (BusinessRuleException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
@@ -373,6 +392,7 @@ final class ElectionController extends Controller
                 $request->user(),
                 $election,
                 $this->privateVoterRosterFile->parseCandidates($request->file('candidate_list')),
+                (string) $request->validated('current_password'),
             );
             $message = sprintf(
                 'Private candidate list processed: %d new candidate(s) assigned%s%s.',
@@ -414,6 +434,7 @@ final class ElectionController extends Controller
                 $request->user(),
                 $election,
                 (int) $request->validated('user_id'),
+                (string) $request->validated('current_password'),
                 (int) $request->validated('version'),
             );
 
@@ -435,6 +456,11 @@ final class ElectionController extends Controller
                 (string) $data['current_password'],
                 $data,
             );
+
+            if ($record->status === ElectionStatus::EXPIRED->value) {
+                return redirect()->route('elections.show', $record)
+                    ->with('error', PublicElectionExpiry::MESSAGE);
+            }
 
             return redirect()->route('elections.show', $record)
                 ->with('success', 'Lifecycle updated to '.str($record->status)->replace('_', ' ')->lower()->headline().'.');

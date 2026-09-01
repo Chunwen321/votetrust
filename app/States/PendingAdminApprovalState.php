@@ -51,6 +51,9 @@ final class PendingAdminApprovalState extends AbstractElectionState
         if ($context->actorOwns($election)) {
             throw new AuthorizationException('An administrator cannot approve their own election.');
         }
+        if ($this->expireOverduePublicElection($lifecycle, $context, $action)) {
+            return;
+        }
         if ($action === 'return_for_payment') {
             $reason = trim((string) $context->input('reason', ''));
             if (mb_strlen($reason) < 5 || mb_strlen($reason) > 250) {

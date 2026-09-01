@@ -20,6 +20,7 @@ use App\States\ElectionLifecycle;
 use App\States\ElectionStateFactory;
 use App\States\ElectionStatus;
 use App\Support\Identity;
+use App\Support\PublicElectionExpiry;
 use App\ValueObjects\ElectionTransitionRecord;
 use App\ValueObjects\EligibilityRules;
 use Carbon\CarbonImmutable;
@@ -238,6 +239,64 @@ final class ElectionService
         });
     }
 
+    /**
+     * Lazily expires an unpublished public election before any payment work.
+     * This does not require reauthentication because the clock, not the actor,
+     * makes the terminal lifecycle decision.
+     */
+    public function expireOverduePublicElection(User $actor, int $electionId, string $trigger): ?Election
+    {
+        return DB::transaction(function () use ($actor, $electionId, $trigger): ?Election {
+            $election = Election::query()->lockForUpdate()->find($electionId);
+            if (! $election instanceof Election) {
+                throw (new ModelNotFoundException)->setModel(Election::class, [$electionId]);
+            }
+
+            if ($this->isAdmin($actor)) {
+                $this->assertAdmin($actor);
+            } else {
+                if ((int) $election->organizer_id !== (int) $actor->getKey()) {
+                    $this->assertOwnedBy($actor, $election);
+                }
+            }
+
+            if ($election->status === ElectionStatus::EXPIRED->value) {
+                return $election;
+            }
+
+            $now = $this->clock->now();
+            if (! PublicElectionExpiry::shouldExpire($election, $now)) {
+                return null;
+            }
+
+            $expectedVersion = $this->assertExpectedVersion($election, $election->version);
+            $requestId = $this->newRequestId();
+            $from = (string) $election->status;
+            $metadata = PublicElectionExpiry::metadata($election, $trigger);
+            $election->status = ElectionStatus::EXPIRED->value;
+            $this->appendTransition($election, [
+                'actor_user_id' => $actor->getKey(),
+                'request_id' => $requestId,
+                'action' => 'expire_schedule',
+                'from_state' => $from,
+                'to_state' => ElectionStatus::EXPIRED->value,
+                'metadata' => $metadata,
+                'created_at' => $now->toDateTimeString(),
+            ]);
+            $this->persistWithVersion($election, $expectedVersion);
+            $this->auditLogger->log('election_schedule_expired', [
+                'election_id' => $election->getKey(),
+                'actor_user_id' => $actor->getKey(),
+                'request_id' => $requestId,
+                'from' => $from,
+                'trigger' => $trigger,
+                'nomination_end' => $metadata['nomination_end'],
+            ]);
+
+            return $election->refresh();
+        });
+    }
+
     public function findOwned(User $user, int $electionId): Election
     {
         $election = Election::query()->find($electionId);
@@ -245,6 +304,22 @@ final class ElectionService
             throw (new ModelNotFoundException)->setModel(Election::class, [$electionId]);
         }
         $this->assertOwnedBy($user, $election);
+
+        return $election;
+    }
+
+    public function reauthenticateOrganizer(
+        User $user,
+        int $electionId,
+        string $currentPassword,
+        string $operation,
+    ): Election {
+        $election = $this->findOwned($user, $electionId);
+        $this->reauthentication->assertPassword(
+            $user,
+            $currentPassword,
+            "election:{$electionId}:{$operation}",
+        );
 
         return $election;
     }
@@ -265,6 +340,15 @@ final class ElectionService
     public function hostingPaymentReadiness(User $user, Election $election): array
     {
         $this->assertOwnedBy($user, $election);
+
+        if (PublicElectionExpiry::shouldExpire($election, $this->clock->now())) {
+            return [
+                'confirmed' => false,
+                'status' => ElectionStatus::EXPIRED->value,
+                'label' => 'Schedule expired',
+                'message' => PublicElectionExpiry::MESSAGE,
+            ];
+        }
 
         if ($election->status !== ElectionStatus::PENDING_PAYMENT->value) {
             return [
@@ -674,8 +758,20 @@ final class ElectionService
     }
 
     /** @return array{userId:int,assigned:bool,changed:bool,reasonCode:string,totalAssigned:int,version:int} */
-    public function setPrivateCandidateSelection(User $user, int $electionId, int $candidateUserId, bool $assigned): array
-    {
+    public function setPrivateCandidateSelection(
+        User $user,
+        int $electionId,
+        int $candidateUserId,
+        bool $assigned,
+        string $currentPassword,
+    ): array {
+        $this->reauthenticateOrganizer(
+            $user,
+            $electionId,
+            $currentPassword,
+            $assigned ? 'assign_private_candidate' : 'remove_private_candidate',
+        );
+
         return DB::transaction(function () use ($user, $electionId, $candidateUserId, $assigned): array {
             $election = Election::query()->lockForUpdate()->findOrFail($electionId);
             $this->assertOwnedBy($user, $election);
@@ -764,8 +860,10 @@ final class ElectionService
      * @param  list<array{row:int,fullName:string,identityNumber:string}>  $rows
      * @return array{requested:int,assigned:int,skipped:int,totalAssigned:int,unmatchedCount:int,unmatchedRows:list<array{row:int,reason:string}>}
      */
-    public function importPrivateCandidates(User $user, int $electionId, array $rows): array
+    public function importPrivateCandidates(User $user, int $electionId, array $rows, string $currentPassword): array
     {
+        $this->reauthenticateOrganizer($user, $electionId, $currentPassword, 'import_private_candidate_list');
+
         return DB::transaction(function () use ($user, $electionId, $rows): array {
             $election = Election::query()->lockForUpdate()->findOrFail($electionId);
             $this->assertOwnedBy($user, $election);
@@ -888,8 +986,11 @@ final class ElectionService
         User $user,
         int $electionId,
         int $candidateUserId,
+        string $currentPassword,
         ?int $submittedVersion = null,
     ): Candidacy {
+        $this->reauthenticateOrganizer($user, $electionId, $currentPassword, 'assign_candidate');
+
         return DB::transaction(function () use ($user, $electionId, $candidateUserId, $submittedVersion): Candidacy {
             $election = Election::query()->lockForUpdate()->findOrFail($electionId);
             $this->assertOwnedBy($user, $election);

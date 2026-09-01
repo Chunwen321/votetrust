@@ -9,6 +9,7 @@ use App\Http\Requests\TransitionElectionRequest;
 use App\Models\Election;
 use App\Services\ElectionService;
 use App\States\ElectionStatus;
+use App\Support\PublicElectionExpiry;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -81,6 +82,11 @@ final class AdminElectionController extends Controller
     public function show(Request $request, int $election): View
     {
         $record = $this->service->findForAdmin($request->user(), $election);
+        $record = $this->service->expireOverduePublicElection(
+            $request->user(),
+            (int) $record->getKey(),
+            'administrator_view',
+        ) ?? $record;
 
         return view('elections.show', [
             'election' => $record,
@@ -104,6 +110,11 @@ final class AdminElectionController extends Controller
                 (string) $data['current_password'],
                 $data,
             );
+
+            if ($record->status === ElectionStatus::EXPIRED->value) {
+                return redirect()->route('admin.elections.show', $record)
+                    ->with('error', PublicElectionExpiry::MESSAGE);
+            }
 
             return redirect()->route('admin.elections.show', $record)
                 ->with('success', 'Administrator decision recorded.');
