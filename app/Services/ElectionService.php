@@ -50,18 +50,22 @@ final class ElectionService
 
     private readonly ElectionStateFactory $stateFactory;
 
+    private readonly VoterService $voters;
+
     public function __construct(
         ?ReauthenticationGuard $reauthentication = null,
         ?PaymentGateway $paymentGateway = null,
         ?Clock $clock = null,
         ?SecurityAuditLogger $auditLogger = null,
         ?ElectionStateFactory $stateFactory = null,
+        ?VoterService $voters = null,
     ) {
         $this->reauthentication = $reauthentication ?? new ReauthenticationGuard;
         $this->paymentGateway = $paymentGateway ?? new HttpPaymentGateway;
         $this->clock = $clock ?? new SystemClock;
         $this->auditLogger = $auditLogger ?? new SecurityAuditLogger;
         $this->stateFactory = $stateFactory ?? new ElectionStateFactory;
+        $this->voters = $voters ?? app(VoterService::class);
     }
 
     /** @param array<string, mixed> $input */
@@ -96,6 +100,16 @@ final class ElectionService
             ]],
         ]);
         $election->save();
+
+        if (EligibilityRules::fromStored($election->eligibility_rules)->mode() === EligibilityRules::PRIVATE) {
+            $enrollment = $this->voters->ensureOrganizerEnrollment(
+                (int) $election->getKey(),
+                (int) $user->getKey(),
+            );
+            $election->forceFill([
+                'private_voter_count' => $enrollment['totalAssigned'],
+            ])->save();
+        }
 
         $this->auditLogger->log('election_created', [
             'election_id' => $election->getKey(),
@@ -134,6 +148,16 @@ final class ElectionService
             }
             $election->forceFill($attributes);
             $this->persistWithVersion($election, $expectedVersion);
+
+            if ($updatedMode === EligibilityRules::PRIVATE) {
+                $enrollment = $this->voters->ensureOrganizerEnrollment(
+                    (int) $election->getKey(),
+                    (int) $user->getKey(),
+                );
+                $election->forceFill([
+                    'private_voter_count' => $enrollment['totalAssigned'],
+                ])->save();
+            }
 
             return $election->refresh();
         });

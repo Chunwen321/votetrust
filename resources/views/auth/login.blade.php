@@ -21,8 +21,54 @@
                 <button type="button" role="tab" aria-controls="register-panel" aria-selected="{{ $activePanel === 'register' ? 'true' : 'false' }}" data-auth-mode="register">Create account</button>
             </div>
 
+            @php($loginFeedback = session('login_feedback'))
             <form id="login-panel" class="auth-panel auth-panel--login" method="post" action="{{ route('login.store') }}" novalidate>
             @csrf
+            @if (is_array($loginFeedback))
+                @php($isLockedFeedback = ($loginFeedback['type'] ?? '') === 'locked')
+                <div
+                    @class([
+                        'auth-login-feedback',
+                        'auth-login-feedback--locked' => $isLockedFeedback,
+                        'auth-login-feedback--invalid' => ! $isLockedFeedback,
+                    ])
+                    role="alert"
+                    data-login-feedback
+                >
+                    <span class="auth-login-feedback__icon" aria-hidden="true">
+                        @if ($isLockedFeedback)
+                            <svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2"/></svg>
+                        @else
+                            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 17h.01"/></svg>
+                        @endif
+                    </span>
+                    <div class="auth-login-feedback__content">
+                        <strong>{{ $loginFeedback['title'] ?? 'Unable to sign in' }}</strong>
+                        <p>{{ $loginFeedback['message'] ?? 'Check your sign-in details and try again.' }}</p>
+                        @if ($isLockedFeedback && is_array($loginFeedback['adminContact'] ?? null))
+                            @php($adminContact = $loginFeedback['adminContact'])
+                            <address class="auth-login-feedback__contact" aria-label="Administrator contact information">
+                                <span>{{ $adminContact['name'] }}</span>
+                                <a href="mailto:{{ $adminContact['email'] }}">{{ $adminContact['email'] }}</a>
+                                @if (filled($adminContact['phone'] ?? null))
+                                    <a href="tel:{{ preg_replace('/[^0-9+]/', '', $adminContact['phone']) }}">{{ $adminContact['phone'] }}</a>
+                                @endif
+                            </address>
+                        @endif
+                        @if (! $isLockedFeedback && is_int($loginFeedback['remainingAttempts'] ?? null))
+                            @php($usedAttempts = max(0, (int) ($loginFeedback['maximumAttempts'] ?? $maximumLoginAttempts) - (int) $loginFeedback['remainingAttempts']))
+                            <div
+                                class="auth-login-attempts"
+                                aria-label="{{ $usedAttempts }} of {{ $loginFeedback['maximumAttempts'] ?? $maximumLoginAttempts }} failed attempts used"
+                            >
+                                @for ($attempt = 1; $attempt <= (int) ($loginFeedback['maximumAttempts'] ?? $maximumLoginAttempts); $attempt++)
+                                    <span @class(['is-used' => $attempt <= $usedAttempts]) aria-hidden="true"></span>
+                                @endfor
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            @endif
             <div class="auth-form-grid auth-form-grid--single">
                 <div class="auth-field">
                     <label for="login-email">Email address</label>
@@ -44,6 +90,10 @@
             </div>
 
             <label class="check-field"><input name="remember" type="checkbox" value="1" @checked(old('remember'))> Remember me</label>
+            <div class="auth-login-policy" role="note">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5.5 5.8v5.4c0 4.3 2.7 7.9 6.5 9.8 3.8-1.9 6.5-5.5 6.5-9.8V5.8L12 3Z"/><path d="m9.2 12 1.8 1.8 3.8-4"/></svg>
+                <span><strong>Protected sign-in</strong> This account locks after {{ $maximumLoginAttempts }} unsuccessful attempts.</span>
+            </div>
             <button class="button button-block" type="submit">Sign in</button>
             <p class="auth-switch">New to VoteTrust? <button type="button" class="auth-text-button" data-auth-mode="register">Create an account</button></p>
         </form>

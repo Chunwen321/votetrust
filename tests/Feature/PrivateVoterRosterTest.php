@@ -189,7 +189,7 @@ final class PrivateVoterRosterTest extends TestCase
             ->assertJsonPath('data.requested', 3)
             ->assertJsonPath('data.assigned', 2)
             ->assertJsonPath('data.skipped', 0)
-            ->assertJsonPath('data.totalAssigned', 2)
+            ->assertJsonPath('data.totalAssigned', 3)
             ->assertJsonPath('data.unmatchedCount', 1)
             ->assertJsonPath('data.unmatchedRows.0.row', 3)
             ->assertJsonPath('data.unmatchedRows.0.reason', 'NAME_DOES_NOT_MATCH_IDENTIFIER');
@@ -206,6 +206,13 @@ final class PrivateVoterRosterTest extends TestCase
             'election_id' => $election->getKey(),
             'status' => VoterEnrollment::APPROVED,
             'enrollment_source' => VoterEnrollment::SOURCE_PRIVATE_CSV,
+        ]);
+        $this->assertDatabaseHas('voter', [
+            'user_id' => $organizer->getKey(),
+            'election_id' => $election->getKey(),
+            'status' => VoterEnrollment::APPROVED,
+            'enrollment_source' => VoterEnrollment::SOURCE_ORGANIZER_HOST,
+            'added_by' => $organizer->getKey(),
         ]);
 
         $this->withHeader('X-Internal-Api-Key', 'private-roster-api-key')
@@ -225,7 +232,7 @@ final class PrivateVoterRosterTest extends TestCase
             ->assertJsonPath('data.assigned', 0)
             ->assertJsonPath('data.skipped', 2)
             ->assertJsonPath('data.removed', 0)
-            ->assertJsonPath('data.totalAssigned', 2)
+            ->assertJsonPath('data.totalAssigned', 3)
             ->assertJsonPath('data.unmatchedCount', 1);
 
         $this->assertDatabaseHas('voter', [
@@ -371,7 +378,14 @@ final class PrivateVoterRosterTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.assigned', true)
             ->assertJsonPath('data.changed', true)
-            ->assertJsonPath('data.totalAssigned', 1);
+            ->assertJsonPath('data.totalAssigned', 2);
+
+        $this->assertDatabaseHas('voter', [
+            'user_id' => $organizer->getKey(),
+            'election_id' => $election->getKey(),
+            'status' => VoterEnrollment::APPROVED,
+            'enrollment_source' => VoterEnrollment::SOURCE_ORGANIZER_HOST,
+        ]);
 
         $this->assertDatabaseHas('voter', [
             'user_id' => $directoryVoter->getKey(),
@@ -392,7 +406,7 @@ final class PrivateVoterRosterTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.assigned', false)
             ->assertJsonPath('data.changed', true)
-            ->assertJsonPath('data.totalAssigned', 0);
+            ->assertJsonPath('data.totalAssigned', 1);
 
         $this->assertDatabaseMissing('voter', [
             'user_id' => $directoryVoter->getKey(),
@@ -429,7 +443,22 @@ final class PrivateVoterRosterTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('data.assigned', true)
-            ->assertJsonPath('data.totalAssigned', 1);
+            ->assertJsonPath('data.totalAssigned', 2);
+
+        $this->withHeader('X-Internal-Api-Key', 'private-roster-api-key')
+            ->patchJson(route('api.voters.private-enrollments.selection'), [
+                'electionId' => $election->getKey(),
+                'organizerUserId' => $organizer->getKey(),
+                'userId' => $organizer->getKey(),
+                'assigned' => false,
+                'requestID' => 'private-directory-organizer',
+                'timestamp' => now()->toAtomString(),
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.assigned', true)
+            ->assertJsonPath('data.changed', false)
+            ->assertJsonPath('data.reasonCode', 'ORGANIZER_REQUIRED')
+            ->assertJsonPath('data.totalAssigned', 2);
 
         $this->withHeader('X-Internal-Api-Key', 'private-roster-api-key')
             ->getJson(route('api.voters.private-directory', [
@@ -625,7 +654,7 @@ final class PrivateVoterRosterTest extends TestCase
         });
     }
 
-    public function test_private_election_requires_a_candidate_but_not_voters_before_payment(): void
+    public function test_private_election_enrolls_organizer_and_requires_a_candidate_before_payment(): void
     {
         $organizer = User::factory()->create();
         $candidate = User::factory()->create();
@@ -658,10 +687,16 @@ final class PrivateVoterRosterTest extends TestCase
 
         self::assertSame(Candidacy::APPROVED, $assignment->status);
         self::assertNull($election->refresh()->private_voter_list_uploaded_at);
+        $this->assertDatabaseHas('voter', [
+            'user_id' => $organizer->getKey(),
+            'election_id' => $election->getKey(),
+            'status' => VoterEnrollment::APPROVED,
+            'enrollment_source' => VoterEnrollment::SOURCE_ORGANIZER_HOST,
+        ]);
 
         $updated = $service->transition($organizer, $election->getKey(), 'submit_for_payment', 'password', ['version' => 2]);
         self::assertSame(Election::PENDING_PAYMENT, $updated->status);
-        self::assertSame(0, $updated->private_voter_count);
+        self::assertSame(1, $updated->private_voter_count);
     }
 
     public function test_organizer_can_search_and_toggle_private_candidate_assignments(): void

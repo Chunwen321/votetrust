@@ -233,6 +233,12 @@ final class UserModuleTest extends TestCase
     public function test_repeated_failed_logins_disable_an_active_account(): void
     {
         config()->set('votetrust-user.auth.max_failed_attempts', 2);
+        User::factory()->create([
+            'email' => 'support.admin@example.test',
+            'full_name' => 'VoteTrust Support Admin',
+            'phone_number' => '+60 12-345 6789',
+            'is_admin' => true,
+        ]);
         $user = User::factory()->create([
             'email' => 'protected.user@example.test',
             'full_name' => 'Protected User',
@@ -242,8 +248,40 @@ final class UserModuleTest extends TestCase
         ]);
 
         $payload = ['email' => 'protected.user@example.test', 'password' => 'Wrong!Password123'];
-        $this->post(route('login.store'), $payload)->assertSessionHasErrors('email');
-        $this->post(route('login.store'), $payload)->assertSessionHasErrors('email');
+        $this->post(route('login.store'), $payload)
+            ->assertRedirect(route('login'))
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('login_feedback', fn (array $feedback): bool => $feedback['type'] === 'invalid'
+                && $feedback['title'] === 'Invalid credentials'
+                && $feedback['remainingAttempts'] === 1);
+
+        $this->get(route('login'))
+            ->assertOk()
+            ->assertSee('Invalid credentials')
+            ->assertSee('1 sign-in attempt remains before the account is locked.')
+            ->assertSee('data-login-feedback', false)
+            ->assertDontSee('Please review the following:');
+
+        $this->post(route('login.store'), $payload)
+            ->assertRedirect(route('login'))
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('login_feedback', fn (array $feedback): bool => $feedback['type'] === 'locked'
+                && $feedback['title'] === 'Account locked'
+                && $feedback['remainingAttempts'] === 0
+                && $feedback['adminContact'] === [
+                    'name' => 'VoteTrust Support Admin',
+                    'email' => 'support.admin@example.test',
+                    'phone' => '+60 12-345 6789',
+                ]);
+
+        $this->get(route('login'))
+            ->assertOk()
+            ->assertSee('Account locked')
+            ->assertSee('Please contact the administrator below to restore access.')
+            ->assertSee('VoteTrust Support Admin')
+            ->assertSee('href="mailto:support.admin@example.test"', false)
+            ->assertSee('href="tel:+60123456789"', false)
+            ->assertDontSee('Please review the following:');
 
         $user->refresh();
         self::assertSame('DISABLED', $user->account_status);

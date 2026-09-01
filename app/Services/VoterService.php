@@ -138,6 +138,21 @@ final class VoterService
         return $counts;
     }
 
+    /** @return array{changed:bool,totalAssigned:int} */
+    public function ensureOrganizerEnrollment(int $electionId, int $organizerUserId): array
+    {
+        $changed = false;
+
+        DB::transaction(function () use ($electionId, $organizerUserId, &$changed): void {
+            $changed = $this->approveOrganizerEnrollment($electionId, $organizerUserId);
+        });
+
+        return [
+            'changed' => $changed,
+            'totalAssigned' => $this->approvedVoterCount($electionId),
+        ];
+    }
+
     /**
      * Adds newly matched spreadsheet rows to a private election. An import
      * never removes existing voters; organisers remove access only through
@@ -210,6 +225,8 @@ final class VoterService
         $totalAssigned = 0;
 
         DB::transaction(function () use ($electionId, $organizerUserId, $matchedUserIds, &$assigned, &$skipped, &$totalAssigned): void {
+            $this->approveOrganizerEnrollment($electionId, $organizerUserId);
+
             foreach ($matchedUserIds as $userId) {
                 $enrollment = VoterEnrollment::query()->firstOrNew([
                     'user_id' => $userId,
@@ -319,9 +336,23 @@ final class VoterService
             ];
         }
 
+        if ($userId === $organizerUserId) {
+            $organizer = $this->ensureOrganizerEnrollment($electionId, $organizerUserId);
+
+            return [
+                'userId' => $userId,
+                'assigned' => true,
+                'changed' => $organizer['changed'],
+                'reasonCode' => $organizer['changed'] ? 'ASSIGNED' : 'ORGANIZER_REQUIRED',
+                'totalAssigned' => $organizer['totalAssigned'],
+            ];
+        }
+
         $changed = false;
         $reasonCode = $assigned ? 'ALREADY_ASSIGNED' : 'NOT_ASSIGNED';
         DB::transaction(function () use ($electionId, $organizerUserId, $userId, $assigned, &$changed, &$reasonCode): void {
+            $this->approveOrganizerEnrollment($electionId, $organizerUserId);
+
             $enrollment = VoterEnrollment::query()
                 ->where('election_id', $electionId)
                 ->where('user_id', $userId)
@@ -360,6 +391,30 @@ final class VoterService
             'reasonCode' => $reasonCode,
             'totalAssigned' => $this->approvedVoterCount($electionId),
         ];
+    }
+
+    private function approveOrganizerEnrollment(int $electionId, int $organizerUserId): bool
+    {
+        $enrollment = VoterEnrollment::query()
+            ->where('election_id', $electionId)
+            ->where('user_id', $organizerUserId)
+            ->lockForUpdate()
+            ->first();
+
+        if ($enrollment instanceof VoterEnrollment && $enrollment->status === VoterEnrollment::APPROVED) {
+            return false;
+        }
+
+        ($enrollment ?? new VoterEnrollment([
+            'election_id' => $electionId,
+            'user_id' => $organizerUserId,
+        ]))->forceFill([
+            'status' => VoterEnrollment::APPROVED,
+            'enrollment_source' => VoterEnrollment::SOURCE_ORGANIZER_HOST,
+            'added_by' => $organizerUserId,
+        ])->save();
+
+        return true;
     }
 
     /**

@@ -139,7 +139,8 @@ final class VoteTrustDemoSeederTest extends TestCase
         $this->post(route('login.store'), [
             'email' => 'disabledmember@votetrust.test',
             'password' => 'VoteTrustMember!2026',
-        ])->assertSessionHasErrors('email');
+        ])->assertSessionHas('login_feedback', fn (array $feedback): bool => $feedback['type'] === 'locked'
+            && $feedback['title'] === 'Account locked');
         $this->assertGuest();
     }
 

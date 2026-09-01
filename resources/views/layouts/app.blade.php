@@ -84,6 +84,9 @@
 
         <div class="account-nav">
             @auth
+                @if (config('votetrust-user.security_demo.enabled') && app()->environment('local'))
+                    <a href="{{ route('security.demo') }}" @class(['is-active' => request()->routeIs('security.demo')])>Security demo</a>
+                @endif
                 @if (Route::has('profile.show'))
                     <a href="{{ route('profile.show') }}" aria-label="Profile for {{ auth()->user()->display_name }}">Profile</a>
                 @else
@@ -117,7 +120,7 @@
     @if (session('error'))
         <div class="alert alert--error" role="alert">{{ session('error') }}</div>
     @endif
-    @if ($errors->any() && ! request()->routeIs('register'))
+    @if ($errors->any() && ! request()->routeIs('register', 'login'))
         <div class="alert alert--error" role="alert" data-validation-summary>
             <strong>Please review the following:</strong>
             <ul>
