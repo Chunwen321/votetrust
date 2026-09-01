@@ -9,6 +9,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
 use App\Models\User;
+use App\Security\Authentication\LoginAttemptResult;
 use App\Security\Session\SessionTerminationStrategy;
 use App\Services\UserService;
 use App\Support\CountryList;
@@ -17,7 +18,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 final class AuthController extends Controller
@@ -36,19 +36,22 @@ final class AuthController extends Controller
         return view('auth.login', [
             'activePanel' => 'login',
             'nationalityOptions' => array_diff_key(CountryList::options(), [CountryList::ANY => true]),
+            'maximumLoginAttempts' => $this->maximumLoginAttempts(),
         ]);
     }
 
     public function login(LoginRequest $request): RedirectResponse
     {
-        if (! $this->users->authenticate(
+        $result = $this->users->attemptAuthentication(
             (string) $request->validated('email'),
             (string) $request->validated('password'),
-            $request->boolean('remember')
-        )) {
-            throw ValidationException::withMessages([
-                'email' => 'We could not sign you in with those details.',
-            ]);
+            $request->boolean('remember'),
+        );
+
+        if (! $result->succeeded()) {
+            return redirect()->route('login')
+                ->withInput($request->only('email', 'remember'))
+                ->with('login_feedback', $this->loginFeedback($result));
         }
 
         $request->session()->regenerate();
@@ -67,6 +70,7 @@ final class AuthController extends Controller
         return view('auth.login', [
             'activePanel' => 'register',
             'nationalityOptions' => array_diff_key(CountryList::options(), [CountryList::ANY => true]),
+            'maximumLoginAttempts' => $this->maximumLoginAttempts(),
         ]);
     }
 
@@ -132,5 +136,64 @@ final class AuthController extends Controller
         return $user instanceof User && (bool) $user->is_admin
             ? route('admin.dashboard')
             : route('dashboard');
+    }
+
+    /**
+     * @return array{
+     *     type:string,
+     *     title:string,
+     *     message:string,
+     *     remainingAttempts:?int,
+     *     maximumAttempts:int,
+     *     adminContact:?array{name:string,email:string,phone:?string}
+     * }
+     */
+    private function loginFeedback(LoginAttemptResult $result): array
+    {
+        $locked = $result->status === LoginAttemptResult::ACCOUNT_LOCKED;
+        $adminContact = $locked ? $this->activeAdministratorContact() : null;
+        $remaining = $result->remainingAttempts;
+        $remainingCopy = is_int($remaining)
+            ? ' '.trans_choice(':count sign-in attempt remains|:count sign-in attempts remain', $remaining, ['count' => $remaining]).' before the account is locked.'
+            : '';
+
+        return [
+            'type' => $locked ? 'locked' : 'invalid',
+            'title' => $locked ? 'Account locked' : 'Invalid credentials',
+            'message' => $locked
+                ? ($adminContact === null
+                    ? 'This account cannot sign in. Please contact a system administrator to restore access.'
+                    : 'This account cannot sign in. Please contact the administrator below to restore access.')
+                : 'The email address or password is incorrect.'.$remainingCopy,
+            'remainingAttempts' => $remaining,
+            'maximumAttempts' => $this->maximumLoginAttempts(),
+            'adminContact' => $adminContact,
+        ];
+    }
+
+    /** @return array{name:string,email:string,phone:?string}|null */
+    private function activeAdministratorContact(): ?array
+    {
+        $administrator = User::query()
+            ->where('is_admin', true)
+            ->where('account_status', 'ACTIVE')
+            ->whereNull('account_disabled_at')
+            ->orderBy('id')
+            ->first(['id', 'name', 'full_name', 'email', 'phone_number']);
+
+        if (! $administrator instanceof User) {
+            return null;
+        }
+
+        return [
+            'name' => $administrator->display_name,
+            'email' => (string) $administrator->email,
+            'phone' => filled($administrator->phone_number) ? (string) $administrator->phone_number : null,
+        ];
+    }
+
+    private function maximumLoginAttempts(): int
+    {
+        return max(1, (int) config('votetrust-user.auth.max_failed_attempts', 5));
     }
 }

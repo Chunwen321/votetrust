@@ -7,6 +7,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\User;
+use App\Security\Authentication\LoginAttemptResult;
 use App\Security\Authentication\LoginProtectionStrategy;
 use App\Support\Identity;
 use Illuminate\Support\Facades\Auth;
@@ -70,28 +71,42 @@ final class UserService
 
     public function authenticate(string $email, string $password, bool $remember = false): bool
     {
+        return $this->attemptAuthentication($email, $password, $remember)->succeeded();
+    }
+
+    public function attemptAuthentication(string $email, string $password, bool $remember = false): LoginAttemptResult
+    {
         $user = User::query()->where('email', mb_strtolower(trim($email)))->first();
         $passwordMatches = Hash::check($password, $user?->password ?? self::DUMMY_PASSWORD_HASH);
 
         if (! $user instanceof User) {
-            return false;
+            return LoginAttemptResult::invalidCredentials();
         }
 
         if (! $this->loginProtection->allows($user)) {
-            return false;
+            return LoginAttemptResult::accountLocked();
         }
 
         if (! $passwordMatches) {
             $this->loginProtection->recordFailure($user);
+            $user->refresh();
 
-            return false;
+            if (! $this->loginProtection->allows($user)) {
+                return LoginAttemptResult::accountLocked();
+            }
+
+            $maximum = max(1, (int) config('votetrust-user.auth.max_failed_attempts', 5));
+
+            return LoginAttemptResult::invalidCredentials(
+                max(0, $maximum - (int) $user->failed_login_attempts),
+            );
         }
 
         $this->loginProtection->recordSuccess($user);
 
         Auth::login($user, $remember);
 
-        return true;
+        return LoginAttemptResult::success();
     }
 
     /** @param array<string, mixed> $attributes */

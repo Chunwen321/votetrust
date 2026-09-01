@@ -24,6 +24,8 @@ class VoterEnrollment extends Model
 
     public const SOURCE_ORGANIZER_DIRECTORY = 'ORGANIZER_DIRECTORY';
 
+    public const SOURCE_ORGANIZER_HOST = 'ORGANIZER_HOST';
+
     public const SOURCE_PRIVATE_CSV = 'PRIVATE_CSV';
 
     protected $fillable = [

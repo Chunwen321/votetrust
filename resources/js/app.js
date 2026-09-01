@@ -3,6 +3,7 @@ import './election-form';
 import './candidate-application-form';
 import './private-voter-directory';
 import './site-navigation';
+import './security-demo';
 import { initializePhoneCountryDetection } from './phone-country';
 
 initializePhoneCountryDetection();

@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SecurityPracticeDemoController;
 use App\Http\Controllers\VoterController;
 use App\Http\Middleware\EnsureAdmin;
 use Illuminate\Support\Facades\Route;
@@ -27,6 +28,10 @@ Route::middleware('guest')->group(function (): void {
 Route::middleware(['auth', 'active.account'])->group(function (): void {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
+    Route::get('/security-practices-demo', [SecurityPracticeDemoController::class, 'show'])->name('security.demo');
+    Route::post('/security-practices-demo/action', [SecurityPracticeDemoController::class, 'action'])
+        ->middleware('throttle:60,1')
+        ->name('security.demo.action');
     Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
     Route::get('/profile/verify', [ProfileController::class, 'show'])->name('profile.verify');
     Route::post('/profile/verify', [ProfileController::class, 'verify'])->name('profile.verify.store');

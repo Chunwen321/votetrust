@@ -11,6 +11,12 @@ return [
         'max_failed_attempts' => (int) env('AUTH_MAX_FAILED_ATTEMPTS', 5),
     ],
 
+    'security_demo' => [
+        // The local-only lab executes isolated server-side actions.
+        // It never swaps the real authentication or session strategies or modifies real users.
+        'enabled' => filter_var(env('SECURITY_DEMO_ENABLED', false), FILTER_VALIDATE_BOOL),
+    ],
+
     'api' => [
         'key' => (string) (env('USER_API_KEY')
             ?: env('USER_SERVICE_API_KEY')

@@ -112,6 +112,23 @@
 .user-module .auth-panel { display: grid; align-content: start; gap: .75rem; }
 .user-module .is-login .auth-panel--register,
 .user-module .is-register .auth-panel--login { display: none; }
+.user-module .auth-login-feedback { display: flex; gap: 11px; align-items: flex-start; padding: 12px 13px; border: 1px solid #efd69a; border-radius: 12px; color: #704700; background: #fff9e9; }
+.user-module .auth-login-feedback--locked { border-color: #efbbb5; color: #8f2119; background: #fff1ef; }
+.user-module .auth-login-feedback__icon { display: grid; flex: 0 0 34px; width: 34px; height: 34px; place-items: center; border-radius: 10px; color: #8a5a08; background: #ffefbf; }
+.user-module .auth-login-feedback--locked .auth-login-feedback__icon { color: var(--user-danger); background: #ffdeda; }
+.user-module .auth-login-feedback__icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+.user-module .auth-login-feedback__content { min-width: 0; }
+.user-module .auth-login-feedback__content strong { display: block; font-size: .86rem; }
+.user-module .auth-login-feedback__content p { margin: 2px 0 0; color: inherit; font-size: .76rem; line-height: 1.4; }
+.user-module .auth-login-feedback__contact { display: grid; gap: 2px; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgb(143 33 25 / 18%); font-size: .76rem; font-style: normal; line-height: 1.4; }
+.user-module .auth-login-feedback__contact span { font-weight: 700; }
+.user-module .auth-login-feedback__contact a { width: fit-content; color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.user-module .auth-login-attempts { display: flex; gap: 4px; margin-top: 9px; }
+.user-module .auth-login-attempts span { width: 24px; height: 4px; border-radius: 999px; background: #eadfbe; }
+.user-module .auth-login-attempts span.is-used { background: #c98213; }
+.user-module .auth-login-policy { display: flex; gap: 8px; align-items: flex-start; padding: 9px 10px; border: 1px solid #d5e2f5; border-radius: 10px; color: #526a86; background: #f7faff; font-size: .72rem; line-height: 1.4; }
+.user-module .auth-login-policy svg { flex: 0 0 18px; width: 18px; height: 18px; margin-top: 1px; fill: none; stroke: var(--user-teal); stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+.user-module .auth-login-policy strong { color: var(--user-navy); }
 .user-module .auth-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem .9rem; }
 .user-module .auth-form-grid--single { grid-template-columns: 1fr; }
 .user-module .auth-field { display: grid; min-height: 78px; gap: 5px; min-width: 0; align-content: start; }
@@ -425,6 +442,115 @@
 .user-module .alert-success { color: var(--user-success); background: #ebf8f1; border: 1px solid #b7e2ca; }
 .user-module .alert-error { color: var(--user-danger); background: #fff0ee; border: 1px solid #f2c0ba; }
 
+/* Local-only comparison surface for Chew Zhexuan's secure coding presentation. */
+.user-module.security-demo { display: grid; gap: 24px; }
+.user-module .security-demo__hero { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(330px, .75fr); gap: clamp(28px, 5vw, 70px); align-items: end; padding: 18px 0 8px; }
+.user-module .security-demo__intro h1 { margin: 0 0 14px; font-size: clamp(2.25rem, 5vw, 4.15rem); }
+.user-module .security-demo__intro > p:last-child { max-width: 780px; margin-bottom: 0; color: var(--user-muted); font-size: 1.05rem; }
+.user-module .security-demo__control-panel { display: grid; gap: 12px; padding: 18px; border: 1px solid #cbd9eb; border-radius: 18px; background: rgb(255 255 255 / 84%); box-shadow: 0 15px 40px rgb(24 63 115 / 8%); }
+.user-module .security-demo__local-badge { width: fit-content; padding: 5px 9px; border-radius: 999px; color: #526376; background: #edf3f8; font-size: .69rem; font-weight: 850; letter-spacing: .065em; text-transform: uppercase; }
+.user-module .security-demo__mode-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 5px; border-radius: 12px; background: #edf2f8; }
+.user-module .security-demo__mode-switch button { gap: 7px; min-height: 46px; padding: 8px 10px; color: #526376; background: transparent; border: 0; border-radius: 9px; box-shadow: none; font-size: .84rem; }
+.user-module .security-demo__mode-switch button:hover { color: var(--user-navy); background: rgb(255 255 255 / 68%); box-shadow: none; transform: none; }
+.user-module .security-demo__mode-switch button[aria-pressed="true"] { color: #075f42; background: #fff; box-shadow: 0 3px 11px rgb(24 63 115 / 10%); }
+.user-module .security-demo__mode-switch button[aria-pressed="true"] span { display: grid; width: 21px; height: 21px; place-items: center; border-radius: 50%; color: #fff; background: var(--user-success); }
+.user-module[data-mode="vulnerable"] .security-demo__mode-switch button[aria-pressed="true"] { color: #9e261c; }
+.user-module[data-mode="vulnerable"] .security-demo__mode-switch button[aria-pressed="true"] span { background: var(--user-danger); }
+.user-module .security-demo__safety-note { margin: 0; color: var(--user-muted); font-size: .76rem; line-height: 1.45; }
+
+.user-module .security-demo__mode-banner { display: flex; gap: 12px; align-items: center; padding: 14px 17px; border: 1px solid #afe0c7; border-radius: 14px; color: #075f42; background: #edf9f3; transition: color .18s ease, background .18s ease, border-color .18s ease; }
+.user-module .security-demo__mode-banner strong,
+.user-module .security-demo__mode-banner span { display: block; }
+.user-module .security-demo__mode-banner div > span { color: #3c6e5b; font-size: .82rem; }
+.user-module .security-demo__mode-dot { flex: 0 0 11px; width: 11px; height: 11px; border-radius: 50%; background: var(--user-success); box-shadow: 0 0 0 5px rgb(24 121 78 / 12%); }
+.user-module [data-vulnerable-summary] { display: none !important; }
+.user-module[data-mode="vulnerable"] .security-demo__mode-banner { color: #92251c; background: #fff1ef; border-color: #efbbb5; }
+.user-module[data-mode="vulnerable"] .security-demo__mode-dot { background: var(--user-danger); box-shadow: 0 0 0 5px rgb(180 35 24 / 12%); }
+.user-module[data-mode="vulnerable"] [data-secure-summary] { display: none !important; }
+.user-module[data-mode="vulnerable"] [data-vulnerable-summary] { display: block !important; }
+
+.user-module .security-demo__practice-grid { display: grid; gap: 24px; }
+.user-module .security-practice-card { overflow: hidden; border: 1px solid var(--user-line); border-radius: 22px; background: #fff; box-shadow: 0 20px 54px rgb(24 63 115 / 8%); }
+.user-module .security-practice-card__header { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 24px 26px 18px; }
+.user-module .security-practice-card__number { display: grid; width: 48px; height: 48px; place-items: center; border-radius: 14px; color: #fff; background: linear-gradient(135deg, #155eef, #123e99); box-shadow: 0 10px 22px rgb(21 94 239 / 24%); font-size: .87rem; font-weight: 900; }
+.user-module .security-practice-card__header .eyebrow { margin-bottom: 4px; }
+.user-module .security-practice-card__header h2 { margin: 0; font-size: clamp(1.35rem, 2.4vw, 1.8rem); }
+.user-module .security-practice-card__threat { padding: 7px 11px; border: 1px solid #e9c0bc; border-radius: 999px; color: #9e261c; background: #fff3f2; font-size: .73rem; font-weight: 850; white-space: nowrap; }
+.user-module .security-practice-card__scenario { margin: 0 26px 22px; padding: 12px 14px; border-left: 4px solid #9bb9ed; color: #4c6078; background: #f6f9fe; border-radius: 0 10px 10px 0; font-size: .88rem; }
+.user-module .security-practice-card__workspace { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); border-top: 1px solid var(--user-line); }
+
+.user-module .security-simulator { display: flex; min-width: 0; flex-direction: column; padding: 24px 26px 26px; background: linear-gradient(145deg, #fbfdff, #f2f7fd); }
+.user-module .security-simulator__title,
+.user-module .security-code__heading { display: flex; gap: 14px; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; }
+.user-module .security-simulator__title span,
+.user-module .security-code__heading span { color: #708198; font-size: .66rem; font-weight: 850; letter-spacing: .09em; text-transform: uppercase; }
+.user-module .security-simulator__title h3,
+.user-module .security-code__heading h3 { margin: 2px 0 0; font-size: 1.08rem; }
+.user-module .security-simulator__token { padding: 5px 8px; border: 1px solid #c8d7ea; border-radius: 7px; color: #35516e !important; background: #fff; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .7rem !important; letter-spacing: 0 !important; text-transform: none !important; white-space: nowrap; }
+.user-module .security-simulator__states { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 0 22px; }
+.user-module .security-simulator__states div { min-width: 0; padding: 13px; border: 1px solid #dbe5f2; border-radius: 11px; background: #fff; }
+.user-module .security-simulator__states dt { margin-bottom: 5px; color: #718196; font-size: .68rem; font-weight: 800; letter-spacing: .045em; text-transform: uppercase; }
+.user-module .security-simulator__states dd { margin: 0; color: #28425d; font-size: .86rem; font-weight: 850; overflow-wrap: anywhere; }
+.user-module .security-simulator__states dd[data-tone="success"] { color: var(--user-success); }
+.user-module .security-simulator__states dd[data-tone="danger"] { color: var(--user-danger); }
+.user-module .security-simulator__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; }
+.user-module .security-simulator__actions button { min-height: 38px; padding: 7px 11px; font-size: .78rem; }
+.user-module .security-simulator__actions .security-simulator__reset { margin-left: auto; color: #64758a; border-color: transparent; background: transparent; }
+.user-module .security-simulator__actions .security-simulator__reset:hover { color: var(--user-navy); background: #e5edf7; }
+.user-module.security-demo[data-busy="true"] button { cursor: progress; opacity: .62; }
+.user-module .security-demo-login { display: grid; gap: 12px; margin-bottom: 12px; padding: 16px; border: 1px solid #cfdded; border-radius: 14px; background: #fff; }
+.user-module .security-demo-login .auth-field { min-height: 0; }
+.user-module .security-demo-login__password { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }
+.user-module .security-demo-login__password button { min-width: 64px; padding: 8px 10px; }
+.user-module .security-demo-login__helpers { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; margin-bottom: 18px; }
+.user-module .security-demo-login__helpers button { min-height: 34px; padding: 6px 9px; font-size: .7rem; }
+.user-module .security-demo-login__helpers > span { width: 100%; color: #64758a; font-size: .72rem; }
+.user-module .security-demo-login__helpers code { color: #294d75; font-weight: 800; }
+.user-module .security-live-feedback { margin-top: 14px; padding: 11px 13px; border: 1px solid #b8d9c7; border-radius: 11px; color: #125b3d; background: #edf9f3; }
+.user-module .security-live-feedback.is-error { color: #90251d; border-color: #efbbb5; background: #fff1ef; }
+.user-module .security-live-feedback strong { display: block; font-size: .76rem; }
+.user-module .security-live-feedback p { margin: 2px 0 0; color: inherit; font-size: .76rem; line-height: 1.45; }
+.user-module .security-execution-trace { display: grid; gap: 6px; margin: 10px 0 0; padding: 0; list-style: none; counter-reset: execution-step; }
+.user-module .security-execution-trace:empty { display: none; }
+.user-module .security-execution-trace li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; align-items: start; color: #51667e; font-size: .72rem; line-height: 1.4; counter-increment: execution-step; }
+.user-module .security-execution-trace li::before { display: grid; width: 20px; height: 20px; place-items: center; border-radius: 50%; color: #fff; background: var(--user-success); content: counter(execution-step); font-size: .62rem; font-weight: 850; }
+
+.user-module .security-code { min-width: 0; padding: 24px 26px 26px; border-left: 1px solid var(--user-line); background: #101d2f; color: #dbe8f7; }
+.user-module .security-code__heading h3 { color: #fff; }
+.user-module .security-code__heading code { padding: 5px 8px; border: 1px solid #31445c; border-radius: 7px; color: #a8c6f4; background: #18283c; font-size: .68rem; white-space: nowrap; }
+.user-module .security-code__file { margin: 0 0 10px; color: #89a4c2; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .7rem; overflow-wrap: anywhere; }
+.user-module .security-code pre { max-width: 100%; margin: 0; padding: 17px; overflow-x: auto; border: 1px solid #2d425a; border-radius: 12px; background: #0a1422; color: #d9e8fb; font: .78rem/1.65 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre; }
+.user-module .security-source-stack { display: grid; gap: 10px; }
+.user-module .security-source-snippet { overflow: hidden; border: 1px solid #30455e; border-radius: 12px; background: #0d1928; transition: border-color .18s ease, box-shadow .18s ease; }
+.user-module .security-source-snippet summary { display: flex; gap: 14px; align-items: center; justify-content: space-between; padding: 12px 13px; color: #dceaff; background: #17283b; cursor: pointer; list-style-position: inside; }
+.user-module .security-source-snippet summary > span:first-child { display: grid; gap: 2px; }
+.user-module .security-source-snippet summary strong { font-size: .78rem; }
+.user-module .security-source-snippet summary small { color: #91a8c2; font-size: .65rem; font-weight: 600; }
+.user-module .security-source-snippet__badge { flex: 0 0 auto; padding: 4px 7px; border: 1px solid #44617f; border-radius: 999px; color: #a9c9f1; font-size: .58rem; font-weight: 850; letter-spacing: .045em; text-transform: uppercase; }
+.user-module .security-source-snippet .security-code__file { margin: 12px 14px 8px; }
+.user-module .security-source-snippet pre { max-height: 430px; margin: 0 12px 12px; border-radius: 8px; }
+.user-module .security-source-snippet.is-relevant { border-color: #f5c842; box-shadow: 0 0 0 2px rgb(245 200 66 / 15%); }
+.user-module .security-source-snippet.is-relevant summary { color: #fff5ba; background: #2c2b21; }
+.user-module .security-source-snippet.is-relevant .security-source-snippet__badge { color: #fff5ba; border-color: #9d8436; }
+.user-module .security-code__boundary { display: grid; gap: 3px; margin-bottom: 12px; padding: 10px 12px; border: 1px solid #36516d; border-radius: 10px; color: #acc5e1; background: #17273a; font-size: .7rem; line-height: 1.4; }
+.user-module .security-code__boundary strong { color: #e4effc; font-size: .75rem; }
+.user-module .security-code__explanation { margin: 14px 0 0; padding: 11px 13px; border: 1px solid #36516d; border-radius: 10px; color: #aec2d9; background: #17273a; font-size: .76rem; line-height: 1.45; }
+.user-module .security-code__points { display: grid; gap: 6px; margin: 16px 0 0; padding-left: 20px; color: #aebfd2; font-size: .78rem; }
+.user-module .security-code__points strong { color: #dceaff; }
+.user-module .security-code__warning { margin: 16px 0 0; padding: 11px 13px; border: 1px solid #743f3b; border-radius: 10px; color: #ffc8c3; background: #321d21; font-size: .78rem; }
+.user-module .security-code [hidden] { display: none !important; }
+.user-module[data-mode="vulnerable"] .security-code { border-left-color: #492e33; background: #24171c; }
+.user-module[data-mode="vulnerable"] .security-code pre { border-color: #51363b; background: #170e12; }
+.user-module[data-mode="vulnerable"] .security-source-snippet { border-color: #51363b; background: #170e12; }
+.user-module[data-mode="vulnerable"] .security-source-snippet summary { background: #321f25; }
+.user-module[data-mode="vulnerable"] .security-source-snippet.is-relevant { border-color: #ff6f61; box-shadow: 0 0 0 2px rgb(255 111 97 / 15%); }
+.user-module[data-mode="vulnerable"] .security-source-snippet.is-relevant summary { color: #ffd4cf; background: #43242a; }
+
+.user-module .security-demo__talk-track { display: grid; grid-template-columns: minmax(260px, .7fr) minmax(0, 1.3fr); gap: 30px; padding: clamp(24px, 4vw, 34px); border: 1px solid #c9d9ed; border-radius: 20px; background: linear-gradient(120deg, #f8fbff, #eef5ff); }
+.user-module .security-demo__talk-track h2 { margin-bottom: 0; }
+.user-module .security-demo__talk-track ol { display: grid; gap: 10px; margin: 0; padding-left: 22px; color: #4f637a; font-size: .88rem; }
+.user-module .security-demo__talk-track strong { color: var(--user-navy); }
+
 @media (max-width: 900px) {
     .user-module .auth-grid { grid-template-columns: 1fr; min-height: auto; }
     .user-module .auth-layout { min-height: 0; }
@@ -440,6 +566,10 @@
     .user-module .management-add-form { grid-template-columns: 1fr 1fr; }
     .user-module .management-filter-form { grid-template-columns: 1fr 1fr; }
     .user-module .admin-action-grid { grid-template-columns: 1fr; }
+    .user-module .security-demo__hero,
+    .user-module .security-practice-card__workspace,
+    .user-module .security-demo__talk-track { grid-template-columns: 1fr; }
+    .user-module .security-code { border-top: 1px solid var(--user-line); border-left: 0; }
 }
 
 @media (max-width: 760px) {
@@ -475,4 +605,14 @@
     .user-module .election-hub__timezone { width: 100%; border-radius: 12px; }
     .user-module .election-list-item__milestone { width: 100%; }
     .user-module .role-empty-state--action .button { margin-left: 0; }
+    .user-module .security-practice-card__header { grid-template-columns: auto minmax(0, 1fr); }
+    .user-module .security-practice-card__threat { grid-column: 1 / -1; width: fit-content; }
+    .user-module .security-demo__mode-switch,
+    .user-module .security-simulator__states { grid-template-columns: 1fr; }
+    .user-module .security-simulator__title,
+    .user-module .security-code__heading { align-items: stretch; flex-direction: column; }
+    .user-module .security-simulator__token,
+    .user-module .security-code__heading code { width: fit-content; }
+    .user-module .security-simulator__actions { align-items: stretch; flex-direction: column; }
+    .user-module .security-simulator__actions .security-simulator__reset { margin-left: 0; }
 }
