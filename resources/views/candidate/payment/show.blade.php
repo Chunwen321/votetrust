@@ -37,9 +37,20 @@
             <a class="candidate-button" href="{{ route('payments.checkout.show', $payment) }}">Pay now</a>
         @elseif ($paymentStatus->paid)
             <p>Your payment is complete. Application approval will follow the configured payment workflow.</p>
+            @if ($candidacy->election?->status === \App\Models\Election::CLOSED)
+                <form method="post" action="{{ route('candidate.deposits.refund', $candidacy) }}">
+                    @csrf
+                    <button class="candidate-button candidate-button--primary" type="submit">Request deposit refund</button>
+                </form>
+                <p class="candidate-help">Refund eligibility requires more than 5% of all valid votes.</p>
+            @else
+                <p class="candidate-help">Refund eligibility will be available after the election closes.</p>
+            @endif
         @else
             <p>This payment is no longer payable.</p>
         @endif
+
+        @error('refund')<p class="candidate-field-error" role="alert">{{ $message }}</p>@enderror
 
         <p class="candidate-help">{{ $paymentStatus->message }}</p>
 

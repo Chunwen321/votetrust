@@ -255,4 +255,77 @@ final class PaymentWebServiceProviderTest extends TestCase
             ->assertNotFound()
             ->assertJsonPath('status', 'F');
     }
+
+    public function test_it_refunds_an_eligible_paid_candidate_deposit(): void
+    {
+        $organizer = User::factory()->create();
+        $candidate = User::factory()->create();
+        $election = Election::query()->create([
+            'organizer_id' => $organizer->getKey(),
+            'title' => 'Closed Refund Election',
+            'position_sought' => 'President',
+            'status' => Election::CLOSED,
+        ]);
+        $payment = Payment::query()->create([
+            'amount' => '10.00',
+            'currency' => 'MYR',
+            'status' => 'Paid',
+            'candidate_id' => $candidate->getKey(),
+            'election_id' => $election->getKey(),
+            'purpose' => Payment::PURPOSE_CANDIDATE_DEPOSIT,
+            'verified_at' => now(),
+        ]);
+
+        $this->withHeader('X-Payment-Api-Key', 'candidate-consumer-secret')
+            ->postJson('/api/v1/payments/'.$payment->getKey().'/refund', [
+                'candidateId' => $candidate->getKey(),
+                'electionId' => $election->getKey(),
+                'candidateVotes' => 6,
+                'totalVotes' => 100,
+                'requestID' => 'refund_candidate_001',
+                'timestamp' => now()->toAtomString(),
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', 'S')
+            ->assertJsonPath('data.paymentStatus', 'REFUNDED')
+            ->assertJsonPath('data.votePercentage', 6);
+
+        self::assertSame('Refunded', $payment->fresh()->status);
+        self::assertNotNull($payment->fresh()->refunded_at);
+    }
+
+    public function test_candidate_deposit_refund_requires_strictly_more_than_five_percent(): void
+    {
+        $organizer = User::factory()->create();
+        $candidate = User::factory()->create();
+        $election = Election::query()->create([
+            'organizer_id' => $organizer->getKey(),
+            'title' => 'Five Percent Election',
+            'position_sought' => 'President',
+            'status' => Election::CLOSED,
+        ]);
+        $payment = Payment::query()->create([
+            'amount' => '10.00',
+            'currency' => 'MYR',
+            'status' => 'Paid',
+            'candidate_id' => $candidate->getKey(),
+            'election_id' => $election->getKey(),
+            'purpose' => Payment::PURPOSE_CANDIDATE_DEPOSIT,
+            'verified_at' => now(),
+        ]);
+
+        $this->withHeader('X-Payment-Api-Key', 'candidate-consumer-secret')
+            ->postJson('/api/v1/payments/'.$payment->getKey().'/refund', [
+                'candidateId' => $candidate->getKey(),
+                'electionId' => $election->getKey(),
+                'candidateVotes' => 5,
+                'totalVotes' => 100,
+                'requestID' => 'refund_candidate_002',
+                'timestamp' => now()->toAtomString(),
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('status', 'F');
+
+        self::assertSame('Paid', $payment->fresh()->status);
+    }
 }
