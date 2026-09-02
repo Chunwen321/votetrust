@@ -17,6 +17,7 @@ use App\Http\Requests\UpdatePrivateCandidateSelectionRequest;
 use App\Http\Requests\UpdatePrivateVoterSelectionRequest;
 use App\Models\Candidacy;
 use App\Models\Election;
+use App\Models\VoterEnrollment;
 use App\Services\CandidateRegistration\CandidateApplicationAccess;
 use App\Services\ElectionService;
 use App\Services\PrivateVoterRosterFile;
@@ -173,11 +174,20 @@ final class ElectionController extends Controller
                 Election::EXPIRED,
                 Election::REJECTED,
             ], true);
+            $isApprovedVoter = VoterEnrollment::query()
+                ->where('user_id', $request->user()->getKey())
+                ->where('election_id', $record->getKey())
+                ->where('status', VoterEnrollment::APPROVED)
+                ->exists();
             $canViewAsCandidate = $candidacy !== null && ($isPublished || $isHistorical);
 
             // A candidate keeps read-only access to the election connected to
             // their application after a terminal state, but a draft stays private.
-            abort_unless(($isPublished && $this->isPublic($record)) || $canViewAsCandidate, 404);
+            abort_unless(
+                ($isPublished && ($this->isPublic($record) || $isApprovedVoter))
+                    || $canViewAsCandidate,
+                404,
+            );
             $now = CarbonImmutable::now((string) config('app.timezone'));
             $candidateProfiles = Candidacy::query()
                 ->with('user')
@@ -227,6 +237,7 @@ final class ElectionController extends Controller
                 'results' => $results,
                 'totalVotes' => $totalVotes,
                 'winnerCount' => $winnerCount,
+                'isApprovedVoter' => $isApprovedVoter,
             ]);
         }
 
@@ -266,12 +277,7 @@ final class ElectionController extends Controller
     public function importPrivateVoters(ImportPrivateVoterListRequest $request, int $election): RedirectResponse
     {
         try {
-            $record = $this->service->reauthenticateOrganizer(
-                $request->user(),
-                $election,
-                (string) $request->validated('current_password'),
-                'import_private_voter_list',
-            );
+            $record = $this->service->findOwned($request->user(), $election);
             if (! $this->canManagePrivateRoster($record)) {
                 return back()->with('error', 'Private voters can be managed until voting begins.');
             }
@@ -348,12 +354,7 @@ final class ElectionController extends Controller
     {
         try {
             $assigned = (bool) $request->validated('assigned');
-            $record = $this->service->reauthenticateOrganizer(
-                $request->user(),
-                $election,
-                (string) $request->validated('current_password'),
-                $assigned ? 'assign_private_voter' : 'remove_private_voter',
-            );
+            $record = $this->service->findOwned($request->user(), $election);
             abort_unless($this->canManagePrivateRoster($record) && $this->isPrivate($record), 403);
 
             $selection = $this->voterModule->setPrivateVoterSelection(
@@ -425,7 +426,6 @@ final class ElectionController extends Controller
                 $election,
                 $user,
                 (bool) $request->validated('assigned'),
-                (string) $request->validated('current_password'),
             )]);
         } catch (BusinessRuleException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
@@ -435,11 +435,11 @@ final class ElectionController extends Controller
     public function importPrivateCandidates(ImportPrivateCandidateListRequest $request, int $election): RedirectResponse
     {
         try {
+            $this->service->findOwned($request->user(), $election);
             $summary = $this->service->importPrivateCandidates(
                 $request->user(),
                 $election,
                 $this->privateVoterRosterFile->parseCandidates($request->file('candidate_list')),
-                (string) $request->validated('current_password'),
             );
             $message = sprintf(
                 'Private candidate list processed: %d new candidate(s) assigned%s%s.',
@@ -500,7 +500,7 @@ final class ElectionController extends Controller
                 $request->user(),
                 $election,
                 (string) $data['action'],
-                (string) $data['current_password'],
+                (string) ($data['current_password'] ?? ''),
                 $data,
             );
 
@@ -541,6 +541,7 @@ final class ElectionController extends Controller
     {
         return [
             ElectionStatus::NOMINATION_OPEN->value,
+            ElectionStatus::NOMINATION_CLOSED->value,
             ElectionStatus::VOTING_OPEN->value,
             ElectionStatus::CLOSED->value,
         ];

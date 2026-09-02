@@ -19,7 +19,7 @@ use Illuminate\Support\Str;
 final class VoterService
 {
     /** @var list<string> */
-    private const VOTER_VISIBLE_ELECTION_STATES = ['NOMINATION_OPEN', 'VOTING_OPEN', 'CLOSED'];
+    private const VOTER_VISIBLE_ELECTION_STATES = ['NOMINATION_OPEN', 'NOMINATION_CLOSED', 'VOTING_OPEN', 'CLOSED'];
 
     public function __construct(private readonly ElectionModuleClient $elections) {}
 

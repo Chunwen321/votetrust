@@ -13,13 +13,14 @@ use Throwable;
 /** Central schedule rule for public elections that were never published in time. */
 final class PublicElectionExpiry
 {
-    public const MESSAGE = 'This public election expired because its nomination period ended before payment and administrator approval were completed. Create a new election with a future schedule.';
+    public const MESSAGE = 'This public election expired because publication was not completed before its nomination period ended. Payment, administrator approval, and the organizer nomination start must all happen before that deadline. Create a new election with a future schedule.';
 
     /** @var list<string> */
     private const EXPIRABLE_STATES = [
         ElectionStatus::DRAFT->value,
         ElectionStatus::PENDING_PAYMENT->value,
         ElectionStatus::PENDING_ADMIN_APPROVAL->value,
+        ElectionStatus::SCHEDULED->value,
     ];
 
     public static function shouldExpire(Election $election, CarbonImmutable $now): bool

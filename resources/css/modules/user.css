@@ -334,7 +334,7 @@
 .user-module .election-list-item__milestone--past .election-list-item__milestone-label,
 .user-module .election-list-item__milestone--past time,
 .user-module .election-list-item__milestone--unavailable .election-list-item__milestone-label { color: #66788a; }
-.user-module .election-list-item__action { display: flex; flex: 0 0 auto; align-items: center; justify-content: flex-end; }
+.user-module .election-list-item__action { display: flex; flex: 0 0 auto; gap: .65rem; align-items: center; justify-content: flex-end; }
 .user-module .election-list-item__action .button { gap: .4rem; white-space: nowrap; }
 .user-module .election-list-item__action .button.button-quiet { border-color: #c7d8f5; background: #fff; color: var(--primary-dark); text-decoration: none; }
 .user-module .election-list-item__action .button.button-quiet:hover,

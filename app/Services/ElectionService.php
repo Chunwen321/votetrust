@@ -34,6 +34,10 @@ final class ElectionService
 {
     private const ADMIN_ACTIONS = ['verify_payment', 'approve', 'return_for_payment', 'reject'];
 
+    private const SCHEDULED_ACTIONS = ['close_nomination', 'start_voting', 'close_voting'];
+
+    private const ORGANIZER_REAUTHENTICATION_ACTIONS = ['start_nomination', 'cancel'];
+
     private const CANDIDACY_PENDING = 'Pending';
 
     private const CANDIDACY_APPROVED = 'Approved';
@@ -171,12 +175,18 @@ final class ElectionService
         string $currentPassword,
         array $input = [],
     ): Election {
+        if (in_array($action, self::SCHEDULED_ACTIONS, true)) {
+            throw new AuthorizationException('This lifecycle transition is controlled by the election scheduler.');
+        }
+
         $snapshot = Election::query()->find($electionId);
         if (! $snapshot instanceof Election) {
             throw (new ModelNotFoundException)->setModel(Election::class, [$electionId]);
         }
         $this->assertActionActor($actor, $snapshot, $action);
-        $this->reauthentication->assertPassword($actor, $currentPassword, "election:{$electionId}:{$action}");
+        if ($actor->isAdmin() || in_array($action, self::ORGANIZER_REAUTHENTICATION_ACTIONS, true)) {
+            $this->reauthentication->assertPassword($actor, $currentPassword, "election:{$electionId}:{$action}");
+        }
 
         return $this->performTransition($actor, $electionId, $action, $input, $this->newRequestId());
     }
@@ -203,13 +213,16 @@ final class ElectionService
         string $action,
         array $input,
         string $requestId,
+        bool $automated = false,
     ): Election {
-        return DB::transaction(function () use ($actor, $electionId, $action, $input, $requestId): Election {
+        return DB::transaction(function () use ($actor, $electionId, $action, $input, $requestId, $automated): Election {
             $election = Election::query()->lockForUpdate()->find($electionId);
             if (! $election instanceof Election) {
                 throw (new ModelNotFoundException)->setModel(Election::class, [$electionId]);
             }
-            $this->assertActionActor($actor, $election, $action);
+            if (! $automated) {
+                $this->assertActionActor($actor, $election, $action);
+            }
             $expectedVersion = $this->assertExpectedVersion($election, $input['version'] ?? null);
 
             foreach ($this->transitionLogs($election, false) as $record) {
@@ -239,28 +252,141 @@ final class ElectionService
                 throw new BusinessRuleException('No lifecycle transition was produced.');
             }
 
+            $actorUserId = $automated ? null : $actor->getKey();
+            $metadata = $transition['metadata'];
+            if ($automated) {
+                $metadata['trigger'] = 'system_schedule';
+            }
             $this->appendTransition($election, [
-                'actor_user_id' => $actor->getKey(),
+                'actor_user_id' => $actorUserId,
                 'request_id' => $requestId,
                 'action' => $transition['action'],
                 'from_state' => $transition['from'],
                 'to_state' => $transition['to'],
-                'metadata' => $transition['metadata'],
+                'metadata' => $metadata,
                 'created_at' => $this->clock->now()->toDateTimeString(),
             ]);
             $this->persistWithVersion($election, $expectedVersion);
 
             $this->auditLogger->log('election_lifecycle_transition', [
                 'election_id' => $election->getKey(),
-                'actor_user_id' => $actor->getKey(),
+                'actor_user_id' => $actorUserId,
                 'request_id' => $requestId,
                 'from' => $transition['from'],
                 'to' => $transition['to'],
                 'action' => $transition['action'],
+                'trigger' => $automated ? 'system_schedule' : 'user_action',
             ]);
 
             return $election->refresh();
         });
+    }
+
+    /** @return array{nominationsClosed:int,votingOpened:int,electionsClosed:int,votingBlocked:int} */
+    public function advanceScheduledElections(): array
+    {
+        $summary = [
+            'nominationsClosed' => 0,
+            'votingOpened' => 0,
+            'electionsClosed' => 0,
+            'votingBlocked' => 0,
+        ];
+        $blockedElectionIds = [];
+
+        // Three passes let one run catch up an election after scheduler
+        // downtime: close nominations, open voting, then close voting.
+        for ($pass = 0; $pass < 3; $pass++) {
+            $advanced = 0;
+            $electionIds = Election::query()
+                ->whereIn('status', [
+                    ElectionStatus::NOMINATION_OPEN->value,
+                    ElectionStatus::NOMINATION_CLOSED->value,
+                    ElectionStatus::VOTING_OPEN->value,
+                ])
+                ->orderBy('id')
+                ->pluck('id');
+
+            foreach ($electionIds as $electionId) {
+                $result = $this->advanceScheduledElection((int) $electionId);
+                if ($result === 'blocked_voting') {
+                    $blockedElectionIds[(int) $electionId] = true;
+
+                    continue;
+                }
+                if ($result === null) {
+                    continue;
+                }
+
+                unset($blockedElectionIds[(int) $electionId]);
+                $summary[match ($result) {
+                    'close_nomination' => 'nominationsClosed',
+                    'start_voting' => 'votingOpened',
+                    'close_voting' => 'electionsClosed',
+                }]++;
+                $advanced++;
+            }
+
+            if ($advanced === 0) {
+                break;
+            }
+        }
+
+        $summary['votingBlocked'] = count($blockedElectionIds);
+
+        return $summary;
+    }
+
+    private function advanceScheduledElection(int $electionId): ?string
+    {
+        $election = Election::query()->find($electionId);
+        if (! $election instanceof Election) {
+            return null;
+        }
+
+        $now = $this->clock->now();
+        $action = match ((string) $election->status) {
+            ElectionStatus::NOMINATION_OPEN->value => $this->scheduleReached($election->nomination_end, $now)
+                ? 'close_nomination'
+                : null,
+            ElectionStatus::NOMINATION_CLOSED->value => $this->scheduleReached($election->voting_start, $now)
+                ? 'start_voting'
+                : null,
+            ElectionStatus::VOTING_OPEN->value => $this->scheduleReached($election->voting_end, $now)
+                ? 'close_voting'
+                : null,
+            default => null,
+        };
+        if ($action === null) {
+            return null;
+        }
+
+        try {
+            $this->performTransition(
+                new User,
+                $electionId,
+                $action,
+                [],
+                $this->newRequestId(),
+                true,
+            );
+        } catch (BusinessRuleException) {
+            return $action === 'start_voting' ? 'blocked_voting' : null;
+        }
+
+        return $action;
+    }
+
+    private function scheduleReached(mixed $value, CarbonImmutable $now): bool
+    {
+        if ($value === null || $value === '') {
+            return false;
+        }
+
+        try {
+            return $now->gte(CarbonImmutable::parse($value));
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     /**
@@ -630,6 +756,7 @@ final class ElectionService
         return Election::query()
             ->whereIn('status', [
                 ElectionStatus::NOMINATION_OPEN->value,
+                ElectionStatus::NOMINATION_CLOSED->value,
                 ElectionStatus::VOTING_OPEN->value,
                 ElectionStatus::CLOSED->value,
             ])
@@ -714,7 +841,9 @@ final class ElectionService
             ElectionStatus::DRAFT->value,
             ElectionStatus::PENDING_PAYMENT->value,
             ElectionStatus::PENDING_ADMIN_APPROVAL->value,
+            ElectionStatus::SCHEDULED->value,
             ElectionStatus::NOMINATION_OPEN->value,
+            ElectionStatus::NOMINATION_CLOSED->value,
         ], true);
     }
 
@@ -787,15 +916,7 @@ final class ElectionService
         int $electionId,
         int $candidateUserId,
         bool $assigned,
-        string $currentPassword,
     ): array {
-        $this->reauthenticateOrganizer(
-            $user,
-            $electionId,
-            $currentPassword,
-            $assigned ? 'assign_private_candidate' : 'remove_private_candidate',
-        );
-
         return DB::transaction(function () use ($user, $electionId, $candidateUserId, $assigned): array {
             $election = Election::query()->lockForUpdate()->findOrFail($electionId);
             $this->assertOwnedBy($user, $election);
@@ -884,10 +1005,8 @@ final class ElectionService
      * @param  list<array{row:int,fullName:string,identityNumber:string}>  $rows
      * @return array{requested:int,assigned:int,skipped:int,totalAssigned:int,unmatchedCount:int,unmatchedRows:list<array{row:int,reason:string}>}
      */
-    public function importPrivateCandidates(User $user, int $electionId, array $rows, string $currentPassword): array
+    public function importPrivateCandidates(User $user, int $electionId, array $rows): array
     {
-        $this->reauthenticateOrganizer($user, $electionId, $currentPassword, 'import_private_candidate_list');
-
         return DB::transaction(function () use ($user, $electionId, $rows): array {
             $election = Election::query()->lockForUpdate()->findOrFail($electionId);
             $this->assertOwnedBy($user, $election);
@@ -1123,16 +1242,16 @@ final class ElectionService
         ?int $submittedVersion = null,
     ): int {
         $snapshot = $this->findOwned($user, $electionId);
-        if ($snapshot->status !== ElectionStatus::NOMINATION_OPEN->value) {
-            throw new BusinessRuleException('Candidate decisions are available only while nominations are open.');
+        if (! in_array($snapshot->status, [ElectionStatus::NOMINATION_OPEN->value, ElectionStatus::NOMINATION_CLOSED->value], true)) {
+            throw new BusinessRuleException('Candidate decisions are available from nomination opening until voting begins.');
         }
         $this->reauthentication->assertPassword($user, $currentPassword, "election:{$electionId}:candidate_review");
 
         return DB::transaction(function () use ($user, $electionId, $decisions, $submittedVersion): int {
             $election = Election::query()->lockForUpdate()->findOrFail($electionId);
             $this->assertOwnedBy($user, $election);
-            if ($election->status !== ElectionStatus::NOMINATION_OPEN->value) {
-                throw new BusinessRuleException('Candidate decisions are available only while nominations are open.');
+            if (! in_array($election->status, [ElectionStatus::NOMINATION_OPEN->value, ElectionStatus::NOMINATION_CLOSED->value], true)) {
+                throw new BusinessRuleException('Candidate decisions are available from nomination opening until voting begins.');
             }
             $expectedVersion = $this->assertExpectedVersion($election, $submittedVersion);
             $applications = Candidacy::query()->where('election_id', $electionId)->lockForUpdate()->get()->keyBy(fn ($item) => (int) $item->getKey());
@@ -1166,8 +1285,8 @@ final class ElectionService
                 'actor_user_id' => $user->getKey(),
                 'request_id' => $requestId,
                 'action' => 'review_candidates',
-                'from_state' => ElectionStatus::NOMINATION_OPEN->value,
-                'to_state' => ElectionStatus::NOMINATION_OPEN->value,
+                'from_state' => $election->status,
+                'to_state' => $election->status,
                 'metadata' => ['candidate_decisions' => $changes],
                 'created_at' => $this->clock->now()->toDateTimeString(),
             ]);

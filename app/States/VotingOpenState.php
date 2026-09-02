@@ -24,7 +24,6 @@ final class VotingOpenState extends AbstractElectionState
     public function actions(Election $election): array
     {
         return [
-            ['action' => 'close_voting', 'label' => 'Close election', 'description' => 'Available after the configured voting end.', 'tone' => 'primary', 'audience' => 'organizer', 'requiresPaymentReference' => false, 'requiresReason' => false],
             ['action' => 'cancel', 'label' => 'Emergency cancellation', 'description' => 'Cancels an active election.', 'tone' => 'danger', 'audience' => 'organizer', 'requiresPaymentReference' => false, 'requiresReason' => true],
         ];
     }

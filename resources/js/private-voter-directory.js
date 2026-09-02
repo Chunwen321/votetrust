@@ -35,7 +35,6 @@ document.querySelectorAll('[data-file-upload]').forEach((fileUpload) => {
 
 document.querySelectorAll('[data-participant-directory]').forEach((directory) => {
     const searchInput = directory.querySelector('[data-participant-search], [data-voter-search]');
-    const passwordInput = directory.querySelector('[data-participant-password]');
     const list = directory.querySelector('[data-participant-directory-list], [data-voter-directory-list]');
     const summary = directory.querySelector('[data-participant-directory-summary], [data-voter-directory-summary]');
     const loadMore = directory.querySelector('[data-participant-directory-more], [data-voter-directory-more]');
@@ -52,7 +51,7 @@ document.querySelectorAll('[data-participant-directory]').forEach((directory) =>
     let searchTimer;
     let pendingDirectoryRequest;
 
-    if (!searchInput || !passwordInput || !list || !summary || !loadMore || !directoryUrl || !selectionUrlTemplate) {
+    if (!searchInput || !list || !summary || !loadMore || !directoryUrl || !selectionUrlTemplate) {
         return;
     }
 
@@ -78,16 +77,6 @@ document.querySelectorAll('[data-participant-directory]').forEach((directory) =>
 
     const updateSelection = async (checkbox, user) => {
         const wantedState = checkbox.checked;
-        if (passwordInput.value === '') {
-            checkbox.checked = !wantedState;
-            summary.textContent = `Enter your current password before changing ${role}.`;
-            passwordInput.focus();
-
-            return;
-        }
-
-        const currentPassword = passwordInput.value;
-        passwordInput.value = '';
         checkbox.disabled = true;
         directory.setAttribute('aria-busy', 'true');
 
@@ -100,7 +89,7 @@ document.querySelectorAll('[data-participant-directory]').forEach((directory) =>
                     'X-CSRF-TOKEN': csrfToken,
                 },
                 credentials: 'same-origin',
-                body: JSON.stringify({ assigned: wantedState, current_password: currentPassword }),
+                body: JSON.stringify({ assigned: wantedState }),
             });
             const payload = await response.json().catch(() => ({}));
             if (!response.ok || !payload?.data) {

@@ -75,10 +75,11 @@
                                 <a class="button button-quiet button-small" href="{{ route('profile.verify') }}">Verify to vote</a>
                             @elseif (! $isApprovedVoter)
                                 <span class="item-note">Voting access pending</span>
-                            @elseif ($isVotingOpen && $isVotingAllowed === false)
-                                <span class="item-note">{{ $milestone->tone === 'upcoming' ? 'Voting has not opened' : 'Voting has ended' }}</span>
                             @elseif ($isVotingOpen && $hasRecordedVote)
                                 <span class="badge status-voted">Vote recorded</span>
+                                <a class="button button-quiet button-small" href="{{ route('elections.show', $enrollment->election_id) }}" aria-label="View election {{ $enrollment->election_title }}">View election <span aria-hidden="true">&rarr;</span></a>
+                            @elseif ($isVotingOpen && $isVotingAllowed === false)
+                                <span class="item-note">{{ $milestone->tone === 'upcoming' ? 'Voting has not opened' : 'Voting has ended' }}</span>
                             @elseif ($isVotingOpen && $isApprovedVoter)
                                 <a class="button button-small" href="{{ route('voting.ballot', $enrollment->election_id) }}" aria-label="Open the ballot for {{ $enrollment->election_title }}">Open ballot <span aria-hidden="true">&rarr;</span></a>
                             @else

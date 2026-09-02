@@ -20,7 +20,6 @@ final class UpdatePrivateVoterSelectionRequest extends FormRequest
     {
         return [
             'assigned' => ['required', 'boolean'],
-            'current_password' => ['required', 'string'],
         ];
     }
 }

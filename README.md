@@ -132,15 +132,33 @@ The scenario dates are calculated relative to the time `php artisan db:seed` run
 | `[Demo] 03 - Awaiting Hosting Payment` | Pay the hosting fee, submit it for automatic election-ID matching, or cancel the request. |
 | `[Demo] 04 - Awaiting Administrator Approval` | As the administrator, approve, return, or reject the request; as its organiser, withdraw it. |
 | `[Demo] 05 - Candidate Review` | Apply as CandidateAisha, or review CandidateDaniel's pending application as the primary organiser. |
-| `[Demo] 06 - Ready to Open Voting` | Open voting after the completed nomination and candidate-review gates. |
+| `[Demo] 06 - Ready to Open Voting` | Run the scheduler to open voting after the completed nomination and candidate-review gates. |
 | `[Demo] 07 - Public Voting Open` | Cast a public-election vote as VoterJohn or inspect VoterAmina's already-voted state. |
 | `[Demo] 08 - Private Voting Open` | Exercise approved-roster-only ballot access and voting. |
-| `[Demo] 09 - Ready to Close` | Close an election whose configured voting period has ended. |
+| `[Demo] 09 - Ready to Close` | Run the scheduler to close an election whose configured voting period has ended. |
 | `VoteTrust Student Council Election 2026` | Inspect a closed election with stable historical candidacies, enrolments, and votes. |
 
-Organizer and administrator lifecycle decisions, candidate reviews, and every private voter or candidate import, assignment, or removal require a fresh current-password check for each critical action. Password confirmation is not reused between actions. Re-running `php artisan db:seed` refreshes the relative dates and resets the reserved demo personas and scenarios, so manual changes to those fixtures are not permanent.
+The organizer enters their current password once to start nominations at the configured time. Candidate reviews, emergency cancellation, and manual administrator decisions remain password protected. Normal organizer payment steps and private voter or candidate imports, assignments, and removals use the authenticated session without another password prompt. Later scheduled transitions are performed by the system. Re-running `php artisan db:seed` refreshes the relative dates and resets the reserved demo personas and scenarios, so manual changes to those fixtures are not permanent.
 
 Candidate payment status and application cancellation still require the external Payment API. Local payment rows alone deliberately do not enable those payment-dependent actions.
+
+## Complete election lifecycle
+
+1. The organizer creates a `DRAFT` and sets the nomination start/end and voting start/end dates.
+2. The organizer continues to `PENDING_PAYMENT`, completes the hosting payment, and submits the election for administrator review.
+3. An administrator verifies the payment and approves the election. Approval moves it to `SCHEDULED`; it does not open nominations early.
+4. When the nomination start time arrives, the organizer enters their current password once and selects **Start nominations**. The state becomes `NOMINATION_OPEN`.
+5. At the nomination end time, the scheduler automatically changes the state to `NOMINATION_CLOSED`.
+6. At the voting start time, the scheduler automatically changes the state to `VOTING_OPEN` when at least one candidate is approved and no candidate decision is pending. If the ballot is incomplete, the scheduler keeps retrying while the organizer resolves the candidate decisions.
+7. At the voting end time, the scheduler automatically changes the state to `CLOSED` and results become available.
+
+`composer dev` starts the scheduler alongside the web server, queue, logs, and Vite. In production, configure the standard Laravel scheduler cron to run every minute:
+
+```cron
+* * * * * cd /path/to/votetrust-voting-system && php artisan schedule:run >> /dev/null 2>&1
+```
+
+The underlying command can also be run directly with `php artisan elections:advance-schedule`.
 
 ## Main pages
 
@@ -155,7 +173,7 @@ Candidate payment status and application cancellation still require the external
 
 ## Public-election schedule expiry
 
-An unpublished public election becomes terminally `EXPIRED` when its nomination period ends while it is still a draft, awaiting hosting payment, or awaiting administrator approval. VoteTrust checks this before opening or charging checkout, before calling the Payment API, and before an administrator verifies or approves payment. An expired election cannot be edited or resumed; the organiser must create a new election with a future schedule. Private elections are not subject to this public schedule-expiry rule.
+An unpublished public election becomes terminally `EXPIRED` when its nomination period ends while it is still a draft, awaiting hosting payment, awaiting administrator approval, or approved but not started by the organizer. VoteTrust checks this before opening or charging checkout, before calling the Payment API, and before an administrator verifies or approves payment. An expired election cannot be edited or resumed; the organiser must create a new election with a future schedule. Private elections are not subject to this public schedule-expiry rule.
 
 ## Verification
 

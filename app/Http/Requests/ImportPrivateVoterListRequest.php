@@ -20,7 +20,6 @@ final class ImportPrivateVoterListRequest extends FormRequest
     {
         return [
             'voter_list' => ['required', 'file', 'mimes:csv,xlsx,xls', 'max:2048'],
-            'current_password' => ['required', 'string'],
         ];
     }
 }

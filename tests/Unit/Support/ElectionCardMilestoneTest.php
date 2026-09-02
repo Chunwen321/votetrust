@@ -65,9 +65,9 @@ final class ElectionCardMilestoneTest extends TestCase
         self::assertSame('2026-08-16T17:00:00+08:00', $milestone->machineAt());
     }
 
-    public function test_unpublished_organizer_states_describe_the_nomination_date_as_planned(): void
+    public function test_pre_nomination_organizer_states_describe_the_nomination_date_as_planned(): void
     {
-        foreach ([Election::DRAFT, Election::PENDING_PAYMENT, Election::PENDING_ADMIN_APPROVAL] as $status) {
+        foreach ([Election::DRAFT, Election::PENDING_PAYMENT, Election::PENDING_ADMIN_APPROVAL, Election::SCHEDULED] as $status) {
             $milestone = ElectionCardMilestone::forOrganizer(
                 $status,
                 '2026-08-16 09:00:00',
@@ -83,9 +83,9 @@ final class ElectionCardMilestoneTest extends TestCase
         }
     }
 
-    public function test_unpublished_organizer_states_warn_when_the_planned_nomination_start_has_passed(): void
+    public function test_pre_nomination_organizer_states_warn_when_the_planned_nomination_start_has_passed(): void
     {
-        foreach ([Election::DRAFT, Election::PENDING_PAYMENT, Election::PENDING_ADMIN_APPROVAL] as $status) {
+        foreach ([Election::DRAFT, Election::PENDING_PAYMENT, Election::PENDING_ADMIN_APPROVAL, Election::SCHEDULED] as $status) {
             $milestone = ElectionCardMilestone::forOrganizer(
                 $status,
                 '2026-08-14 09:00:00',
@@ -101,10 +101,10 @@ final class ElectionCardMilestoneTest extends TestCase
         }
     }
 
-    public function test_nomination_open_state_does_not_promise_an_automatic_voting_transition(): void
+    public function test_nomination_closed_state_reports_the_automatic_voting_transition(): void
     {
         $beforeVoting = ElectionCardMilestone::forOrganizer(
-            Election::NOMINATION_OPEN,
+            Election::NOMINATION_CLOSED,
             '2026-08-13 09:00:00',
             '2026-08-14 17:00:00',
             '2026-08-16 09:00:00',
@@ -112,12 +112,12 @@ final class ElectionCardMilestoneTest extends TestCase
             now: $this->at('2026-08-15 09:00:00'),
         );
 
-        self::assertSame('Voting opens', $beforeVoting->label);
+        self::assertSame('Voting opens automatically', $beforeVoting->label);
         self::assertSame('upcoming', $beforeVoting->tone);
         self::assertSame('2026-08-16T09:00:00+08:00', $beforeVoting->machineAt());
 
-        $readyForManualTransition = ElectionCardMilestone::forOrganizer(
-            Election::NOMINATION_OPEN,
+        $readyForAutomaticTransition = ElectionCardMilestone::forOrganizer(
+            Election::NOMINATION_CLOSED,
             '2026-08-13 09:00:00',
             '2026-08-14 17:00:00',
             '2026-08-16 09:00:00',
@@ -125,12 +125,12 @@ final class ElectionCardMilestoneTest extends TestCase
             now: $this->at('2026-08-16 09:00:00'),
         );
 
-        self::assertSame('Voting ready since', $readyForManualTransition->label);
-        self::assertSame('attention', $readyForManualTransition->tone);
-        self::assertSame('2026-08-16T09:00:00+08:00', $readyForManualTransition->machineAt());
+        self::assertSame('Automatic voting start due', $readyForAutomaticTransition->label);
+        self::assertSame('attention', $readyForAutomaticTransition->tone);
+        self::assertSame('2026-08-16T09:00:00+08:00', $readyForAutomaticTransition->machineAt());
     }
 
-    public function test_overdue_voting_open_state_calls_out_the_required_manual_closure(): void
+    public function test_overdue_voting_open_state_calls_out_the_due_system_closure(): void
     {
         $now = $this->at('2026-08-16 17:00:01');
 
@@ -149,10 +149,10 @@ final class ElectionCardMilestoneTest extends TestCase
             $now,
         );
 
-        self::assertStringContainsString('close election', $organizer->label);
+        self::assertStringContainsString('system closure due', $organizer->label);
         self::assertSame('attention', $organizer->tone);
         self::assertSame('2026-08-16T17:00:00+08:00', $organizer->machineAt());
-        self::assertStringContainsString('awaiting closure', $voter->label);
+        self::assertStringContainsString('system closure due', $voter->label);
         self::assertSame('attention', $voter->tone);
         self::assertSame('2026-08-16T17:00:00+08:00', $voter->machineAt());
     }

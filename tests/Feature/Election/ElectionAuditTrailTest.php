@@ -32,6 +32,9 @@ final class ElectionAuditTrailTest extends TestCase
 
         self::assertSame('Maya Lim', $this->recordFor($organizer)->actorLabel());
         self::assertSame('SystemAdmin', $this->recordFor($admin)->actorLabel());
+        self::assertSame('System scheduler', (new ElectionTransitionRecord([
+            'actor_user_id' => null,
+        ]))->actorLabel());
         self::assertSame('User #999999', (new ElectionTransitionRecord([
             'actor_user_id' => 999999,
         ]))->actorLabel());

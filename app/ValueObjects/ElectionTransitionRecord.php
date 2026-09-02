@@ -33,6 +33,10 @@ final readonly class ElectionTransitionRecord
 
     public function actorLabel(): string
     {
+        if ($this->get('actor_user_id') === null) {
+            return 'System scheduler';
+        }
+
         $actor = $this->actor();
         if (! $actor instanceof User) {
             return 'User #'.$this->get('actor_user_id');

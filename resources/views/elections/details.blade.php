@@ -80,6 +80,15 @@
                 </div>
             @endif
 
+            @if ($isApprovedVoter)
+                <div class="election-details-voter-note">
+                    <strong>Your voter access</strong>
+                    <p>This election is visible because you are an approved voter. Your recorded vote remains private and cannot be changed.</p>
+                </div>
+            @elseif (! $candidacy)
+                <p>This election is publicly visible to signed-in VoteTrust users.</p>
+            @endif
+
             @if ($candidateProfiles->isEmpty())
                 <div class="election-details-empty"><strong>No approved candidates yet</strong><p>Approved candidate profiles will appear here when they are available.</p></div>
             @else
