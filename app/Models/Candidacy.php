@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 // PIC: Low Wen Kai — Election candidate review lifecycle.
 // PIC: Wong Shun Bin — Candidate Registration application data.
@@ -52,10 +51,5 @@ class Candidacy extends Model
     public function payment(): BelongsTo
     {
         return $this->belongsTo(Payment::class);
-    }
-
-    public function documents(): HasMany
-    {
-        return $this->hasMany(CandidateDocument::class);
     }
 }

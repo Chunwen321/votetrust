@@ -13,9 +13,7 @@ final class RegistrationRules
      */
     public static function application(): array
     {
-        $maximumDocuments = max(1, (int) config('candidate.max_documents', 5));
         $maximumPhotoKilobytes = max(1, (int) config('candidate.max_photo_kilobytes', 2048));
-        $maximumDocumentKilobytes = max(1, (int) config('candidate.max_document_kilobytes', 5120));
 
         return [
             'manifesto' => ['required', 'string', 'min:50', 'max:5000'],
@@ -29,14 +27,6 @@ final class RegistrationRules
                 'mimes:jpg,jpeg,png',
                 'mimetypes:image/jpeg,image/png',
                 'extensions:jpg,jpeg,png',
-            ],
-            'documents' => ['nullable', 'array', "max:{$maximumDocuments}"],
-            'documents.*' => [
-                'file',
-                "max:{$maximumDocumentKilobytes}",
-                'mimes:pdf,jpg,jpeg,png',
-                'mimetypes:application/pdf,image/jpeg,image/png',
-                'extensions:pdf,jpg,jpeg,png',
             ],
         ];
     }

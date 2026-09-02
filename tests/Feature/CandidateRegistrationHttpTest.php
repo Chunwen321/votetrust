@@ -35,6 +35,8 @@ final class CandidateRegistrationHttpTest extends TestCase
             ->assertSee(route('candidate.applications.store', $election))
             ->assertSee('data-live-length', false)
             ->assertSee('manifesto-live-error')
+            ->assertDontSee('Supporting documents')
+            ->assertDontSee('name="documents[]"', false)
             ->assertDontSee('name="election_id"', false)
             ->assertDontSee('<select id="election_id"', false);
     }
@@ -63,9 +65,6 @@ final class CandidateRegistrationHttpTest extends TestCase
                 'qualifications' => 'Previous committee experience.',
                 'reason_for_candidacy' => 'I want to improve communication between students and their representatives.',
                 'profile_photo' => UploadedFile::fake()->create('portrait.jpg', 100, 'image/jpeg'),
-                'documents' => [
-                    UploadedFile::fake()->create('support.pdf', 100, 'application/pdf'),
-                ],
             ]);
 
         $application = Candidacy::query()
@@ -79,6 +78,7 @@ final class CandidateRegistrationHttpTest extends TestCase
             'user_id' => $candidate->getKey(),
             'election_id' => $election->getKey(),
             'status' => 'Pending',
+            'manifesto' => trim(str_repeat('A clear commitment to student representation. ', 2)),
             'candidate_introduction' => 'I am a second-year student who enjoys serving the student community.',
             'qualifications' => 'Previous committee experience.',
             'reason_for_candidacy' => 'I want to improve communication between students and their representatives.',
@@ -104,25 +104,17 @@ final class CandidateRegistrationHttpTest extends TestCase
         [$candidate, $election] = $this->candidateAndOpenElection();
         $intruder = User::factory()->create();
         $candidacy = $this->application($candidate, $election);
-        $document = $candidacy->documents()->firstOrFail();
-
         $this->actingAs($intruder)
             ->get(route('candidate.applications.show', $candidacy))
             ->assertForbidden();
         $this->actingAs($intruder)
             ->get(route('candidate.applications.photo', $candidacy))
             ->assertForbidden();
-        $this->get(route('candidate.applications.documents.download', [$candidacy, $document]))
-            ->assertForbidden();
-
         $photoResponse = $this->actingAs($candidate)
             ->get(route('candidate.applications.photo', $candidacy));
         $photoResponse->assertOk();
         $this->assertStringContainsString('private', (string) $photoResponse->headers->get('Cache-Control'));
         $this->assertStringContainsString('no-store', (string) $photoResponse->headers->get('Cache-Control'));
-        $this->get(route('candidate.applications.documents.download', [$candidacy, $document]))
-            ->assertOk()
-            ->assertDownload('support.pdf');
     }
 
     public function test_only_the_owner_can_cancel_and_cleanup_an_unpaid_application(): void
@@ -132,10 +124,9 @@ final class CandidateRegistrationHttpTest extends TestCase
         [$candidate, $election] = $this->candidateAndOpenElection();
         $intruder = User::factory()->create();
         $candidacy = $this->application($candidate, $election);
-        $candidacy->load(['payment', 'documents']);
+        $candidacy->load('payment');
         $this->fakePaymentStatus('PENDING');
         $photoPath = $candidacy->profile_photo;
-        $documentPath = $candidacy->documents->first()->stored_name;
 
         $this->actingAs($intruder)
             ->post(route('candidate.applications.cancel', $candidacy))
@@ -150,9 +141,7 @@ final class CandidateRegistrationHttpTest extends TestCase
         $this->assertSame('Cancelled', $candidacy->status);
         $this->assertNull($candidacy->profile_photo);
         $this->assertSame('Pending', $candidacy->payment->fresh()->status);
-        $this->assertDatabaseMissing('candidate_document', ['candidacy_id' => $candidacy->getKey()]);
         Storage::disk('candidate-test')->assertMissing($photoPath);
-        Storage::disk('candidate-test')->assertMissing($documentPath);
     }
 
     public function test_pending_application_page_displays_position_details_and_payment_status(): void
@@ -279,9 +268,8 @@ final class CandidateRegistrationHttpTest extends TestCase
                 'qualifications' => 'Previous committee experience.',
                 'reason_for_candidacy' => 'I want to improve communication between students and their representatives.',
             ],
-            [UploadedFile::fake()->create('support.pdf', 100, 'application/pdf')],
             UploadedFile::fake()->create('portrait.jpg', 100, 'image/jpeg'),
-        )->load('documents');
+        );
     }
 
     /**

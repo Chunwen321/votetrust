@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Contracts\VotingIntegration;
+use App\Models\Candidacy;
 use App\Models\Election;
 use App\Models\User;
 use App\Models\Vote;
 use App\ValueObjects\EligibilityRules;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Mockery\MockInterface;
 use Tests\TestCase;
 
@@ -82,8 +84,10 @@ final class PublicElectionResultsTest extends TestCase
         $this->get(route('voting.results', $election))->assertNotFound();
     }
 
-    public function test_closed_election_details_link_to_the_published_results(): void
+    public function test_closed_election_details_embed_candidates_before_the_ranked_results(): void
     {
+        Storage::fake('candidate-test');
+        config(['candidate.disk' => 'candidate-test']);
         $member = User::factory()->create(['is_admin' => false]);
         $election = Election::query()->create([
             'title' => 'Completed Community Election',
@@ -92,12 +96,59 @@ final class PublicElectionResultsTest extends TestCase
             'eligibility_rules' => EligibilityRules::publicElection()->toStorage(),
             'status' => Election::CLOSED,
         ]);
+        $aisha = User::factory()->create(['full_name' => 'Aisha Rahman']);
+        $daniel = User::factory()->create(['full_name' => 'Daniel Tan']);
+        foreach ([
+            [$aisha, 'A transparent community with better student support.'],
+            [$daniel, 'Practical improvements driven by student feedback.'],
+        ] as [$candidate, $manifesto]) {
+            Candidacy::query()->create([
+                'user_id' => $candidate->getKey(),
+                'election_id' => $election->getKey(),
+                'status' => Candidacy::APPROVED,
+                'candidate_introduction' => $candidate->display_name.' is ready to serve the community.',
+                'manifesto' => $manifesto,
+                'registered_at' => now(),
+            ]);
+        }
+        $aishaApplication = Candidacy::query()
+            ->where('election_id', $election->getKey())
+            ->where('user_id', $aisha->getKey())
+            ->firstOrFail();
+        $photoPath = 'candidate/photos/aisha.jpg';
+        Storage::disk('candidate-test')->put($photoPath, 'candidate photo bytes');
+        $aishaApplication->update([
+            'profile_photo' => $photoPath,
+            'profile_photo_mime' => 'image/jpeg',
+        ]);
+        foreach ([$aisha, $aisha, $daniel] as $candidate) {
+            Vote::query()->create([
+                'election_id' => $election->getKey(),
+                'voter_id' => User::factory()->create()->getKey(),
+                'candidate_id' => $candidate->getKey(),
+                'request_id' => 'DETAIL-'.str()->random(16),
+                'cast_at' => now(),
+            ]);
+        }
 
         $this->actingAs($member)
             ->get(route('elections.show', $election))
             ->assertOk()
-            ->assertSee('href="'.route('voting.results', $election).'"', false)
-            ->assertSeeText('View results');
+            ->assertSeeTextInOrder(['Election details', 'Candidate details', 'Final results'])
+            ->assertSeeText('Aisha Rahman')
+            ->assertSeeText('A transparent community with better student support.')
+            ->assertSeeText('Daniel Tan')
+            ->assertSeeText('Official tally')
+            ->assertSeeText('Winner')
+            ->assertSeeText('66.7%')
+            ->assertSee('src="'.route('elections.candidates.photo', [$election, $aishaApplication]).'"', false)
+            ->assertDontSee($photoPath)
+            ->assertViewHas('totalVotes', 3);
+
+        $this->actingAs($member)
+            ->get(route('elections.candidates.photo', [$election, $aishaApplication]))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'image/jpeg');
     }
 
     /**

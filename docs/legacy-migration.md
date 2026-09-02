@@ -50,7 +50,7 @@ The custom framework, ORM, payment stub, generated logs/sessions, standalone tes
 | Registration contract/proxy/service | `app/Contracts/RegistrationService.php` and `app/Services/CandidateRegistration` |
 | Procedural public entry points | Candidate controllers and Blade views |
 | File validators and upload logic | Laravel Form Requests, validation rules, and private Storage service |
-| Candidate schema extension | candidate/candidacy migration plus `candidate_documents` |
+| Candidate schema extension | candidate/candidacy application migration |
 | Routes | `routes/candidate.php` |
 | CSS | scoped `resources/css/modules/candidate.css` |
 

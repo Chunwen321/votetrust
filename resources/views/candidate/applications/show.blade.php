@@ -92,15 +92,5 @@
             <p class="candidate-preserve-lines">{{ $application->manifesto ?: 'Not provided' }}</p>
         </div>
 
-        @if ($application->documents->isNotEmpty())
-            <div class="candidate-submission-section">
-                <h3>Private supporting documents</h3>
-                <ul class="candidate-document-list">
-                    @foreach ($application->documents as $document)
-                        <li><a href="{{ route('candidate.applications.documents.download', [$application, $document]) }}">{{ $document->original_name }}</a></li>
-                    @endforeach
-                </ul>
-            </div>
-        @endif
     </section>
 @endsection

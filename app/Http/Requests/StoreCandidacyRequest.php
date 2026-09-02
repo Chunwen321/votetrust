@@ -36,7 +36,6 @@ final class StoreCandidacyRequest extends FormRequest
         return [
             'manifesto.min' => 'The manifesto must be at least 50 characters.',
             'profile_photo.mimetypes' => 'The candidate photo must be a genuine JPG or PNG image.',
-            'documents.*.mimetypes' => 'Each supporting document must be a genuine PDF, JPG, or PNG file.',
         ];
     }
 

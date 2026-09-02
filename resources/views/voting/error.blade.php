@@ -9,7 +9,7 @@
         <span class="error-card__mark" aria-hidden="true">!</span>
         <h1>Unable to process the vote</h1>
         <p>{{ $message ?? 'The voting service is temporarily unavailable.' }}</p>
-        <a class="button button--primary" href="{{ route('voting.index') }}">Return to voting portal</a>
+        <a class="button button--primary" href="{{ route('elections.index') }}">Return to elections</a>
     </article>
 </section>
 @endsection

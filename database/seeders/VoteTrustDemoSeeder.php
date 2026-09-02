@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\Candidacy;
-use App\Models\CandidateDocument;
 use App\Models\Election;
 use App\Models\Organizer;
 use App\Models\Payment;
@@ -671,15 +670,11 @@ class VoteTrustDemoSeeder extends Seeder
         );
 
         $candidacies = Candidacy::query()
-            ->with('documents')
             ->whereIn('election_id', $electionIds)
             ->get();
         $candidatePaths = $candidacies
             ->flatMap(function (Candidacy $candidacy): array {
-                $paths = $candidacy->documents
-                    ->pluck('stored_name')
-                    ->filter(fn (mixed $path): bool => is_string($path) && $path !== '')
-                    ->all();
+                $paths = [];
                 if (is_string($candidacy->profile_photo) && $candidacy->profile_photo !== '') {
                     $paths[] = $candidacy->profile_photo;
                 }
@@ -699,9 +694,6 @@ class VoteTrustDemoSeeder extends Seeder
 
         Vote::query()->whereIn('election_id', $electionIds)->delete();
         VoterEnrollment::query()->whereIn('election_id', $electionIds)->delete();
-        CandidateDocument::query()
-            ->whereIn('candidacy_id', $candidacies->modelKeys())
-            ->delete();
         Candidacy::query()->whereIn('election_id', $electionIds)->delete();
 
         if ($candidatePaymentIds !== []) {

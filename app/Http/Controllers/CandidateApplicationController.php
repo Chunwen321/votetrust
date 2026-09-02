@@ -45,7 +45,7 @@ final class CandidateApplicationController extends Controller
         $userId = (int) $request->user()?->getAuthIdentifier();
         abort_unless((int) $candidacy->user_id === $userId, 403);
 
-        $candidacy->load(['election', 'documents']);
+        $candidacy->load('election');
         $paymentStatus = $candidacy->payment_id !== null
             ? $paymentStatusClient->fetch((int) $candidacy->payment_id, $userId)
             : null;

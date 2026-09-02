@@ -54,4 +54,25 @@ final class VoterEligibilityAuthorizer
             throw new VoteAccessDenied('You do not meet the nationality requirement for this election.');
         }
     }
+
+    /**
+     * Candidates on a public-election ballot must not also participate as voters.
+     *
+     * @param  array<string, mixed>  $rules
+     * @param  list<array<string, mixed>>  $candidacies
+     */
+    public function assertNotPublicElectionCandidate(int $voterId, array $rules, array $candidacies): void
+    {
+        if (($rules['type'] ?? null) !== 'PUBLIC') {
+            return;
+        }
+
+        $isCandidate = collect($candidacies)->contains(
+            static fn (array $candidacy): bool => (int) ($candidacy['candidateId'] ?? 0) === $voterId,
+        );
+
+        if ($isCandidate) {
+            throw new VoteAccessDenied('Candidates cannot vote in the public election in which they are registered.');
+        }
+    }
 }

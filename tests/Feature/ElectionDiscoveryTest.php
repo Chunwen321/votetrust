@@ -98,6 +98,33 @@ final class ElectionDiscoveryTest extends TestCase
             ->assertDontSee('Apply as candidate');
     }
 
+    public function test_a_candidate_can_revisit_an_unpublished_historical_election(): void
+    {
+        $candidate = User::factory()->create(['is_admin' => false]);
+        $unrelatedUser = User::factory()->create(['is_admin' => false]);
+        $election = $this->election(
+            'Expired Candidate Election',
+            EligibilityRules::publicElection(),
+        );
+        $election->forceFill(['status' => Election::EXPIRED])->save();
+        Candidacy::query()->create([
+            'user_id' => $candidate->getKey(),
+            'election_id' => $election->getKey(),
+            'status' => Candidacy::APPROVED,
+        ]);
+
+        $this->actingAs($candidate)
+            ->get(route('elections.show', $election))
+            ->assertOk()
+            ->assertSee('Expired Candidate Election')
+            ->assertSee('Your candidate application')
+            ->assertSee('Approved');
+
+        $this->actingAs($unrelatedUser)
+            ->get(route('elections.show', $election))
+            ->assertNotFound();
+    }
+
     public function test_candidate_listing_keeps_real_opportunities_and_existing_applications_only(): void
     {
         $user = User::factory()->create(['is_admin' => false]);

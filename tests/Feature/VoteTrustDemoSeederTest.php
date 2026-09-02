@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Models\Candidacy;
-use App\Models\CandidateDocument;
 use App\Models\Election;
 use App\Models\Organizer;
 use App\Models\Payment;
@@ -368,9 +367,7 @@ final class VoteTrustDemoSeederTest extends TestCase
                 'candidate_id' => $candidate->id,
             ]);
             $photoPath = trim((string) config('candidate.photos_directory', 'candidate/photos'), '/').'/reseed-photo.jpg';
-            $documentPath = trim((string) config('candidate.documents_directory', 'candidate/documents'), '/').'/reseed-document.pdf';
             Storage::disk($disk)->put($photoPath, 'demo photo');
-            Storage::disk($disk)->put($documentPath, 'demo document');
             $candidacy = Candidacy::query()->create([
                 'user_id' => $candidate->id,
                 'election_id' => $candidateReview->id,
@@ -384,14 +381,6 @@ final class VoteTrustDemoSeederTest extends TestCase
                 'profile_photo_mime' => 'image/jpeg',
                 'payment_id' => $payment->id,
             ]);
-            CandidateDocument::query()->create([
-                'candidacy_id' => $candidacy->id,
-                'original_name' => 'reseed-document.pdf',
-                'stored_name' => $documentPath,
-                'mime_type' => 'application/pdf',
-                'uploaded_at' => $now,
-            ]);
-
             $this->seed(VoteTrustDemoSeeder::class);
 
             self::assertSame(
@@ -409,7 +398,6 @@ final class VoteTrustDemoSeederTest extends TestCase
             self::assertFalse(Candidacy::query()->whereKey($candidacy->id)->exists());
             self::assertFalse(Payment::query()->whereKey($payment->id)->exists());
             Storage::disk($disk)->assertMissing($photoPath);
-            Storage::disk($disk)->assertMissing($documentPath);
         } finally {
             Carbon::setTestNow();
             CarbonImmutable::setTestNow();
@@ -824,7 +812,6 @@ final class VoteTrustDemoSeederTest extends TestCase
             'payments' => Payment::query()->count(),
             'elections' => Election::query()->count(),
             'candidacies' => Candidacy::query()->count(),
-            'candidate_documents' => CandidateDocument::query()->count(),
             'voter_enrollments' => VoterEnrollment::query()->count(),
             'votes' => Vote::query()->count(),
         ];
