@@ -27,22 +27,6 @@ final class CandidateFileStorage
     }
 
     /**
-     * @return array{path: string, original_name: string, mime: string}
-     */
-    public function storeDocument(UploadedFile $document): array
-    {
-        $clientName = str_replace('\\', '/', $document->getClientOriginalName());
-        $originalName = preg_replace('/[\x00-\x1F\x7F]/u', '', basename($clientName));
-        $originalName = mb_substr(is_string($originalName) ? $originalName : '', 0, 255);
-
-        return [
-            'path' => $this->store($document, $this->documentDirectory()),
-            'original_name' => $originalName !== '' ? $originalName : 'document',
-            'mime' => $document->getMimeType() ?: 'application/octet-stream',
-        ];
-    }
-
-    /**
      * Delete only paths managed by this module. Invalid or foreign paths are ignored.
      *
      * @param  iterable<mixed>  $paths
@@ -54,10 +38,7 @@ final class CandidateFileStorage
                 continue;
             }
 
-            $managedPath = $this->managedPath($path, [
-                $this->photoDirectory(),
-                $this->documentDirectory(),
-            ]);
+            $managedPath = $this->managedPath($path, [$this->photoDirectory()]);
 
             if ($managedPath !== null) {
                 $this->disk()->delete($managedPath);
@@ -76,18 +57,6 @@ final class CandidateFileStorage
             'Content-Security-Policy' => "default-src 'none'; sandbox",
             'X-Content-Type-Options' => 'nosniff',
         ], 'inline');
-    }
-
-    public function downloadDocument(string $path, string $downloadName, string $mime): StreamedResponse
-    {
-        $managedPath = $this->managedPath($path, [$this->documentDirectory()]);
-        abort_if($managedPath === null || ! $this->disk()->exists($managedPath), 404);
-
-        return $this->disk()->download($managedPath, basename($downloadName), [
-            'Content-Type' => $mime,
-            'Cache-Control' => 'private, no-store',
-            'X-Content-Type-Options' => 'nosniff',
-        ]);
     }
 
     private function store(UploadedFile $file, string $directory): string
@@ -140,11 +109,6 @@ final class CandidateFileStorage
     private function photoDirectory(): string
     {
         return $this->configuredDirectory('photos_directory', 'candidate/photos');
-    }
-
-    private function documentDirectory(): string
-    {
-        return $this->configuredDirectory('documents_directory', 'candidate/documents');
     }
 
     private function configuredDirectory(string $key, string $default): string

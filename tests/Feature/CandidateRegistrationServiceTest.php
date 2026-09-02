@@ -10,6 +10,7 @@ use App\Services\CandidateRegistration\RegistrationProxy;
 use App\ValueObjects\EligibilityRules;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
@@ -22,7 +23,7 @@ final class CandidateRegistrationServiceTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_it_registers_a_candidate_with_private_files_and_a_pending_deposit(): void
+    public function test_it_registers_a_candidate_with_all_answers_a_photo_and_a_pending_deposit(): void
     {
         Storage::fake('candidate-test');
         config(['candidate.disk' => 'candidate-test']);
@@ -32,17 +33,19 @@ final class CandidateRegistrationServiceTest extends TestCase
             $candidate->getKey(),
             $election->getKey(),
             $this->validInput(),
-            [UploadedFile::fake()->create('support.pdf', 100, 'application/pdf')],
             UploadedFile::fake()->create('portrait.jpg', 100, 'image/jpeg'),
         );
 
-        $candidacy->load(['payment', 'documents']);
+        $candidacy->load('payment');
         $this->assertSame('Pending', $candidacy->status);
         $this->assertSame('Pending', $candidacy->payment->status);
         $this->assertSame($candidate->getKey(), $candidacy->payment->candidate_id);
-        $this->assertCount(1, $candidacy->documents);
+        $this->assertSame(trim($this->validInput()['manifesto']), $candidacy->manifesto);
+        $this->assertSame($this->validInput()['candidate_introduction'], $candidacy->candidate_introduction);
+        $this->assertSame($this->validInput()['qualifications'], $candidacy->qualifications);
+        $this->assertSame($this->validInput()['reason_for_candidacy'], $candidacy->reason_for_candidacy);
+        $this->assertFalse(Schema::hasTable('candidate_document'));
         Storage::disk('candidate-test')->assertExists($candidacy->profile_photo);
-        Storage::disk('candidate-test')->assertExists($candidacy->documents->first()->stored_name);
     }
 
     public function test_rejected_reapplication_reuses_the_record_and_removes_replaced_files(): void
@@ -56,12 +59,10 @@ final class CandidateRegistrationServiceTest extends TestCase
             $candidate->getKey(),
             $election->getKey(),
             $this->validInput(),
-            [UploadedFile::fake()->create('old.pdf', 100, 'application/pdf')],
             UploadedFile::fake()->create('old.jpg', 100, 'image/jpeg'),
         );
-        $first->load(['payment', 'documents']);
+        $first->load('payment');
         $oldPhoto = $first->profile_photo;
-        $oldDocument = $first->documents->first()->stored_name;
         $first->payment->update(['status' => 'Failed']);
         $first->update(['status' => Candidacy::REJECTED]);
 
@@ -69,19 +70,16 @@ final class CandidateRegistrationServiceTest extends TestCase
             $candidate->getKey(),
             $election->getKey(),
             $this->validInput(),
-            [UploadedFile::fake()->create('new.pdf', 100, 'application/pdf')],
             UploadedFile::fake()->create('new.jpg', 100, 'image/jpeg'),
         );
-        $replacement->load(['payment', 'documents']);
+        $replacement->load('payment');
 
         $this->assertSame($first->getKey(), $replacement->getKey());
         $this->assertSame('Pending', $replacement->status);
-        $this->assertCount(1, $replacement->documents);
+        $this->assertFalse(Schema::hasTable('candidate_document'));
         $this->assertDatabaseCount('payment', 2);
         Storage::disk('candidate-test')->assertMissing($oldPhoto);
-        Storage::disk('candidate-test')->assertMissing($oldDocument);
         Storage::disk('candidate-test')->assertExists($replacement->profile_photo);
-        Storage::disk('candidate-test')->assertExists($replacement->documents->first()->stored_name);
     }
 
     public function test_a_private_election_rejects_a_direct_public_application(): void
@@ -98,7 +96,6 @@ final class CandidateRegistrationServiceTest extends TestCase
                 $candidate->getKey(),
                 $election->getKey(),
                 $this->validInput(),
-                [],
                 UploadedFile::fake()->create('portrait.jpg', 100, 'image/jpeg'),
             );
             self::fail('A private election accepted a public candidate application.');

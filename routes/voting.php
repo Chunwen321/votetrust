@@ -9,7 +9,8 @@ Route::get('/voting/elections/{election}/results', [VotingController::class, 're
     ->name('voting.results');
 
 Route::middleware(['auth', 'active.account', 'verified.profile'])->prefix('voting')->name('voting.')->group(function (): void {
-    Route::get('/', [VotingController::class, 'index'])->name('index');
+    // Keep old bookmarks working without maintaining a second election catalog.
+    Route::redirect('/', '/elections')->name('index');
     Route::get('/elections/{election}', [VotingController::class, 'ballot'])
         ->whereNumber('election')
         ->name('ballot');

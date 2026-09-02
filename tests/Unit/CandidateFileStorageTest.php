@@ -19,27 +19,18 @@ final class CandidateFileStorageTest extends TestCase
         config([
             'candidate.disk' => 'candidate-test',
             'candidate.photos_directory' => 'candidate/photos',
-            'candidate.documents_directory' => 'candidate/documents',
         ]);
 
         $storage = new CandidateFileStorage;
         $photo = $storage->storePhoto(
             UploadedFile::fake()->create('portrait.jpg', 100, 'image/jpeg'),
         );
-        $document = $storage->storeDocument(
-            UploadedFile::fake()->create('statement.pdf', 100, 'application/pdf'),
-        );
-
         Storage::disk('candidate-test')->assertExists($photo['path']);
-        Storage::disk('candidate-test')->assertExists($document['path']);
         $this->assertStringStartsWith('candidate/photos/', $photo['path']);
-        $this->assertStringStartsWith('candidate/documents/', $document['path']);
-        $this->assertSame('statement.pdf', $document['original_name']);
 
-        $storage->deleteMany([$photo['path'], $document['path']]);
+        $storage->deleteMany([$photo['path']]);
 
         Storage::disk('candidate-test')->assertMissing($photo['path']);
-        Storage::disk('candidate-test')->assertMissing($document['path']);
     }
 
     public function test_cleanup_never_deletes_paths_outside_candidate_storage(): void
@@ -48,7 +39,6 @@ final class CandidateFileStorageTest extends TestCase
         config([
             'candidate.disk' => 'candidate-test',
             'candidate.photos_directory' => 'candidate/photos',
-            'candidate.documents_directory' => 'candidate/documents',
         ]);
         Storage::disk('candidate-test')->put('unrelated/keep.txt', 'keep');
 

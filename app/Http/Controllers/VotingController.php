@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Contracts\VotingIntegration;
 use App\Http\Requests\CastVoteRequest;
-use App\Models\Election;
 use App\Models\Vote;
 use App\Services\Voting\IntegrationException;
 use App\Services\Voting\InvalidVoteRequest;
@@ -21,53 +20,6 @@ use Symfony\Component\HttpFoundation\Response;
 // PIC: Goh Chun Wen - Voting Process module.
 class VotingController extends Controller
 {
-    public function index(Request $request, VotingIntegration $integration): View
-    {
-        [$requestId, $timestamp] = $this->newEnvelope();
-
-        try {
-            $elections = collect($integration->voterElections($requestId, $timestamp))
-                ->filter(function (array $election) use ($integration, $request): bool {
-                    if (($election['status'] ?? null) !== Election::VOTING_OPEN) {
-                        return false;
-                    }
-
-                    if (data_get($election, 'eligibility.type') !== 'PRIVATE') {
-                        return true;
-                    }
-
-                    [$eligibilityRequestId, $eligibilityTimestamp] = $this->newEnvelope();
-                    $eligibility = $integration->voterEligibility(
-                        (int) $request->user()->getKey(),
-                        (int) $election['id'],
-                        $eligibilityRequestId,
-                        $eligibilityTimestamp,
-                    );
-
-                    return $eligibility['eligible'];
-                })
-                ->values();
-
-            $votedElectionIds = Vote::query()
-                ->where('voter_id', $request->user()->id)
-                ->whereIn('election_id', $elections->pluck('id'))
-                ->pluck('election_id')
-                ->mapWithKeys(static fn (mixed $id): array => [(int) $id => true]);
-
-            $elections = $elections->map(function (array $election) use ($votedElectionIds): array {
-                $election['hasVoted'] = $votedElectionIds->has((int) $election['id']);
-
-                return $election;
-            });
-        } catch (IntegrationException) {
-            return view('voting.error', [
-                'message' => 'The election web service is temporarily unavailable.',
-            ]);
-        }
-
-        return view('voting.index', ['elections' => $elections]);
-    }
-
     public function results(
         Request $request,
         int $election,
@@ -151,6 +103,11 @@ class VotingController extends Controller
         );
         try {
             $eligibilityAuthorizer->assertEligible($voterEligibility, $ballot['eligibility']);
+            $eligibilityAuthorizer->assertNotPublicElectionCandidate(
+                (int) $request->user()->getKey(),
+                $ballot['eligibility'],
+                $ballot['candidacies'],
+            );
         } catch (VoteAccessDenied $exception) {
             abort(403, $exception->getMessage());
         }

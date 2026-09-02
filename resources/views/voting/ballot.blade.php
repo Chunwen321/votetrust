@@ -5,7 +5,7 @@
 
 @section('content')
 <section class="voting-page voting-page--narrow">
-    <a class="back-link" href="{{ route('voting.index') }}">← Back to voting portal</a>
+    <a class="back-link" href="{{ route('elections.index') }}">← Back to elections</a>
     <header class="page-heading">
         <p class="eyebrow">Secure ballot &middot; Election #{{ $ballot['id'] }}</p>
         <h1>{{ $ballot['title'] }}</h1>

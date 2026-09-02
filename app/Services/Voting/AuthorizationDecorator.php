@@ -41,6 +41,11 @@ final class AuthorizationDecorator extends VoteServiceDecorator
         }
 
         $this->eligibilityAuthorizer->assertEligible($voterEligibility, $election['eligibility']);
+        $this->eligibilityAuthorizer->assertNotPublicElectionCandidate(
+            $command->voterId,
+            $election['eligibility'],
+            $election['candidacies'],
+        );
 
         $candidateIsApproved = collect($election['candidacies'])
             ->contains(fn (array $candidacy): bool => $candidacy['candidateId'] === $command->candidateId);

@@ -79,12 +79,6 @@
             </p>
             @error('profile_photo')<p class="candidate-field-error">{{ $message }}</p>@enderror
 
-            <label for="documents">Supporting documents <span class="candidate-optional">Optional</span></label>
-            <input id="documents" type="file" name="documents[]" accept=".pdf,.jpg,.jpeg,.png" multiple>
-            <p class="candidate-help">Upload up to {{ (int) config('candidate.max_documents', 5) }} private PDF, JPG, or PNG documents for organizer review.</p>
-            @error('documents')<p class="candidate-field-error">{{ $message }}</p>@enderror
-            @error('documents.*')<p class="candidate-field-error">{{ $message }}</p>@enderror
-
             <div class="candidate-form-actions">
                 <a class="candidate-button" href="{{ route('elections.show', $election) }}">Cancel</a>
                 <button class="candidate-button candidate-button--primary" type="submit">{{ $isReapplication ? 'Submit reapplication' : 'Submit application' }}</button>

@@ -20,7 +20,6 @@ final class RegistrationProxy implements RegistrationService
         int $userId,
         int $electionId,
         array $input,
-        array $documents,
         UploadedFile $photo,
     ): Candidacy {
         if ($userId < 1 || $electionId < 1) {
@@ -35,7 +34,6 @@ final class RegistrationProxy implements RegistrationService
             'qualifications' => trim((string) ($input['qualifications'] ?? '')) ?: null,
             'reason_for_candidacy' => trim((string) ($input['reason_for_candidacy'] ?? '')),
             'profile_photo' => $photo,
-            'documents' => array_values($documents),
         ];
 
         /** @var array{manifesto: string, candidate_introduction: string, qualifications: string|null, reason_for_candidacy: string} $validated */
@@ -50,7 +48,6 @@ final class RegistrationProxy implements RegistrationService
                 'qualifications' => $validated['qualifications'] ?? null,
                 'reason_for_candidacy' => $validated['reason_for_candidacy'],
             ],
-            array_values($documents),
             $photo,
         );
     }

@@ -74,8 +74,6 @@ final class CandidateRegistrationController extends Controller
             throw ValidationException::withMessages(['application' => $unavailableReason]);
         }
 
-        $documents = $request->file('documents', []);
-        $documents = is_array($documents) ? array_values($documents) : [];
         $photo = $request->file('profile_photo');
 
         abort_unless($photo instanceof UploadedFile, 422);
@@ -83,13 +81,14 @@ final class CandidateRegistrationController extends Controller
         $application = $service->apply(
             (int) $user->getAuthIdentifier(),
             (int) $election->getKey(),
-            $request->safe()->only([
-                'manifesto',
-                'candidate_introduction',
-                'qualifications',
-                'reason_for_candidacy',
-            ]),
-            $documents,
+            [
+                // Copy the validated values explicitly so every application answer
+                // reaches the persistence service as a plain array.
+                'manifesto' => (string) $request->validated('manifesto'),
+                'candidate_introduction' => (string) $request->validated('candidate_introduction'),
+                'qualifications' => $request->validated('qualifications'),
+                'reason_for_candidacy' => (string) $request->validated('reason_for_candidacy'),
+            ],
             $photo,
         );
 

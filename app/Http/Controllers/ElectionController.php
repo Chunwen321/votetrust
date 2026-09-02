@@ -15,6 +15,7 @@ use App\Http\Requests\TransitionElectionRequest;
 use App\Http\Requests\UpdateElectionRequest;
 use App\Http\Requests\UpdatePrivateCandidateSelectionRequest;
 use App\Http\Requests\UpdatePrivateVoterSelectionRequest;
+use App\Models\Candidacy;
 use App\Models\Election;
 use App\Services\CandidateRegistration\CandidateApplicationAccess;
 use App\Services\ElectionService;
@@ -22,6 +23,7 @@ use App\Services\PrivateVoterRosterFile;
 use App\Services\User\VotingParticipationClient;
 use App\Services\VoterModuleClient;
 use App\Services\VoterService;
+use App\Services\Voting\VoteTallyService;
 use App\States\ElectionStatus;
 use App\Support\ElectionCardMilestone;
 use App\Support\ElectionCardStatus;
@@ -157,18 +159,59 @@ final class ElectionController extends Controller
             ->with('success', 'Election draft created. Review it before continuing to hosting payment.');
     }
 
-    public function show(Request $request, int $election): View
+    public function show(Request $request, int $election, VoteTallyService $tallyService): View
     {
         $record = Election::query()
             ->with(['candidacies' => fn ($query) => $query->where('user_id', $request->user()->getKey())])
             ->findOrFail($election);
 
         if ((int) $record->organizer_id !== (int) $request->user()->getKey()) {
-            abort_unless(in_array($record->status, $this->publishedStatuses(), true), 404);
-
             $candidacy = $record->candidacies->first();
-            abort_unless($this->isPublic($record) || $candidacy !== null, 404);
+            $isPublished = in_array($record->status, $this->publishedStatuses(), true);
+            $isHistorical = in_array($record->status, [
+                Election::CANCELLED,
+                Election::EXPIRED,
+                Election::REJECTED,
+            ], true);
+            $canViewAsCandidate = $candidacy !== null && ($isPublished || $isHistorical);
+
+            // A candidate keeps read-only access to the election connected to
+            // their application after a terminal state, but a draft stays private.
+            abort_unless(($isPublished && $this->isPublic($record)) || $canViewAsCandidate, 404);
             $now = CarbonImmutable::now((string) config('app.timezone'));
+            $candidateProfiles = Candidacy::query()
+                ->with('user')
+                ->where('election_id', $record->getKey())
+                ->where('status', Candidacy::APPROVED)
+                ->orderBy('registered_at')
+                ->orderBy('id')
+                ->get();
+            $results = [];
+            $totalVotes = 0;
+            $winnerCount = 0;
+
+            if ($record->status === Election::CLOSED) {
+                $ballot = $candidateProfiles
+                    ->map(static fn (Candidacy $candidate): array => [
+                        'candidateId' => (int) $candidate->user_id,
+                        'name' => (string) ($candidate->user?->display_name ?? 'Candidate '.$candidate->user_id),
+                    ])
+                    ->all();
+                $tally = $tallyService->tally((int) $record->getKey(), $ballot);
+                $results = $tally['tally'];
+                usort($results, static fn (array $left, array $right): int => $right['votes'] <=> $left['votes']
+                    ?: strcasecmp($left['candidateName'], $right['candidateName']));
+                $totalVotes = $tally['totalVotes'];
+                $highestVoteCount = $totalVotes > 0 ? (int) ($results[0]['votes'] ?? 0) : 0;
+                $winnerCount = $highestVoteCount > 0
+                    ? count(array_filter($results, static fn (array $result): bool => $result['votes'] === $highestVoteCount))
+                    : 0;
+                $results = array_map(static fn (array $result): array => [
+                    ...$result,
+                    'percentage' => $totalVotes > 0 ? round(($result['votes'] / $totalVotes) * 100, 1) : 0.0,
+                    'isWinner' => $highestVoteCount > 0 && $result['votes'] === $highestVoteCount,
+                ], $results);
+            }
 
             return view('elections.details', [
                 'election' => $record,
@@ -180,6 +223,10 @@ final class ElectionController extends Controller
                     $now,
                 ),
                 'canApply' => $this->candidateApplications->canApply($request->user(), $record),
+                'candidateProfiles' => $candidateProfiles,
+                'results' => $results,
+                'totalVotes' => $totalVotes,
+                'winnerCount' => $winnerCount,
             ]);
         }
 

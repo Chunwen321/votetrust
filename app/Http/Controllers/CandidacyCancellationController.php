@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Candidacy;
-use App\Models\CandidateDocument;
 use App\Services\CandidateRegistration\CandidateFileStorage;
 use App\Services\CandidateRegistration\PaymentStatusClient;
 use Illuminate\Http\RedirectResponse;
@@ -59,21 +58,11 @@ final class CandidacyCancellationController extends Controller
                 ]);
             }
 
-            $paths = CandidateDocument::query()
-                ->where('candidacy_id', $lockedCandidacy->getKey())
-                ->lockForUpdate()
-                ->pluck('stored_name')
-                ->filter(fn ($path): bool => is_string($path) && $path !== '')
-                ->values()
-                ->all();
+            $paths = [];
 
             if (is_string($lockedCandidacy->profile_photo) && $lockedCandidacy->profile_photo !== '') {
                 $paths[] = $lockedCandidacy->profile_photo;
             }
-
-            CandidateDocument::query()
-                ->where('candidacy_id', $lockedCandidacy->getKey())
-                ->delete();
 
             $lockedCandidacy->status = 'Cancelled';
             $lockedCandidacy->profile_photo = null;

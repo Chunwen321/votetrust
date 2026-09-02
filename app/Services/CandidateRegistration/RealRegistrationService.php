@@ -4,7 +4,6 @@ namespace App\Services\CandidateRegistration;
 
 use App\Contracts\RegistrationService;
 use App\Models\Candidacy;
-use App\Models\CandidateDocument;
 use App\Models\Election;
 use App\Models\Payment;
 use App\ValueObjects\EligibilityRules;
@@ -26,7 +25,6 @@ final class RealRegistrationService implements RegistrationService
         int $userId,
         int $electionId,
         array $input,
-        array $documents,
         UploadedFile $photo,
     ): Candidacy {
         $newPaths = [];
@@ -37,7 +35,6 @@ final class RealRegistrationService implements RegistrationService
                 $userId,
                 $electionId,
                 $input,
-                $documents,
                 $photo,
                 &$newPaths,
                 &$obsoletePaths,
@@ -89,20 +86,6 @@ final class RealRegistrationService implements RegistrationService
                         $obsoletePaths[] = $candidacy->profile_photo;
                     }
 
-                    $previousDocuments = CandidateDocument::query()
-                        ->where('candidacy_id', $candidacy->getKey())
-                        ->lockForUpdate()
-                        ->get();
-
-                    foreach ($previousDocuments as $previousDocument) {
-                        if (is_string($previousDocument->stored_name)) {
-                            $obsoletePaths[] = $previousDocument->stored_name;
-                        }
-                    }
-
-                    CandidateDocument::query()
-                        ->where('candidacy_id', $candidacy->getKey())
-                        ->delete();
                 }
 
                 $photoData = $this->fileStorage->storePhoto($photo);
@@ -129,19 +112,6 @@ final class RealRegistrationService implements RegistrationService
                 $candidacy->profile_photo = $photoData['path'];
                 $candidacy->profile_photo_mime = $photoData['mime'];
                 $candidacy->save();
-
-                foreach ($documents as $document) {
-                    $documentData = $this->fileStorage->storeDocument($document);
-                    $newPaths[] = $documentData['path'];
-
-                    $candidateDocument = new CandidateDocument;
-                    $candidateDocument->candidacy_id = $candidacy->getKey();
-                    $candidateDocument->original_name = $documentData['original_name'];
-                    $candidateDocument->stored_name = $documentData['path'];
-                    $candidateDocument->mime_type = $documentData['mime'];
-                    $candidateDocument->uploaded_at = now();
-                    $candidateDocument->save();
-                }
 
                 return $candidacy;
             });

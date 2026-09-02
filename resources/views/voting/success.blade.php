@@ -14,7 +14,7 @@
             <div><dt>Receipt ID</dt><dd><code>VT-{{ str_pad((string) $vote->id, 8, '0', STR_PAD_LEFT) }}</code></dd></div>
             <div><dt>Recorded at</dt><dd>{{ $vote->cast_at->format('d M Y, H:i:s') }}</dd></div>
         </dl>
-        <a class="button button--primary" href="{{ route('voting.index') }}">Return to voting portal</a>
+        <a class="button button--primary" href="{{ route('elections.index') }}">Return to elections</a>
     </article>
 </section>
 @endsection

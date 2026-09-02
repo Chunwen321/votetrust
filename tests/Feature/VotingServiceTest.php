@@ -17,7 +17,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
-use Mockery\MockInterface;
 use Tests\TestCase;
 
 // PIC: Goh Chun Wen - Voting Process Decorator and REST integration tests.
@@ -39,35 +38,13 @@ class VotingServiceTest extends TestCase
         ]);
     }
 
-    public function test_voting_portal_only_lists_elections_that_are_in_the_voting_stage(): void
+    public function test_legacy_voting_portal_redirects_to_the_election_workspace(): void
     {
         $voter = User::factory()->create();
-        $this->mock(VotingIntegration::class, function (MockInterface $mock): void {
-            $election = static fn (int $id, string $title, string $status): array => [
-                'id' => $id,
-                'title' => $title,
-                'position' => 'Student Representative',
-                'description' => 'A participant catalog election.',
-                'status' => $status,
-                'votingAllowed' => $status === Election::VOTING_OPEN,
-                'eligibility' => ['type' => 'PUBLIC'],
-                'votingPeriod' => ['start' => null, 'end' => null],
-                'approvedCandidateCount' => 1,
-            ];
-
-            $mock->shouldReceive('voterElections')->once()->andReturn([
-                $election(1, 'Upcoming Nomination Election', Election::NOMINATION_OPEN),
-                $election(2, 'Active Voting Election', Election::VOTING_OPEN),
-                $election(3, 'Closed Historical Election', Election::CLOSED),
-            ]);
-        });
 
         $this->actingAs($voter)
             ->get(route('voting.index'))
-            ->assertOk()
-            ->assertSee('Active Voting Election')
-            ->assertDontSee('Upcoming Nomination Election')
-            ->assertDontSee('Closed Historical Election');
+            ->assertRedirect(route('elections.index'));
     }
 
     public function test_decorated_service_consumes_teammate_apis_and_allows_exactly_one_vote(): void
@@ -185,6 +162,44 @@ class VotingServiceTest extends TestCase
             self::fail('A candidate from another election was accepted.');
         } catch (VoteAccessDenied $exception) {
             self::assertSame('The selected candidate is not on this ballot.', $exception->getMessage());
+        }
+
+        $this->assertDatabaseCount('vote', 0);
+    }
+
+    public function test_an_approved_candidate_cannot_vote_in_the_same_public_election(): void
+    {
+        [$candidateVoter, $otherCandidate, $election] = $this->ballotFixture();
+        Candidacy::query()->create([
+            'user_id' => $candidateVoter->id,
+            'election_id' => $election->id,
+            'status' => Candidacy::APPROVED,
+        ]);
+        $this->fakeTeammateApis(
+            $candidateVoter,
+            $otherCandidate,
+            $election,
+            additionalCandidates: [$candidateVoter],
+        );
+
+        $this->actingAs($candidateVoter)
+            ->get(route('voting.ballot', $election->id))
+            ->assertForbidden();
+
+        try {
+            $this->app->make(VoteService::class)->cast(
+                $candidateVoter,
+                $election->id,
+                $otherCandidate->id,
+                'VOTE-CANDIDATE-0001',
+                now()->toAtomString(),
+            );
+            self::fail('A registered public-election candidate was allowed to vote.');
+        } catch (VoteAccessDenied $exception) {
+            self::assertSame(
+                'Candidates cannot vote in the public election in which they are registered.',
+                $exception->getMessage(),
+            );
         }
 
         $this->assertDatabaseCount('vote', 0);

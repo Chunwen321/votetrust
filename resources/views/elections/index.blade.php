@@ -13,7 +13,6 @@
         </div>
         <div class="election-hub__actions">
             @if ($user->isVerified())
-                <a class="button button-quiet" href="{{ route('voting.index') }}">Open voting portal</a>
                 <a class="button" href="{{ route('elections.create') }}">Create an election</a>
             @else
                 <a class="button" href="{{ route('profile.verify') }}">Verify profile to participate</a>
