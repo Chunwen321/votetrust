@@ -29,5 +29,14 @@ return [
             'timeout_seconds' => (int) env('CANDIDATE_PAYMENT_TIMEOUT_SECONDS', 5),
             'response_max_age_seconds' => (int) env('CANDIDATE_PAYMENT_RESPONSE_MAX_AGE_SECONDS', 300),
         ],
+        'voting' => [
+            'base_url' => env('VOTING_SERVICE_BASE_URL', env('APP_URL', '')),
+            'api_key' => env('VOTING_SERVICE_API_KEY')
+                ?: env('VOTING_API_KEY')
+                ?: ($localEnvironment ? 'votetrust-voting-local-2026' : ''),
+            'connect_timeout_seconds' => (int) env('VOTING_SERVICE_CONNECT_TIMEOUT_SECONDS', 2),
+            'timeout_seconds' => (int) env('VOTING_SERVICE_TIMEOUT_SECONDS', 5),
+            'response_max_age_seconds' => (int) env('API_RESPONSE_MAX_AGE_SECONDS', 300),
+        ],
     ],
 ];

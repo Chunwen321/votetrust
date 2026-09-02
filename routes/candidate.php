@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\CandidacyCancellationController;
 use App\Http\Controllers\CandidateApplicationController;
+use App\Http\Controllers\CandidateDepositRefundController;
 use App\Http\Controllers\CandidateDocumentController;
 use App\Http\Controllers\CandidatePaymentController;
 use App\Http\Controllers\CandidatePhotoController;
@@ -40,4 +41,7 @@ Route::middleware(['auth', 'active.account', 'verified.profile'])
         Route::get('/payments/{payment}', [CandidatePaymentController::class, 'show'])
             ->whereNumber('payment')
             ->name('payments.show');
+        Route::post('/applications/{candidacy}/deposit/refund', CandidateDepositRefundController::class)
+            ->whereNumber('candidacy')
+            ->name('deposits.refund');
     });
