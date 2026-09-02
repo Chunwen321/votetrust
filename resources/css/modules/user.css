@@ -306,7 +306,7 @@
 .user-module .election-role-heading__icon { display: grid; flex: 0 0 48px; width: 48px; height: 48px; place-items: center; border-radius: 14px; background: var(--role-accent); color: #fff; box-shadow: 0 8px 18px color-mix(in srgb, var(--role-accent) 24%, transparent); font-size: 1rem; font-weight: 900; }
 .user-module .election-role-section .eyebrow { margin-bottom: 5px; color: var(--role-accent); }
 .user-module .election-role-section .section-title h2 { margin-bottom: 6px; font-size: clamp(1.45rem, 3vw, 2rem); }
-.user-module .election-role-section .section-title p:last-child { max-width: 580px; margin-bottom: 0; color: var(--user-muted); }
+.user-module .election-role-section .section-title p:last-child { max-width: none; margin-bottom: 0; color: var(--user-muted); }
 .user-module .election-role-section .section-count { flex: 0 0 auto; padding: 7px 10px; border: 1px solid var(--role-border); border-radius: 999px; background: #fff; color: var(--role-accent); font-size: .8rem; font-weight: 800; }
 .user-module .election-list { display: grid; gap: 12px; }
 .user-module .election-role-section .card { border-color: color-mix(in srgb, var(--role-accent) 16%, #d9e4f2); box-shadow: 0 8px 22px rgb(24 63 115 / 5%); }
