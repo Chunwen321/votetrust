@@ -23,7 +23,7 @@ final class PendingPaymentState extends AbstractElectionState
     public function actions(Election $election): array
     {
         return [
-            ['action' => 'submit_payment', 'label' => 'Send for administrator review', 'description' => 'Complete the hosting-fee checkout first. Once payment is confirmed, enter your password to send the election for administrator approval.', 'tone' => 'primary', 'audience' => 'organizer', 'requiresPaymentReference' => false, 'requiresReason' => false],
+            ['action' => 'submit_payment', 'label' => 'Send for administrator review', 'description' => 'Complete the hosting-fee checkout first. Once payment is confirmed, send the election for administrator approval.', 'tone' => 'primary', 'audience' => 'organizer', 'requiresPaymentReference' => false, 'requiresReason' => false],
             ['action' => 'cancel', 'label' => 'Cancel election', 'description' => 'Cancels the unpaid election.', 'tone' => 'danger', 'audience' => 'organizer', 'requiresPaymentReference' => false, 'requiresReason' => true],
         ];
     }

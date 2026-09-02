@@ -12,9 +12,7 @@ use Throwable;
 /**
  * A schedule-aware lifecycle label for participant-facing election cards.
  *
- * Lifecycle transitions remain manual. This presentation object only avoids
- * describing an expired nomination window as open while the organiser is
- * preparing to move the election to voting.
+ * The presentation remains schedule-aware if a scheduler run is briefly late.
  */
 final readonly class ElectionCardStatus
 {

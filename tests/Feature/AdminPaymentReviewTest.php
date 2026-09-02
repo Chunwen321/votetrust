@@ -137,7 +137,7 @@ final class AdminPaymentReviewTest extends TestCase
             ->assertRedirect(route('admin.elections.show', $election));
 
         $election->refresh();
-        self::assertSame(Election::NOMINATION_OPEN, $election->status);
+        self::assertSame(Election::SCHEDULED, $election->status);
         self::assertNotNull($election->approved_at);
         Http::assertSentCount(1);
         Http::assertSent(fn (Request $request): bool => ! isset($request['paymentReference']));

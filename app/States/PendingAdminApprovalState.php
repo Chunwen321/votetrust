@@ -24,7 +24,7 @@ final class PendingAdminApprovalState extends AbstractElectionState
     public function actions(Election $election): array
     {
         $primaryAction = $this->paymentVerified($election)
-            ? ['action' => 'approve', 'label' => 'Approve election', 'description' => 'Payment is verified. Give final approval to open nominations.', 'tone' => 'primary', 'audience' => 'admin', 'requiresPaymentReference' => false, 'requiresReason' => false]
+            ? ['action' => 'approve', 'label' => 'Approve election', 'description' => 'Payment is verified. Approve the schedule so the organizer can start nominations at the configured time.', 'tone' => 'primary', 'audience' => 'admin', 'requiresPaymentReference' => false, 'requiresReason' => false]
             : ['action' => 'verify_payment', 'label' => 'Verify hosting payment', 'description' => 'Find this election\'s hosting payment and check its status, amount, currency, and organiser with the Payment module.', 'tone' => 'primary', 'audience' => 'admin', 'requiresPaymentReference' => false, 'requiresReason' => false];
 
         return [
@@ -113,7 +113,7 @@ final class PendingAdminApprovalState extends AbstractElectionState
             $election->rejected_by = null;
             $election->rejected_at = null;
             $election->rejection_reason = null;
-            $lifecycle->moveTo(ElectionStatus::NOMINATION_OPEN->value, $action, [
+            $lifecycle->moveTo(ElectionStatus::SCHEDULED->value, $action, [
                 'approved_by' => $context->actor->getKey(),
                 'payment_reference' => $election->payment_reference,
                 'provider_status' => $election->payment_provider_status,

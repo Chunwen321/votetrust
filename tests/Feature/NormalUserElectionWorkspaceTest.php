@@ -94,6 +94,54 @@ final class NormalUserElectionWorkspaceTest extends TestCase
         ]);
     }
 
+    public function test_a_private_election_remains_viewable_after_the_voter_has_voted(): void
+    {
+        $member = User::factory()->create([
+            'full_name' => 'Private Election Voter',
+            'is_admin' => false,
+            'account_status' => 'ACTIVE',
+        ]);
+        $outsider = User::factory()->create([
+            'is_admin' => false,
+            'account_status' => 'ACTIVE',
+        ]);
+        $election = Election::query()->create([
+            'title' => 'Private Election Already Voted',
+            'position_sought' => 'Faculty Representative',
+            'description' => 'A private election that remains visible after voting.',
+            'eligibility_rules' => EligibilityRules::privateElection()->toStorage(),
+            'nomination_start' => now()->subDays(2),
+            'nomination_end' => now()->subDay(),
+            'voting_start' => now()->subHour(),
+            'voting_end' => now()->addHour(),
+            'status' => Election::VOTING_OPEN,
+            'currency' => 'MYR',
+        ]);
+        VoterEnrollment::query()->create([
+            'user_id' => $member->getKey(),
+            'election_id' => $election->getKey(),
+            'status' => VoterEnrollment::APPROVED,
+        ]);
+        $this->fakeElectionSummary($election, true, false);
+
+        $this->actingAs($member)
+            ->get(route('elections.index'))
+            ->assertOk()
+            ->assertSee('Private Election Already Voted')
+            ->assertSee('Vote recorded')
+            ->assertSee('href="'.route('elections.show', $election).'" aria-label="View election Private Election Already Voted">View election', false)
+            ->assertDontSee('href="'.route('voting.ballot', $election).'"', false);
+
+        $this->get(route('elections.show', $election))
+            ->assertOk()
+            ->assertSee('This election is visible because you are an approved voter.')
+            ->assertSee('Your recorded vote remains private and cannot be changed.');
+
+        $this->actingAs($outsider)
+            ->get(route('elections.show', $election))
+            ->assertNotFound();
+    }
+
     public function test_a_member_who_registers_later_automatically_discovers_a_published_public_election(): void
     {
         $publicElection = Election::query()->create([
@@ -466,7 +514,11 @@ final class NormalUserElectionWorkspaceTest extends TestCase
         ]);
     }
 
-    private function fakeElectionSummary(Election $election): void
+    private function fakeElectionSummary(
+        Election $election,
+        ?bool $hasVoted = null,
+        ?bool $votingAllowed = null,
+    ): void
     {
         config()->set('votetrust-user.services.election', [
             'base_url' => 'https://election.test',
@@ -476,17 +528,34 @@ final class NormalUserElectionWorkspaceTest extends TestCase
             'response_max_age_seconds' => 300,
         ]);
         config()->set('votetrust-user.services.voting', [
-            'base_url' => '',
-            'api_key' => '',
+            'base_url' => $hasVoted === null ? '' : 'https://voting.test',
+            'api_key' => $hasVoted === null ? '' : 'voting-consumer-key',
+            'connect_timeout_seconds' => 1,
+            'timeout_seconds' => 2,
+            'response_max_age_seconds' => 300,
         ]);
 
         Http::preventStrayRequests();
-        Http::fake(function (ClientRequest $request) use ($election) {
+        Http::fake(function (ClientRequest $request) use ($election, $hasVoted) {
             parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
             $path = (string) parse_url($request->url(), PHP_URL_PATH);
 
+            if ($path === '/api/v1/votes/status' && $hasVoted !== null) {
+                return Http::response([
+                    'status' => 'S',
+                    'message' => 'Voting status retrieved.',
+                    'requestID' => $query['requestID'] ?? null,
+                    'timestamp' => now()->toAtomString(),
+                    'data' => [
+                        'voterId' => (int) ($query['voterId'] ?? 0),
+                        'electionId' => (int) ($query['electionId'] ?? 0),
+                        'hasVoted' => $hasVoted,
+                    ],
+                ]);
+            }
+
             if ($path === '/api/v1/elections/voter-catalog') {
-                $isCatalogState = in_array($election->status, [Election::NOMINATION_OPEN, Election::VOTING_OPEN, Election::CLOSED], true);
+                $isCatalogState = in_array($election->status, [Election::NOMINATION_OPEN, Election::NOMINATION_CLOSED, Election::VOTING_OPEN, Election::CLOSED], true);
 
                 return Http::response([
                     'status' => 'S',
@@ -499,9 +568,9 @@ final class NormalUserElectionWorkspaceTest extends TestCase
                         'positionSought' => (string) $election->position_sought,
                         'description' => (string) $election->description,
                         'lifecycleState' => $election->status,
-                        'votingAllowed' => $election->status === Election::VOTING_OPEN
+                        'votingAllowed' => $votingAllowed ?? ($election->status === Election::VOTING_OPEN
                             && ($election->voting_start === null || $election->voting_start->lte(now()))
-                            && ($election->voting_end === null || $election->voting_end->gte(now())),
+                            && ($election->voting_end === null || $election->voting_end->gte(now()))),
                         'eligibility' => EligibilityRules::fromStored($election->eligibility_rules)->toArray(),
                         'nominationPeriod' => [
                             'start' => $election->nomination_start?->toAtomString(),

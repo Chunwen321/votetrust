@@ -20,7 +20,6 @@ final class ImportPrivateCandidateListRequest extends FormRequest
     {
         return [
             'candidate_list' => ['required', 'file', 'mimes:csv,xlsx,xls', 'max:2048'],
-            'current_password' => ['required', 'string'],
         ];
     }
 }

@@ -12,8 +12,7 @@ use Throwable;
 /**
  * A role-aware date shown on an election workspace card.
  *
- * Election lifecycle transitions are manual, so the label is derived from
- * both the saved state and the clock instead of assuming a date changes state.
+ * Labels are derived from the persisted state and configured schedule.
  */
 final readonly class ElectionCardMilestone
 {
@@ -43,7 +42,7 @@ final readonly class ElectionCardMilestone
             }
 
             if ($end !== null) {
-                return new self('Voting ended — awaiting closure', $end, 'attention');
+                return new self('Voting ended — system closure due', $end, 'attention');
             }
 
             if ($start !== null) {
@@ -110,6 +109,10 @@ final readonly class ElectionCardMilestone
             }
         }
 
+        if ($status === Election::NOMINATION_CLOSED) {
+            return self::upcomingVotingMilestone($votingStart, $now);
+        }
+
         return self::votingMilestone($status, $votingStart, $votingEnd, $now);
     }
 
@@ -128,7 +131,7 @@ final readonly class ElectionCardMilestone
         $votingStart = self::date($votingStart);
         $votingEnd = self::date($votingEnd);
 
-        if (in_array($status, [Election::DRAFT, Election::PENDING_PAYMENT, Election::PENDING_ADMIN_APPROVAL], true)) {
+        if (in_array($status, [Election::DRAFT, Election::PENDING_PAYMENT, Election::PENDING_ADMIN_APPROVAL, Election::SCHEDULED], true)) {
             if ($nominationStart === null) {
                 return self::unavailable();
             }
@@ -158,6 +161,10 @@ final readonly class ElectionCardMilestone
             if ($nominationEnd !== null) {
                 return new self('Nominations closed', $nominationEnd, 'attention');
             }
+        }
+
+        if ($status === Election::NOMINATION_CLOSED) {
+            return self::upcomingVotingMilestone($votingStart, $now);
         }
 
         if (in_array($status, [Election::VOTING_OPEN, Election::CLOSED], true)) {
@@ -225,7 +232,7 @@ final readonly class ElectionCardMilestone
             }
 
             if ($end !== null) {
-                return new self('Voting ended — close election', $end, 'attention');
+                return new self('Voting ended — system closure due', $end, 'attention');
             }
 
             if ($start !== null) {
@@ -234,6 +241,18 @@ final readonly class ElectionCardMilestone
         }
 
         return self::unavailable();
+    }
+
+    private static function upcomingVotingMilestone(mixed $votingStart, CarbonImmutable $now): self
+    {
+        $start = self::date($votingStart);
+        if ($start === null) {
+            return self::unavailable();
+        }
+
+        return $now->lt($start)
+            ? new self('Voting opens automatically', $start, 'upcoming')
+            : new self('Automatic voting start due', $start, 'attention');
     }
 
     private static function unavailable(): self

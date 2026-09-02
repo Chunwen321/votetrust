@@ -62,7 +62,7 @@ final class ElectionSummaryController extends Controller
             return [
                 'counts' => [
                     'elections' => Election::query()->count(),
-                    'active' => Election::query()->whereIn('status', ['APPROVED', 'NOMINATION_OPEN', 'VOTING_OPEN'])->count(),
+                    'active' => Election::query()->whereIn('status', [Election::SCHEDULED, Election::NOMINATION_OPEN, Election::NOMINATION_CLOSED, Election::VOTING_OPEN])->count(),
                     'pendingApprovals' => Election::query()
                         ->where('status', Election::PENDING_ADMIN_APPROVAL)
                         ->count(),

@@ -76,6 +76,7 @@
 .election-status-draft { background: var(--surface-subtle); }
 .election-status-pending-payment,
 .election-status-pending-admin-approval,
+.election-status-scheduled,
 .election-status-nomination-closed { background: var(--warning-soft); color: var(--warning); }
 
 .election-callout { padding: .9rem 1rem; border-left: 4px solid var(--primary); border-radius: 0 .7rem .7rem 0; background: var(--primary-soft); }

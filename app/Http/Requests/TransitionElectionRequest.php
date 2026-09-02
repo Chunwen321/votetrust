@@ -17,12 +17,16 @@ final class TransitionElectionRequest extends FormRequest
     /** @return array<string, mixed> */
     public function rules(): array
     {
+        $action = (string) $this->input('action');
+        $requiresCurrentPassword = $this->user()?->isAdmin() === true
+            || in_array($action, ['start_nomination', 'cancel'], true);
+
         return [
             'action' => ['required', 'string', Rule::in([
                 'submit_for_payment', 'submit_payment', 'verify_payment', 'approve', 'return_for_payment', 'reject',
-                'start_voting', 'close_voting', 'cancel',
+                'start_nomination', 'cancel',
             ])],
-            'current_password' => ['required', 'string'],
+            'current_password' => [$requiresCurrentPassword ? 'required' : 'nullable', 'string'],
             'reason' => ['nullable', 'required_if:action,reject,return_for_payment', 'string', 'max:250'],
             'version' => ['required', 'integer', 'min:1'],
         ];

@@ -73,7 +73,7 @@ final class ElectionVotingIntegration implements VotingIntegration
             }
 
             $status = $item['lifecycleState'];
-            if (! in_array($status, ['NOMINATION_OPEN', 'VOTING_OPEN', 'CLOSED'], true)
+            if (! in_array($status, ['NOMINATION_OPEN', 'NOMINATION_CLOSED', 'VOTING_OPEN', 'CLOSED'], true)
                 || ($status === 'CLOSED' && $item['votingAllowed'])) {
                 throw new IntegrationException('The Election Module returned an invalid voter catalog status.');
             }

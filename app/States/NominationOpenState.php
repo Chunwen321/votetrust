@@ -24,7 +24,6 @@ final class NominationOpenState extends AbstractElectionState
     public function actions(Election $election): array
     {
         return [
-            ['action' => 'start_voting', 'label' => 'Open voting', 'description' => 'Requires a complete ballot and the configured voting time.', 'tone' => 'primary', 'audience' => 'organizer', 'requiresPaymentReference' => false, 'requiresReason' => false],
             ['action' => 'cancel', 'label' => 'Cancel election', 'description' => 'Cancels the published election.', 'tone' => 'danger', 'audience' => 'organizer', 'requiresPaymentReference' => false, 'requiresReason' => true],
         ];
     }
@@ -40,25 +39,15 @@ final class NominationOpenState extends AbstractElectionState
         if ($this->cancel($lifecycle, $action, $context)) {
             return;
         }
-        if ($action !== 'start_voting') {
+        if ($action !== 'close_nomination') {
             $this->reject($action);
         }
 
         $election = $lifecycle->election();
-        if (! $this->paymentVerified($election)) {
-            throw new BusinessRuleException('Voting requires confirmed payment.');
-        }
-        if ((int) $context->input('approved_candidate_count', 0) < 1) {
-            throw new BusinessRuleException('Voting cannot open until at least one candidate is approved.');
-        }
-        if ((int) $context->input('pending_candidate_count', 0) > 0) {
-            throw new BusinessRuleException('Review every pending candidate application before opening voting.');
-        }
-        if ($context->now->lt($this->date($election, 'nomination_end'))
-            || $context->now->lt($this->date($election, 'voting_start'))) {
-            throw new BusinessRuleException('Voting cannot open before nominations end and voting start is reached.');
+        if ($context->now->lt($this->date($election, 'nomination_end'))) {
+            throw new BusinessRuleException('Nominations cannot close before the configured nomination end time.');
         }
 
-        $lifecycle->moveTo(ElectionStatus::VOTING_OPEN->value, $action);
+        $lifecycle->moveTo(ElectionStatus::NOMINATION_CLOSED->value, $action);
     }
 }

@@ -202,14 +202,23 @@ final class VoteTrustDemoSeederTest extends TestCase
             );
 
             $pendingApproval = $this->election(self::PENDING_ADMIN);
+            $scheduled = $service->transition(
+                $admin,
+                (int) $pendingApproval->id,
+                'approve',
+                'VoteTrustAdmin!2026',
+                ['version' => $pendingApproval->version],
+            );
+            self::assertSame(Election::SCHEDULED, $scheduled->status);
+            $scheduledOrganizer = User::query()->findOrFail($scheduled->organizer_id);
             self::assertSame(
                 Election::NOMINATION_OPEN,
                 $service->transition(
-                    $admin,
-                    (int) $pendingApproval->id,
-                    'approve',
-                    'VoteTrustAdmin!2026',
-                    ['version' => $pendingApproval->version],
+                    $scheduledOrganizer,
+                    (int) $scheduled->id,
+                    'start_nomination',
+                    'VoteTrust!2026',
+                    ['version' => $scheduled->version],
                 )->status,
             );
 
@@ -234,29 +243,11 @@ final class VoteTrustDemoSeederTest extends TestCase
                 collect($candidateReview->transition_history_json)->last()['action'] ?? null,
             );
 
-            $readyToOpen = $this->election(self::READY_TO_OPEN);
-            self::assertSame(
-                Election::VOTING_OPEN,
-                $service->transition(
-                    $organizer,
-                    (int) $readyToOpen->id,
-                    'start_voting',
-                    'VoteTrust!2026',
-                    ['version' => $readyToOpen->version],
-                )->status,
-            );
-
-            $readyToClose = $this->election(self::READY_TO_CLOSE);
-            self::assertSame(
-                Election::CLOSED,
-                $service->transition(
-                    $organizer,
-                    (int) $readyToClose->id,
-                    'close_voting',
-                    'VoteTrust!2026',
-                    ['version' => $readyToClose->version],
-                )->status,
-            );
+            $summary = $service->advanceScheduledElections();
+            self::assertSame(1, $summary['votingOpened']);
+            self::assertSame(1, $summary['electionsClosed']);
+            self::assertSame(Election::VOTING_OPEN, $this->election(self::READY_TO_OPEN)->status);
+            self::assertSame(Election::CLOSED, $this->election(self::READY_TO_CLOSE)->status);
         } finally {
             Carbon::setTestNow();
             CarbonImmutable::setTestNow();
@@ -481,7 +472,7 @@ final class VoteTrustDemoSeederTest extends TestCase
             self::PENDING_PAYMENT => Election::PENDING_PAYMENT,
             self::PENDING_ADMIN => Election::PENDING_ADMIN_APPROVAL,
             self::CANDIDATE_REVIEW => Election::NOMINATION_OPEN,
-            self::READY_TO_OPEN => Election::NOMINATION_OPEN,
+            self::READY_TO_OPEN => Election::NOMINATION_CLOSED,
             self::PUBLIC_VOTING => Election::VOTING_OPEN,
             self::PRIVATE_VOTING => Election::VOTING_OPEN,
             self::READY_TO_CLOSE => Election::VOTING_OPEN,

@@ -108,6 +108,14 @@ final class ElectionWebServiceTest extends TestCase
             EligibilityRules::publicElection(16),
             $admin,
         );
+        $nominationsClosed = $this->catalogElection(
+            'Public Nominations Closed',
+            ElectionStatus::NOMINATION_CLOSED,
+            $now->addDay(),
+            $now->addDays(2),
+            EligibilityRules::publicElection(),
+            $admin,
+        );
         $closed = $this->catalogElection(
             'Closed Public Election',
             ElectionStatus::CLOSED,
@@ -142,7 +150,7 @@ final class ElectionWebServiceTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('status', 'S')
             ->assertJsonPath('requestID', 'VOTER-CATALOG-0001')
-            ->assertJsonPath('data.count', 5)
+            ->assertJsonPath('data.count', 6)
             ->assertJsonMissing(['electionId' => $draft->getKey()]);
 
         $catalog = collect($response->json('data.elections'));
@@ -150,6 +158,7 @@ final class ElectionWebServiceTest extends TestCase
             [
                 'Ended Awaiting Closure',
                 'Active Public Election',
+                'Public Nominations Closed',
                 'Public Nominations Open',
                 'Closed Public Election',
                 'Closed Private Election',
@@ -159,6 +168,7 @@ final class ElectionWebServiceTest extends TestCase
 
         $byId = $catalog->keyBy('electionId');
         self::assertTrue($byId[$active->getKey()]['votingAllowed']);
+        self::assertFalse($byId[$nominationsClosed->getKey()]['votingAllowed']);
         self::assertFalse($byId[$nominating->getKey()]['votingAllowed']);
         self::assertSame(
             $nominating->nomination_start?->toAtomString(),
@@ -306,9 +316,9 @@ final class ElectionWebServiceTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('status', 'S')
             ->assertJsonPath('requestID', 'ADMIN-DECISION-0001')
-            ->assertJsonPath('data.lifecycleState', ElectionStatus::NOMINATION_OPEN->value)
+            ->assertJsonPath('data.lifecycleState', ElectionStatus::SCHEDULED->value)
             ->assertJsonStructure(['status', 'timestamp', 'data']);
-        self::assertSame(ElectionStatus::NOMINATION_OPEN->value, $election->refresh()->status);
+        self::assertSame(ElectionStatus::SCHEDULED->value, $election->refresh()->status);
     }
 
     /** @return array{Election,Candidacy} */

@@ -376,11 +376,11 @@ class VoteTrustDemoSeeder extends Seeder
             $primaryOrganizer,
             $admin,
             $public,
-            Election::NOMINATION_OPEN,
+            Election::NOMINATION_CLOSED,
             $now,
             array_merge([
                 'position_sought' => 'Academic Affairs Representative',
-                'description' => 'Candidate review is complete and the configured voting start has arrived, so voting can be opened immediately.',
+                'description' => 'Candidate review is complete and the configured voting start has arrived, so the scheduler can open voting immediately.',
                 'nomination_start' => $now->subDays(8),
                 'nomination_end' => $now->subHours(2),
                 'voting_start' => $now->subHour(),
@@ -434,7 +434,7 @@ class VoteTrustDemoSeeder extends Seeder
             $now,
             array_merge([
                 'position_sought' => 'Alumni Network Coordinator',
-                'description' => 'Voting has ended while the lifecycle remains open, allowing the organizer to test the close-election action.',
+                'description' => 'Voting has ended while the lifecycle remains open, allowing the scheduler to demonstrate automatic closure.',
                 'nomination_start' => $now->subDays(12),
                 'nomination_end' => $now->subDays(6),
                 'voting_start' => $now->subDays(3),
@@ -505,6 +505,7 @@ class VoteTrustDemoSeeder extends Seeder
             (int) $organizer->getKey(),
             (int) $admin->getKey(),
             CarbonImmutable::parse($values['nomination_start']),
+            CarbonImmutable::parse($values['nomination_end']),
             CarbonImmutable::parse($values['voting_start']),
             CarbonImmutable::parse($values['voting_end']),
             $now,
@@ -564,11 +565,14 @@ class VoteTrustDemoSeeder extends Seeder
         int $organizerId,
         int $adminId,
         CarbonImmutable $nominationStart,
+        CarbonImmutable $nominationEnd,
         CarbonImmutable $votingStart,
         CarbonImmutable $votingEnd,
         CarbonImmutable $now,
     ): array {
-        $approvalStates = [Election::NOMINATION_OPEN, Election::VOTING_OPEN, Election::CLOSED];
+        $approvalStates = [Election::SCHEDULED, Election::NOMINATION_OPEN, Election::NOMINATION_CLOSED, Election::VOTING_OPEN, Election::CLOSED];
+        $nominationStates = [Election::NOMINATION_OPEN, Election::NOMINATION_CLOSED, Election::VOTING_OPEN, Election::CLOSED];
+        $nominationClosedStates = [Election::NOMINATION_CLOSED, Election::VOTING_OPEN, Election::CLOSED];
         $paymentStates = [Election::PENDING_ADMIN_APPROVAL, ...$approvalStates];
         $configuredStates = [Election::PENDING_PAYMENT, ...$paymentStates];
         $baseTime = in_array($status, $approvalStates, true)
@@ -607,17 +611,39 @@ class VoteTrustDemoSeeder extends Seeder
                 $adminId,
                 'approve',
                 Election::PENDING_ADMIN_APPROVAL,
-                Election::NOMINATION_OPEN,
+                Election::SCHEDULED,
                 $nominationStart->subHour(),
+            );
+        }
+        if (in_array($status, $nominationStates, true)) {
+            $history[] = $this->transitionRecord(
+                $code,
+                5,
+                $organizerId,
+                'start_nomination',
+                Election::SCHEDULED,
+                Election::NOMINATION_OPEN,
+                $nominationStart,
+            );
+        }
+        if (in_array($status, $nominationClosedStates, true)) {
+            $history[] = $this->transitionRecord(
+                $code,
+                6,
+                null,
+                'close_nomination',
+                Election::NOMINATION_OPEN,
+                Election::NOMINATION_CLOSED,
+                $nominationEnd,
             );
         }
         if (in_array($status, [Election::VOTING_OPEN, Election::CLOSED], true)) {
             $history[] = $this->transitionRecord(
                 $code,
-                5,
-                $organizerId,
+                7,
+                null,
                 'start_voting',
-                Election::NOMINATION_OPEN,
+                Election::NOMINATION_CLOSED,
                 Election::VOTING_OPEN,
                 $votingStart,
             );
@@ -625,8 +651,8 @@ class VoteTrustDemoSeeder extends Seeder
         if ($status === Election::CLOSED) {
             $history[] = $this->transitionRecord(
                 $code,
-                6,
-                $organizerId,
+                8,
+                null,
                 'close_voting',
                 Election::VOTING_OPEN,
                 Election::CLOSED,
@@ -641,7 +667,7 @@ class VoteTrustDemoSeeder extends Seeder
     private function transitionRecord(
         string $code,
         int $sequence,
-        int $actorId,
+        ?int $actorId,
         string $action,
         string $from,
         string $to,

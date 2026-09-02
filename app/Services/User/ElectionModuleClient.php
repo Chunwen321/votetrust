@@ -95,7 +95,7 @@ final class ElectionModuleClient
                 || $record['electionId'] < 1
                 || ! is_string($record['title'] ?? null)
                 || trim($record['title']) === ''
-                || ! in_array($status, ['NOMINATION_OPEN', 'VOTING_OPEN', 'CLOSED'], true)
+                || ! in_array($status, ['NOMINATION_OPEN', 'NOMINATION_CLOSED', 'VOTING_OPEN', 'CLOSED'], true)
                 || ! is_bool($record['votingAllowed'] ?? null)
                 || ! in_array($type, ['PUBLIC', 'PRIVATE'], true)
                 || ! is_array($nominationPeriod)

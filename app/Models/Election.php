@@ -19,7 +19,11 @@ class Election extends Model
 
     public const PENDING_ADMIN_APPROVAL = 'PENDING_ADMIN_APPROVAL';
 
+    public const SCHEDULED = 'SCHEDULED';
+
     public const NOMINATION_OPEN = 'NOMINATION_OPEN';
+
+    public const NOMINATION_CLOSED = 'NOMINATION_CLOSED';
 
     public const VOTING_OPEN = 'VOTING_OPEN';
 

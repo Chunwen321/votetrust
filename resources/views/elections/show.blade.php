@@ -19,7 +19,10 @@
     $canManagePrivateVoters = $canManageParticipants && $isPrivateElection;
     $canAssignPrivateCandidates = $canManageParticipants && $isPrivateElection;
     $canReviewCandidates = ! $isAdminView
-        && $election->status === \App\States\ElectionStatus::NOMINATION_OPEN->value;
+        && in_array($election->status, [
+            \App\States\ElectionStatus::NOMINATION_OPEN->value,
+            \App\States\ElectionStatus::NOMINATION_CLOSED->value,
+        ], true);
     $hostingPaymentConfirmed = (bool) ($hostingPaymentReadiness['confirmed'] ?? false);
 @endphp
 <div class="election-shell election-management">
@@ -78,13 +81,17 @@
             <div class="election-panel-heading">
                 <div>
                     <span class="election-eyebrow">Election lifecycle</span>
-                    <h2>Move the election forward</h2>
-                    <p>Complete the next available step to keep the election on schedule.</p>
+                    <h2>Election schedule</h2>
+                    <p>Start nominations when they are due. The system handles all later scheduled transitions.</p>
                 </div>
                 <span class="election-stage-indicator">{{ $availability['lifecycleLabel'] }}</span>
             </div>
 
             @forelse ($actions as $action)
+                @php
+                    $requiresCurrentPassword = auth()->user()?->isAdmin()
+                        || in_array($action['action'], ['start_nomination', 'cancel'], true);
+                @endphp
                 <form class="election-action election-stage-action" method="post" action="{{ $transitionRoute }}">
                     @csrf
                     <input type="hidden" name="action" value="{{ $action['action'] }}">
@@ -96,7 +103,6 @@
                     @if ($action['action'] === 'submit_payment')
                         <div class="election-payment-checkout{{ $hostingPaymentConfirmed ? ' is-confirmed' : '' }}">
                             <div class="election-payment-checkout-copy">
-                                <span class="election-step-badge">Step 1</span>
                                 <div>
                                     <strong>Pay the hosting fee</strong>
                                     <span class="election-payment-status{{ $hostingPaymentConfirmed ? ' is-confirmed' : '' }}">{{ $hostingPaymentReadiness['label'] ?? 'Awaiting payment' }}</span>
@@ -111,14 +117,9 @@
                     @if ($action['requiresReason'])
                         <label>Reason<input name="reason" maxlength="250" required></label>
                     @endif
-                    <label>
-                        @if ($action['action'] === 'submit_payment')
-                            <span class="election-field-heading"><span class="election-step-badge">Step 2</span> Confirm with current password</span>
-                        @else
-                            Current password
-                        @endif
-                        <input name="current_password" type="password" autocomplete="current-password" @required($action['action'] !== 'submit_payment' || $hostingPaymentConfirmed) @disabled($action['action'] === 'submit_payment' && ! $hostingPaymentConfirmed)>
-                    </label>
+                    @if ($requiresCurrentPassword)
+                        <label>Current password<input name="current_password" type="password" autocomplete="current-password" required></label>
+                    @endif
                     <button class="election-button {{ $action['tone'] === 'danger' ? 'election-button-danger' : ($action['tone'] === 'primary' ? 'election-button-primary' : '') }}" type="submit" @disabled($action['action'] === 'submit_payment' && ! $hostingPaymentConfirmed)>{{ $action['label'] }}</button>
                     @if ($action['action'] === 'submit_payment' && ! $hostingPaymentConfirmed)
                         <p class="election-payment-gate-note">This action unlocks only after the Payment module confirms the hosting fee.</p>
@@ -249,11 +250,6 @@
                             <span>Search IC or passport number</span>
                             <input id="private-voter-search" data-participant-search data-voter-search type="search" maxlength="30" autocomplete="off" placeholder="e.g. 050729145232">
                         </label>
-                        <label class="election-critical-password" for="private-voter-password">
-                            <span>Current password</span>
-                            <input id="private-voter-password" data-participant-password type="password" autocomplete="current-password" required>
-                        </label>
-                        <p class="election-help">Enter your password before each voter assignment or removal. It is cleared after every attempt.</p>
                         <div class="election-directory-summary" data-voter-directory-summary aria-live="polite">Loading registered users…</div>
                         <div class="election-directory-list" data-participant-directory-list data-voter-directory-list aria-live="polite" aria-busy="true"></div>
                         <button class="election-directory-load-more" data-participant-directory-more data-voter-directory-more type="button" hidden>Load more users</button>
@@ -282,11 +278,6 @@
                         </div>
                         <p class="election-help">For Excel files, set the <code>ic_number</code> column to <strong>Text</strong> so IC leading zeroes are retained. Active unverified users may be imported but must verify before voting. Existing voters are skipped, and omitted users remain assigned.</p>
                         @error('voter_list') <small class="election-field-error">{{ $message }}</small> @enderror
-                        <label class="election-critical-password">
-                            <span>Current password</span>
-                            <input name="current_password" type="password" autocomplete="current-password" required>
-                        </label>
-                        @error('current_password') <small class="election-field-error">{{ $message }}</small> @enderror
                         <button class="election-button election-button-primary" type="submit">Import voters</button>
                     </form>
                 </div>
@@ -326,11 +317,6 @@
                             <span>Search registered members</span>
                             <input id="private-candidate-search" data-participant-search type="search" maxlength="100" autocomplete="off" placeholder="Name, email, IC, or passport">
                         </label>
-                        <label class="election-critical-password" for="private-candidate-password">
-                            <span>Current password</span>
-                            <input id="private-candidate-password" data-participant-password type="password" autocomplete="current-password" required>
-                        </label>
-                        <p class="election-help">Enter your password before each candidate assignment or removal. It is cleared after every attempt.</p>
                         <div class="election-directory-summary" data-participant-directory-summary aria-live="polite">Loading registered users&hellip;</div>
                         <div class="election-directory-list" data-participant-directory-list aria-live="polite" aria-busy="true"></div>
                         <button class="election-directory-load-more" data-participant-directory-more type="button" hidden>Load more users</button>
@@ -359,11 +345,6 @@
                         </div>
                         <p class="election-help">For Excel files, set the <code>ic_number</code> column to <strong>Text</strong> so leading zeroes are retained. Existing candidates are skipped, and omitted candidates remain assigned.</p>
                         @error('candidate_list') <small class="election-field-error">{{ $message }}</small> @enderror
-                        <label class="election-critical-password">
-                            <span>Current password</span>
-                            <input name="current_password" type="password" autocomplete="current-password" required>
-                        </label>
-                        @error('current_password') <small class="election-field-error">{{ $message }}</small> @enderror
                         <button class="election-button election-button-primary" type="submit">Import candidates</button>
                     </form>
                 </div>

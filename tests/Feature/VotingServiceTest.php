@@ -47,6 +47,21 @@ class VotingServiceTest extends TestCase
             ->assertRedirect(route('elections.index'));
     }
 
+    public function test_a_voted_user_can_reach_the_election_workspace_from_the_legacy_voting_url(): void
+    {
+        [$voter, $candidate, $election] = $this->ballotFixture();
+        Vote::query()->create([
+            'voter_id' => $voter->getKey(),
+            'candidate_id' => $candidate->getKey(),
+            'election_id' => $election->getKey(),
+            'cast_at' => now(),
+        ]);
+
+        $this->actingAs($voter)
+            ->get(route('voting.index'))
+            ->assertRedirect(route('elections.index'));
+    }
+
     public function test_decorated_service_consumes_teammate_apis_and_allows_exactly_one_vote(): void
     {
         [$voter, $candidate, $election] = $this->ballotFixture();
