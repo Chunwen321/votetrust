@@ -89,12 +89,15 @@ final class ElectionAuditTrailTest extends TestCase
             'eligibility_mode' => 'PUBLIC',
             'eligibility_minimum_age' => 18,
             'eligibility_nationality' => 'ANY',
-            'nomination_start' => now()->subDay(),
+            'nomination_start' => now()->addHour(),
             'nomination_end' => now()->addDay(),
             'voting_start' => now()->addDays(2),
             'voting_end' => now()->addDays(3),
         ]);
-        $election->forceFill(['status' => Election::NOMINATION_OPEN])->save();
+        $election->forceFill([
+            'status' => Election::NOMINATION_OPEN,
+            'nomination_start' => now()->subDay(),
+        ])->save();
         $candidate = User::factory()->create();
         $application = Candidacy::query()->create([
             'user_id' => $candidate->getKey(),

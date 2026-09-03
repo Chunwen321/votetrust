@@ -29,12 +29,13 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 final class ElectionService
 {
     private const ADMIN_ACTIONS = ['verify_payment', 'approve', 'return_for_payment', 'reject'];
 
-    private const SCHEDULED_ACTIONS = ['close_nomination', 'start_voting', 'close_voting'];
+    private const SCHEDULED_ACTIONS = ['expire_schedule', 'close_nomination', 'start_voting', 'close_voting'];
 
     private const ORGANIZER_REAUTHENTICATION_ACTIONS = ['start_nomination', 'cancel'];
 
@@ -79,13 +80,15 @@ final class ElectionService
             throw new AuthorizationException('A normal user account is required to create an election.');
         }
 
+        $valid = $this->normalizeInput($input);
+        $now = $this->clock->now();
+        $this->assertScheduleCanBeSaved($valid, $now);
+
         // A normal user does not choose a permanent account role. Creating a
         // first election simply gives that user an organiser record, while
         // leaving their voter access for other elections unchanged.
         $organizer = Organizer::query()->firstOrCreate(['user_id' => $user->getKey()]);
-        $valid = $this->normalizeInput($input);
         $requestId = $this->newRequestId();
-        $now = $this->clock->now();
 
         $election = new Election;
         $election->forceFill($valid + [
@@ -139,6 +142,7 @@ final class ElectionService
 
             $expectedVersion = $this->assertExpectedVersion($election, $input['version'] ?? null);
             $attributes = $this->normalizeInput($input);
+            $this->assertScheduleCanBeSaved($attributes, $this->clock->now());
             $currentMode = EligibilityRules::fromStored($election->eligibility_rules)->mode();
             $updatedMode = EligibilityRules::fromStored($attributes['eligibility_rules'])->mode();
             if ($currentMode !== $updatedMode) {
@@ -282,10 +286,11 @@ final class ElectionService
         });
     }
 
-    /** @return array{nominationsClosed:int,votingOpened:int,electionsClosed:int,votingBlocked:int} */
+    /** @return array{electionsExpired:int,nominationsClosed:int,votingOpened:int,electionsClosed:int,votingBlocked:int} */
     public function advanceScheduledElections(): array
     {
         $summary = [
+            'electionsExpired' => $this->expireStaleScheduledElections(),
             'nominationsClosed' => 0,
             'votingOpened' => 0,
             'electionsClosed' => 0,
@@ -334,6 +339,48 @@ final class ElectionService
         $summary['votingBlocked'] = count($blockedElectionIds);
 
         return $summary;
+    }
+
+    private function expireStaleScheduledElections(): int
+    {
+        $now = $this->clock->now();
+        $electionIds = Election::query()
+            ->where('status', ElectionStatus::SCHEDULED->value)
+            ->whereNotNull('nomination_end')
+            ->where('nomination_end', '<=', $now->toDateTimeString())
+            ->orderBy('id')
+            ->pluck('id');
+        $expired = 0;
+
+        foreach ($electionIds as $electionId) {
+            $snapshot = Election::query()->find((int) $electionId);
+            if (! $snapshot instanceof Election || ! PublicElectionExpiry::shouldExpire($snapshot, $now)) {
+                continue;
+            }
+
+            try {
+                $result = $this->performTransition(
+                    new User,
+                    (int) $electionId,
+                    'expire_schedule',
+                    [
+                        'version' => (int) $snapshot->version,
+                        'expiry_trigger' => 'scheduler',
+                    ],
+                    $this->newRequestId(),
+                    true,
+                );
+            } catch (BusinessRuleException) {
+                // Another process may have advanced or changed the election.
+                continue;
+            }
+
+            if ($result->status === ElectionStatus::EXPIRED->value) {
+                $expired++;
+            }
+        }
+
+        return $expired;
     }
 
     private function advanceScheduledElection(int $electionId): ?string
@@ -1429,6 +1476,33 @@ final class ElectionService
             'hosting_fee' => Election::hostingFeeForMode($rules->mode()),
             'currency' => strtoupper((string) config('election.hosting_fee.currency', 'MYR')),
         ];
+    }
+
+    /** @param array<string, mixed> $attributes */
+    private function assertScheduleCanBeSaved(array $attributes, CarbonImmutable $now): void
+    {
+        $nominationStart = CarbonImmutable::parse($attributes['nomination_start']);
+        $nominationEnd = CarbonImmutable::parse($attributes['nomination_end']);
+        $votingStart = CarbonImmutable::parse($attributes['voting_start']);
+        $votingEnd = CarbonImmutable::parse($attributes['voting_end']);
+        $errors = [];
+
+        if ($nominationStart->lte($now)) {
+            $errors['nomination_start'] = 'The nomination start must be a future date and time.';
+        }
+        if ($nominationEnd->lte($nominationStart)) {
+            $errors['nomination_end'] = 'The nomination end must be after the nomination start.';
+        }
+        if ($votingStart->lt($nominationEnd)) {
+            $errors['voting_start'] = 'The voting start must be at or after the nomination end.';
+        }
+        if ($votingEnd->lte($votingStart)) {
+            $errors['voting_end'] = 'The voting end must be after the voting start.';
+        }
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
     }
 
     /** @param array<string, mixed> $record */

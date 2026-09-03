@@ -27,7 +27,7 @@ final class TransitionElectionRequest extends FormRequest
                 'start_nomination', 'cancel',
             ])],
             'current_password' => [$requiresCurrentPassword ? 'required' : 'nullable', 'string'],
-            'reason' => ['nullable', 'required_if:action,reject,return_for_payment', 'string', 'max:250'],
+            'reason' => ['nullable', 'required_if:action,cancel,reject,return_for_payment', 'string', 'min:5', 'max:250'],
             'version' => ['required', 'integer', 'min:1'],
         ];
     }

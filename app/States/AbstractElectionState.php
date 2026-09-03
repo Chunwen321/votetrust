@@ -51,7 +51,10 @@ abstract class AbstractElectionState implements ElectionState
             throw new AuthorizationException('Only the owning organiser can cancel this election.');
         }
 
-        $reason = trim((string) $context->input('reason', '')) ?: 'Cancelled by organiser';
+        $reason = trim((string) $context->input('reason', ''));
+        if (mb_strlen($reason) < 5 || mb_strlen($reason) > 250) {
+            throw new BusinessRuleException('A cancellation reason between 5 and 250 characters is required.');
+        }
         $lifecycle->moveTo(ElectionStatus::CANCELLED->value, $action, ['reason' => $reason]);
 
         return true;

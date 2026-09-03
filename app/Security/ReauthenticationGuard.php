@@ -5,8 +5,8 @@
 namespace App\Security;
 
 use App\Models\User;
-use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 final class ReauthenticationGuard
 {
@@ -20,7 +20,9 @@ final class ReauthenticationGuard
                 'user_id' => $user->getKey(),
                 'operation' => $operation,
             ]);
-            throw new AuthorizationException('Your current password is required before this critical operation can continue.');
+            throw ValidationException::withMessages([
+                'current_password' => 'The current password is incorrect.',
+            ]);
         }
 
         $this->logger->log('critical_operation_reauthenticated', [
