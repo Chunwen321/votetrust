@@ -34,6 +34,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -55,6 +56,25 @@ final class ElectionController extends Controller
             return redirect()->route('admin.elections.index');
         }
 
+        $data = $this->workspaceData($request);
+
+        return view('elections.index', $data);
+    }
+
+    public function history(Request $request): View|RedirectResponse
+    {
+        $user = $request->user();
+        if ($this->service->isAdmin($user)) {
+            return redirect()->route('admin.elections.index');
+        }
+
+        return view('elections.history', $this->workspaceData($request));
+    }
+
+    /** @return array<string, mixed> */
+    private function workspaceData(Request $request): array
+    {
+        $user = $request->user();
         $enrollments = $this->voters->enrollmentsForVoter((int) $user->getKey());
         $now = CarbonImmutable::now((string) config('app.timezone'));
         $candidateElections = Election::query()
@@ -73,11 +93,39 @@ final class ElectionController extends Controller
             ->latest('updated_at')
             ->get();
 
-        return view('elections.index', [
+        [$activeVoterEnrollments, $recentClosedVoterEnrollments, $historicalVoterEnrollments] = $this->splitClosedElections(
+            $enrollments,
+            fn ($enrollment): string => (string) $enrollment->election_status,
+            fn ($enrollment): mixed => $enrollment->election_voting_end ?? $enrollment->updated_at,
+            $now,
+        );
+        [$activeCandidateElections, $recentClosedCandidateElections, $historicalCandidateElections] = $this->splitClosedElections(
+            $candidateElections,
+            fn (Election $election): string => (string) $election->status,
+            fn (Election $election): mixed => $election->voting_end ?? $election->updated_at,
+            $now,
+        );
+        [$activeOrganizedElections, $recentClosedOrganizedElections, $historicalOrganizedElections] = $this->splitClosedElections(
+            $organizedElections,
+            fn (Election $election): string => (string) $election->status,
+            fn (Election $election): mixed => $election->voting_end ?? $election->updated_at,
+            $now,
+        );
+
+        return [
             'user' => $user,
             'voterEnrollments' => $enrollments,
+            'activeVoterEnrollments' => $activeVoterEnrollments,
+            'recentClosedVoterEnrollments' => $recentClosedVoterEnrollments,
+            'historicalVoterEnrollments' => $historicalVoterEnrollments,
             'organizedElections' => $organizedElections,
+            'activeOrganizedElections' => $activeOrganizedElections,
+            'recentClosedOrganizedElections' => $recentClosedOrganizedElections,
+            'historicalOrganizedElections' => $historicalOrganizedElections,
             'candidateElections' => $candidateElections,
+            'activeCandidateElections' => $activeCandidateElections,
+            'recentClosedCandidateElections' => $recentClosedCandidateElections,
+            'historicalCandidateElections' => $historicalCandidateElections,
             'electionTimezoneLabel' => ElectionCardMilestone::timezoneLabel(),
             'voterMilestones' => $enrollments->mapWithKeys(fn ($enrollment): array => [
                 (int) $enrollment->election_id => ElectionCardMilestone::forVoter(
@@ -136,7 +184,38 @@ final class ElectionController extends Controller
                 (int) $user->getKey(),
                 $enrollments->pluck('election_id')->all(),
             ),
-        ]);
+        ];
+    }
+
+    /**
+     * @template TKey of array-key
+     * @template TValue
+     *
+     * @param  Collection<TKey, TValue>  $elections
+     * @return array{Collection<int, TValue>, Collection<int, TValue>, Collection<int, TValue>}
+     */
+    private function splitClosedElections(
+        Collection $elections,
+        callable $status,
+        callable $closedAt,
+        CarbonImmutable $now,
+    ): array {
+        $closed = $elections->filter(fn ($election): bool => $status($election) === Election::CLOSED);
+        $recentCutoff = $now->subDays(7);
+        $recent = $closed->filter(function ($election) use ($closedAt, $recentCutoff): bool {
+            try {
+                return CarbonImmutable::parse($closedAt($election), (string) config('app.timezone'))
+                    ->greaterThanOrEqualTo($recentCutoff);
+            } catch (\Throwable) {
+                return false;
+            }
+        });
+
+        return [
+            $elections->reject(fn ($election): bool => $status($election) === Election::CLOSED)->values(),
+            $recent->values(),
+            $closed->reject(fn ($election): bool => $recent->contains($election))->values(),
+        ];
     }
 
     public function create(Request $request): View

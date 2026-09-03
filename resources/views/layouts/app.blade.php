@@ -36,27 +36,30 @@
                     <a href="{{ $dashboardDestination }}" @class(['is-active' => request()->routeIs($isAdministrator ? 'admin.dashboard' : 'dashboard')])>Dashboard</a>
                 @endif
                 @if (Route::has('elections.index'))
-                    <details @class([
-                        'site-nav-dropdown',
-                        'is-active' => $isAdministrator
-                            ? request()->routeIs('admin.elections.*', 'admin.participants.*')
-                            : request()->routeIs('elections.*', 'voter.*', 'voting.*', 'candidate.*'),
-                    ])>
-                        <summary>
-                            <span class="site-nav-dropdown__label">Elections</span>
-                            <span class="site-nav-dropdown__chevron" aria-hidden="true"></span>
-                        </summary>
-                        <div class="site-nav-dropdown__menu">
-                            <a href="{{ $electionsDestination }}">{{ $isAdministrator ? 'Election oversight' : 'Elections' }}</a>
-                            @if (! $isAdministrator && Route::has('candidate.applications.index'))
-                                @if (auth()->user()->isVerified())
-                                    <a href="{{ route('candidate.applications.index') }}">Candidate applications</a>
-                                @else
-                                    <a href="{{ route('profile.verify') }}">Verify profile to apply</a>
-                                @endif
+                    @if ($isAdministrator)
+                        <details @class([
+                            'site-nav-dropdown',
+                            'is-active' => request()->routeIs('admin.elections.*', 'admin.participants.*'),
+                        ])>
+                            <summary>
+                                <span class="site-nav-dropdown__label">Elections</span>
+                                <span class="site-nav-dropdown__chevron" aria-hidden="true"></span>
+                            </summary>
+                            <div class="site-nav-dropdown__menu">
+                                <a href="{{ $electionsDestination }}">Election oversight</a>
+                            </div>
+                        </details>
+                    @else
+                        <a href="{{ route('elections.index') }}" @class(['is-active' => request()->routeIs('elections.index', 'elections.show', 'elections.create', 'elections.edit', 'voter.*', 'voting.*')])>Elections</a>
+                        <a href="{{ route('elections.history') }}" @class(['is-active' => request()->routeIs('elections.history')])>Election history</a>
+                        @if (Route::has('candidate.applications.index'))
+                            @if (auth()->user()->isVerified())
+                                <a href="{{ route('candidate.applications.index') }}" @class(['is-active' => request()->routeIs('candidate.*')])>Candidate applications</a>
+                            @else
+                                <a href="{{ route('profile.verify') }}">Verify profile to apply</a>
                             @endif
-                        </div>
-                    </details>
+                        @endif
+                    @endif
                 @endif
                 @if (auth()->user()->isAdmin() && Route::has('admin.dashboard'))
                     <details @class([

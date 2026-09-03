@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'active.account'])->group(function (): void {
     Route::get('/elections', [ElectionController::class, 'index'])->name('elections.index');
+    Route::get('/elections/history', [ElectionController::class, 'history'])->name('elections.history');
     Route::get('/elections/{election}', [ElectionController::class, 'show'])->whereNumber('election')->name('elections.show');
     Route::get('/elections/{election}/candidates/{candidacy}/photo', [CandidatePhotoController::class, 'electionCandidate'])
         ->whereNumber(['election', 'candidacy'])
