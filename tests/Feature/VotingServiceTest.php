@@ -106,6 +106,22 @@ class VotingServiceTest extends TestCase
         );
     }
 
+    public function test_ballot_displays_the_approved_candidate_application_profile(): void
+    {
+        [$voter, $candidate, $election] = $this->ballotFixture();
+        $this->fakeTeammateApis($voter, $candidate, $election);
+
+        $this->actingAs($voter)
+            ->get(route('voting.ballot', $election->id))
+            ->assertOk()
+            ->assertSee($candidate->display_name)
+            ->assertSee('A trustworthy ballot.')
+            ->assertSee('A candidate introduction prepared for voters.')
+            ->assertSee('Community leadership and project experience.')
+            ->assertSee('To represent voters with clear, measurable commitments.')
+            ->assertSee('Review application details');
+    }
+
     public function test_http_consumer_fails_closed_on_a_stale_ifa_response(): void
     {
         Http::fake([
@@ -540,7 +556,11 @@ class VotingServiceTest extends TestCase
 
         $this->actingAs($intruder)
             ->get(route('voting.receipt', $vote->id))
-            ->assertNotFound();
+            ->assertNotFound()
+            ->assertSee('Page unavailable')
+            ->assertSee("We couldn't find this page, or your account does not have permission to view it.", false)
+            ->assertSee(route('elections.index'), false)
+            ->assertSee('Return to elections');
 
         $this->actingAs($owner)
             ->get(route('voting.receipt', $vote->id))
@@ -792,6 +812,10 @@ class VotingServiceTest extends TestCase
                                 'name' => $ballotCandidate->display_name,
                                 'position' => 'President',
                                 'manifesto' => 'A trustworthy ballot.',
+                                'introduction' => 'A candidate introduction prepared for voters.',
+                                'qualifications' => 'Community leadership and project experience.',
+                                'reasonForCandidacy' => 'To represent voters with clear, measurable commitments.',
+                                'photoUrl' => null,
                             ])
                             ->all(),
                     ],

@@ -1192,18 +1192,38 @@ final class ElectionService
         });
     }
 
-    /** @return list<array{id:int,candidateId:int,name:string,position:string,manifesto:string}> */
+    /**
+     * @return list<array{
+     *     id:int,
+     *     candidateId:int,
+     *     name:string,
+     *     position:string,
+     *     manifesto:string,
+     *     introduction:?string,
+     *     qualifications:?string,
+     *     reasonForCandidacy:?string,
+     *     photoUrl:?string
+     * }>
+     */
     private function approvedBallot(Election $election): array
     {
+        $publishPhotos = EligibilityRules::fromStored($election->eligibility_rules)->mode() === EligibilityRules::PUBLIC;
+
         return Candidacy::query()
             ->with('user')
             ->where('election_id', $election->getKey())
             ->where('status', self::CANDIDACY_APPROVED)
             ->orderBy('id')
             ->get()
-            ->map(static function (Candidacy $candidacy) use ($election): array {
+            ->map(static function (Candidacy $candidacy) use ($election, $publishPhotos): array {
                 $candidate = $candidacy->user;
                 $name = trim((string) $candidate?->display_name);
+                $introduction = trim((string) $candidacy->candidate_introduction);
+                $qualifications = trim((string) $candidacy->qualifications);
+                $reason = trim((string) $candidacy->reason_for_candidacy);
+                $hasPublishedPhoto = $publishPhotos
+                    && is_string($candidacy->profile_photo)
+                    && $candidacy->profile_photo !== '';
 
                 return [
                     'id' => (int) $candidacy->getKey(),
@@ -1211,6 +1231,12 @@ final class ElectionService
                     'name' => $name !== '' ? $name : 'Candidate '.$candidacy->user_id,
                     'position' => (string) $election->position_sought,
                     'manifesto' => (string) $candidacy->manifesto,
+                    'introduction' => $introduction !== '' ? $introduction : null,
+                    'qualifications' => $qualifications !== '' ? $qualifications : null,
+                    'reasonForCandidacy' => $reason !== '' ? $reason : null,
+                    'photoUrl' => $hasPublishedPhoto
+                        ? route('elections.candidates.photo', [$election, $candidacy])
+                        : null,
                 ];
             })
             ->all();

@@ -122,12 +122,29 @@ final class ElectionVotingIntegration implements VotingIntegration
                 throw new IntegrationException('The Election Module returned malformed ballot data.');
             }
 
+            foreach (['manifesto', 'introduction', 'qualifications', 'reasonForCandidacy', 'photoUrl'] as $field) {
+                if (array_key_exists($field, $candidate)
+                    && $candidate[$field] !== null
+                    && ! is_string($candidate[$field])) {
+                    throw new IntegrationException('The Election Module returned malformed candidate profile data.');
+                }
+            }
+
+            $photoUrl = $candidate['photoUrl'] ?? null;
+            if (is_string($photoUrl) && filter_var($photoUrl, FILTER_VALIDATE_URL) === false) {
+                throw new IntegrationException('The Election Module returned an invalid candidate photo URL.');
+            }
+
             return [
                 'id' => (int) $candidate['id'],
                 'candidateId' => (int) $candidate['candidateId'],
                 'name' => $candidate['name'],
                 'position' => is_string($candidate['position'] ?? null) ? $candidate['position'] : '',
                 'manifesto' => is_string($candidate['manifesto'] ?? null) ? $candidate['manifesto'] : '',
+                'introduction' => is_string($candidate['introduction'] ?? null) ? $candidate['introduction'] : null,
+                'qualifications' => is_string($candidate['qualifications'] ?? null) ? $candidate['qualifications'] : null,
+                'reasonForCandidacy' => is_string($candidate['reasonForCandidacy'] ?? null) ? $candidate['reasonForCandidacy'] : null,
+                'photoUrl' => is_string($photoUrl) ? $photoUrl : null,
             ];
         }, $data['ballot']);
 
