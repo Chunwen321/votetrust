@@ -82,6 +82,51 @@ final class ElectionWebServiceTest extends TestCase
             ->assertJsonStructure(['status', 'timestamp', 'data' => ['ballot']]);
     }
 
+    public function test_voting_api_catches_up_the_schedule_before_returning_availability(): void
+    {
+        $now = CarbonImmutable::parse('2026-08-21 12:00:00', config('app.timezone'));
+        $this->travelTo($now);
+        $admin = User::factory()->create(['is_admin' => true]);
+        $candidate = User::factory()->create(['is_admin' => false]);
+        $election = Election::query()->create([
+            'title' => 'Automatically Opened Election',
+            'position_sought' => 'Student Representative',
+            'description' => 'Voting opens automatically after nominations and the configured voting start.',
+            'eligibility_rules' => EligibilityRules::publicElection()->toStorage(),
+            'nomination_start' => $now->subDays(2),
+            'nomination_end' => $now->subHours(2),
+            'voting_start' => $now->subHour(),
+            'voting_end' => $now->addHour(),
+            'status' => ElectionStatus::NOMINATION_OPEN->value,
+            'payment_verified_at' => $now->subDays(2),
+            'approved_by' => $admin->getKey(),
+            'approved_at' => $now->subDays(2),
+            'currency' => 'MYR',
+            'version' => 1,
+            'transition_history_json' => [],
+        ]);
+        Candidacy::query()->create([
+            'user_id' => $candidate->getKey(),
+            'election_id' => $election->getKey(),
+            'status' => Candidacy::APPROVED,
+        ]);
+
+        $this->withHeader('X-Internal-Api-Key', 'election-provider-key')
+            ->getJson('/api/v1/elections/'.$election->getKey().'/availability?'.http_build_query([
+                'requestID' => 'AUTO-VOTING-0001',
+                'timestamp' => $now->toAtomString(),
+            ]))
+            ->assertOk()
+            ->assertJsonPath('data.lifecycleState', ElectionStatus::VOTING_OPEN->value)
+            ->assertJsonPath('data.votingAllowed', true);
+
+        self::assertSame(ElectionStatus::VOTING_OPEN->value, $election->refresh()->status);
+        self::assertSame(
+            ['close_nomination', 'start_voting'],
+            collect($election->transition_history_json)->pluck('action')->all(),
+        );
+    }
+
     public function test_voter_catalog_includes_published_nomination_and_voting_stages_but_excludes_unpublished_elections(): void
     {
         $now = CarbonImmutable::parse('2026-08-21 12:00:00', config('app.timezone'));
@@ -160,10 +205,10 @@ final class ElectionWebServiceTest extends TestCase
         $catalog = collect($response->json('data.elections'));
         self::assertSame(
             [
-                'Ended Awaiting Closure',
                 'Active Public Election',
                 'Public Nominations Closed',
                 'Public Nominations Open',
+                'Ended Awaiting Closure',
                 'Closed Public Election',
                 'Closed Private Election',
             ],
@@ -183,6 +228,7 @@ final class ElectionWebServiceTest extends TestCase
             $byId[$nominating->getKey()]['nominationPeriod']['end'],
         );
         self::assertFalse($byId[$ended->getKey()]['votingAllowed']);
+        self::assertSame(ElectionStatus::CLOSED->value, $ended->refresh()->status);
         self::assertFalse($byId[$closed->getKey()]['votingAllowed']);
         self::assertSame(EligibilityRules::PUBLIC, $byId[$closed->getKey()]['eligibility']['type']);
         self::assertSame(EligibilityRules::PRIVATE, $byId[$private->getKey()]['eligibility']['type']);

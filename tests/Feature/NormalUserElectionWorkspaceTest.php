@@ -285,7 +285,7 @@ final class NormalUserElectionWorkspaceTest extends TestCase
             ->assertDontSeeText('Nomination Open');
     }
 
-    public function test_a_closed_voter_election_remains_visible_with_a_results_link(): void
+    public function test_a_recently_closed_voter_election_is_collapsed_with_a_results_link(): void
     {
         $member = User::factory()->create([
             'is_admin' => false,
@@ -310,9 +310,53 @@ final class NormalUserElectionWorkspaceTest extends TestCase
             ->get(route('elections.index'))
             ->assertOk()
             ->assertSee('Completed Community Election')
+            ->assertSee('Recently closed')
+            ->assertSee('available here for 7 days')
             ->assertSee('href="'.route('voting.results', $closedElection->getKey()).'"', false)
             ->assertSee('View results')
+            ->assertViewHas('activeVoterEnrollments', fn ($enrollments): bool => $enrollments->isEmpty())
+            ->assertViewHas('recentClosedVoterEnrollments', fn ($enrollments): bool => $enrollments->contains(
+                fn (VoterEnrollment $enrollment): bool => (int) $enrollment->election_id === (int) $closedElection->getKey(),
+            ))
             ->assertDontSee('href="'.route('voting.ballot', $closedElection->getKey()).'"', false);
+    }
+
+    public function test_a_voter_election_closed_more_than_seven_days_ago_moves_to_history(): void
+    {
+        $member = User::factory()->create([
+            'is_admin' => false,
+            'account_status' => 'ACTIVE',
+        ]);
+        $closedElection = Election::query()->create([
+            'title' => 'Historic Community Election',
+            'eligibility_rules' => EligibilityRules::publicElection()->toStorage(),
+            'voting_start' => now()->subDays(10),
+            'voting_end' => now()->subDays(8),
+            'status' => Election::CLOSED,
+            'currency' => 'MYR',
+        ]);
+        VoterEnrollment::query()->create([
+            'user_id' => $member->getKey(),
+            'election_id' => $closedElection->getKey(),
+            'status' => VoterEnrollment::APPROVED,
+        ]);
+        $this->fakeElectionSummary($closedElection);
+
+        $this->actingAs($member)
+            ->get(route('elections.index'))
+            ->assertOk()
+            ->assertDontSee('Historic Community Election')
+            ->assertSee(route('elections.history'))
+            ->assertViewHas('historicalVoterEnrollments', fn ($enrollments): bool => $enrollments->contains(
+                fn (VoterEnrollment $enrollment): bool => (int) $enrollment->election_id === (int) $closedElection->getKey(),
+            ));
+
+        $this->actingAs($member)
+            ->get(route('elections.history'))
+            ->assertOk()
+            ->assertSee('Election history')
+            ->assertSee('Historic Community Election')
+            ->assertSee('href="'.route('voting.results', $closedElection->getKey()).'"', false);
     }
 
     public function test_a_voting_open_election_is_hidden_after_its_voting_end_time(): void
@@ -518,8 +562,7 @@ final class NormalUserElectionWorkspaceTest extends TestCase
         Election $election,
         ?bool $hasVoted = null,
         ?bool $votingAllowed = null,
-    ): void
-    {
+    ): void {
         config()->set('votetrust-user.services.election', [
             'base_url' => 'https://election.test',
             'api_key' => 'election-consumer-key',

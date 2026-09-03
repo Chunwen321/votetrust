@@ -26,6 +26,7 @@ final class ElectionAvailabilityController extends Controller
         try {
             $envelope = $this->validator->validateEnvelope($request->all());
             $requestId = $envelope['requestID'];
+            $this->service->advanceScheduledElections();
             $elections = $this->service->availableForVoting();
 
             return response()->json(ApiEnvelope::success($requestId, [
@@ -47,6 +48,7 @@ final class ElectionAvailabilityController extends Controller
         try {
             $envelope = $this->validator->validateEnvelope($request->all());
             $requestId = $envelope['requestID'];
+            $this->service->advanceScheduledElections();
             $elections = $this->service->voterElectionCatalog();
 
             return response()->json(ApiEnvelope::success($requestId, [
@@ -68,6 +70,7 @@ final class ElectionAvailabilityController extends Controller
         try {
             $envelope = $this->validator->validateEnvelope($request->all());
             $requestId = $envelope['requestID'];
+            $this->service->advanceScheduledElections();
             $record = Election::query()->find($election);
             if (! $record instanceof Election) {
                 return response()->json(ApiEnvelope::failure($requestId, 'Election not found.'), 404);

@@ -82,7 +82,7 @@
                 <div>
                     <span class="election-eyebrow">Election lifecycle</span>
                     <h2>Election schedule</h2>
-                    <p>Start nominations when they are due. The system handles all later scheduled transitions.</p>
+                    <p>The organiser starts nominations manually. After that, the system closes nominations, opens voting, and closes the election automatically at the configured times.</p>
                 </div>
                 <span class="election-stage-indicator">{{ $availability['lifecycleLabel'] }}</span>
             </div>
