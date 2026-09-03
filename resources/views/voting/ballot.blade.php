@@ -44,14 +44,63 @@
                 <p class="muted">Your selection is final after submission.</p>
                 <div class="candidate-options">
                     @foreach ($ballot['candidacies'] as $candidate)
-                        <label class="candidate-option">
-                            <input type="radio" name="candidate_id" value="{{ $candidate['candidateId'] }}" required @checked(old('candidate_id') == $candidate['candidateId'])>
-                            <span>
-                                <strong>{{ $candidate['name'] }}</strong>
-                                @if ($candidate['position'])<small>{{ $candidate['position'] }}</small>@endif
-                                @if ($candidate['manifesto'])<span>{{ $candidate['manifesto'] }}</span>@endif
-                            </span>
-                        </label>
+                        @php
+                            $candidateName = $candidate['name'];
+                            $initials = collect(preg_split('/\s+/', trim($candidateName)) ?: [])
+                                ->filter()
+                                ->take(2)
+                                ->map(fn ($part) => mb_strtoupper(mb_substr($part, 0, 1)))
+                                ->implode('');
+                            $candidateInputId = 'candidate-'.$candidate['candidateId'];
+                        @endphp
+                        <article class="candidate-option">
+                            <label class="candidate-option__choice" for="{{ $candidateInputId }}">
+                                <input
+                                    id="{{ $candidateInputId }}"
+                                    type="radio"
+                                    name="candidate_id"
+                                    value="{{ $candidate['candidateId'] }}"
+                                    required
+                                    @checked(old('candidate_id') == $candidate['candidateId'])
+                                >
+                                @if ($candidate['photoUrl'])
+                                    <img class="candidate-option__avatar" src="{{ $candidate['photoUrl'] }}" alt="Photo of {{ $candidateName }}" loading="lazy">
+                                @else
+                                    <span class="candidate-option__avatar candidate-option__avatar--initials" aria-hidden="true">{{ $initials ?: 'C' }}</span>
+                                @endif
+                                <span class="candidate-option__identity">
+                                    <strong>{{ $candidateName }}</strong>
+                                    @if ($candidate['position'])<small>{{ $candidate['position'] }}</small>@endif
+                                </span>
+                                <span class="candidate-option__select-label">Select</span>
+                            </label>
+
+                            @if ($candidate['introduction'])
+                                <p class="candidate-option__introduction">{{ $candidate['introduction'] }}</p>
+                            @endif
+
+                            <details class="candidate-option__profile">
+                                <summary>Review application details</summary>
+                                <div class="candidate-option__profile-grid">
+                                    <section class="candidate-option__profile-item candidate-option__profile-item--wide">
+                                        <h3>Manifesto</h3>
+                                        <p>{{ $candidate['manifesto'] ?: 'No manifesto was provided.' }}</p>
+                                    </section>
+                                    @if ($candidate['qualifications'])
+                                        <section class="candidate-option__profile-item">
+                                            <h3>Experience</h3>
+                                            <p>{{ $candidate['qualifications'] }}</p>
+                                        </section>
+                                    @endif
+                                    @if ($candidate['reasonForCandidacy'])
+                                        <section class="candidate-option__profile-item">
+                                            <h3>Why they are running</h3>
+                                            <p>{{ $candidate['reasonForCandidacy'] }}</p>
+                                        </section>
+                                    @endif
+                                </div>
+                            </details>
+                        </article>
                     @endforeach
                 </div>
             </fieldset>

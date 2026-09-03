@@ -248,6 +248,96 @@ textarea {
     font-size: 1.05rem;
 }
 
+.error-page {
+    display: grid;
+    min-height: clamp(430px, calc(100vh - 260px), 640px);
+    padding: clamp(2.5rem, 7vw, 5.5rem) 1rem;
+    place-items: center;
+}
+
+.error-page__card {
+    position: relative;
+    width: min(100%, 680px);
+    padding: clamp(2.25rem, 6vw, 4rem);
+    overflow: hidden;
+    border: 1px solid #ceddf5;
+    border-radius: 1.5rem;
+    background:
+        radial-gradient(circle at 100% 0, rgb(21 94 239 / 12%), transparent 15rem),
+        linear-gradient(145deg, #fff, #f7faff);
+    box-shadow: 0 28px 70px rgb(24 63 115 / 13%);
+    text-align: center;
+}
+
+.error-page__icon {
+    display: grid;
+    width: 4.5rem;
+    height: 4.5rem;
+    margin: 0 auto 1.25rem;
+    place-items: center;
+    border: 1px solid #c9dafa;
+    border-radius: 1.25rem;
+    background: var(--primary-soft);
+    color: var(--primary);
+    box-shadow: 0 12px 26px rgb(21 94 239 / 13%);
+}
+
+.error-page__icon svg {
+    width: 2.35rem;
+    height: 2.35rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.7;
+}
+
+.error-page__code {
+    width: fit-content;
+    margin: 0 auto .65rem;
+    padding: .28rem .7rem;
+    border-radius: 999px;
+    background: #e8f0ff;
+    color: var(--primary-dark);
+    font-size: .74rem;
+    font-weight: 850;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+
+.error-page__card h1 {
+    margin: 0;
+    font-size: clamp(2.15rem, 6vw, 3.4rem);
+    line-height: 1.08;
+    letter-spacing: -.045em;
+}
+
+.error-page__message {
+    max-width: 520px;
+    margin: 1rem auto .45rem;
+    color: var(--muted);
+    font-size: 1.05rem;
+}
+
+.error-page__note {
+    margin: 0 auto 1.65rem;
+    color: #718198;
+    font-size: .86rem;
+}
+
+.error-page__action {
+    gap: .5rem;
+    min-width: 12rem;
+}
+
+.error-page__action span {
+    transition: transform .15s ease;
+}
+
+.error-page__action:hover span {
+    transform: translateX(3px);
+}
+
 .home-actions {
     display: flex;
     flex-wrap: wrap;

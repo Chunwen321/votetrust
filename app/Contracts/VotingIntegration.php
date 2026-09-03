@@ -43,7 +43,17 @@ interface VotingIntegration
      *     votingAllowed:bool,
      *     nominationPeriod:array{start:?string,end:?string},
      *     votingPeriod:array{start:?string,end:?string},
-     *     candidacies:list<array{id:int,candidateId:int,name:string,position:string,manifesto:string}>
+     *     candidacies:list<array{
+     *         id:int,
+     *         candidateId:int,
+     *         name:string,
+     *         position:string,
+     *         manifesto:string,
+     *         introduction:?string,
+     *         qualifications:?string,
+     *         reasonForCandidacy:?string,
+     *         photoUrl:?string
+     *     }>
      * }
      */
     public function election(int $electionId, string $requestId, string $timestamp): array;

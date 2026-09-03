@@ -52,7 +52,7 @@ For live roster management, Election queries the paginated directory using `elec
 | URLs | `/api/v1/elections/available`; `/api/v1/elections/voter-catalog`; `/api/v1/elections/{election}/availability` |
 | Functions | `ElectionAvailabilityController::index/catalog/show` |
 
-All requests require `requestID` and `timestamp`. The available list returns currently votable summaries. The voter catalog lets the User/Voter module discover public voting and closed elections while retaining enrollment-only access for private elections. Detail returns lifecycle state, eligibility rules, permission booleans, periods, and an approved-only `ballot` containing `id`, `candidateId`, `name`, `position`, and `manifesto`.
+All requests require `requestID` and `timestamp`. The available list returns currently votable summaries. The voter catalog lets the User/Voter module discover public voting and closed elections while retaining enrollment-only access for private elections. Detail returns lifecycle state, eligibility rules, permission booleans, periods, and an approved-only `ballot` containing `id`, `candidateId`, `name`, `position`, `manifesto`, `introduction`, `qualifications`, `reasonForCandidacy`, and a nullable public-election `photoUrl`. Voting uses these fields to let voters review the approved candidate application before selecting a candidate. Private storage paths are never exposed.
 
 The detail response keeps both `eligibilityRules` and `eligibility` keys for consumer compatibility. Both now contain the same structure:
 

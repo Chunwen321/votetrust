@@ -74,6 +74,10 @@ final class ElectionWebServiceTest extends TestCase
             ->assertJsonPath('data.ballot.0.name', 'Approved Candidate')
             ->assertJsonPath('data.ballot.0.position', 'President')
             ->assertJsonPath('data.ballot.0.manifesto', 'A transparent manifesto supplied through the Election REST provider.')
+            ->assertJsonPath('data.ballot.0.introduction', 'An experienced student representative focused on accountable leadership.')
+            ->assertJsonPath('data.ballot.0.qualifications', 'Two years of student council and community project experience.')
+            ->assertJsonPath('data.ballot.0.reasonForCandidacy', 'To represent students clearly and publish measurable progress.')
+            ->assertJsonPath('data.ballot.0.photoUrl', null)
             ->assertJsonCount(1, 'data.ballot')
             ->assertJsonStructure(['status', 'timestamp', 'data' => ['ballot']]);
     }
@@ -366,6 +370,9 @@ final class ElectionWebServiceTest extends TestCase
             'election_id' => $election->getKey(),
             'status' => Candidacy::APPROVED,
             'manifesto' => 'A transparent manifesto supplied through the Election REST provider.',
+            'candidate_introduction' => 'An experienced student representative focused on accountable leadership.',
+            'qualifications' => 'Two years of student council and community project experience.',
+            'reason_for_candidacy' => 'To represent students clearly and publish measurable progress.',
             'registered_at' => $now->subDays(2),
         ]);
         $pendingUser = User::query()->create([
