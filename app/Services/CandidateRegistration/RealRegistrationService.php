@@ -71,9 +71,12 @@ final class RealRegistrationService implements RegistrationService
                     ->lockForUpdate()
                     ->first();
 
-                if ($candidacy instanceof Candidacy && $candidacy->status !== Candidacy::REJECTED) {
+                if (
+                    $candidacy instanceof Candidacy
+                    && ! in_array($candidacy->status, [Candidacy::REJECTED, Candidacy::CANCELLED], true)
+                ) {
                     throw ValidationException::withMessages([
-                        'election_id' => 'You can only reapply for this election after your previous application is rejected.',
+                        'election_id' => 'You can only reapply for this election after your previous application is rejected or cancelled.',
                     ]);
                 }
 

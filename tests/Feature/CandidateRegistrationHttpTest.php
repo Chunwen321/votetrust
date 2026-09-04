@@ -144,6 +144,40 @@ final class CandidateRegistrationHttpTest extends TestCase
         Storage::disk('candidate-test')->assertMissing($photoPath);
     }
 
+    public function test_a_cancelled_application_can_open_and_submit_the_reapplication_form(): void
+    {
+        Storage::fake('candidate-test');
+        config(['candidate.disk' => 'candidate-test']);
+        [$candidate, $election] = $this->candidateAndOpenElection();
+        $candidacy = $this->application($candidate, $election);
+        $candidacy->update([
+            'status' => Candidacy::CANCELLED,
+            'profile_photo' => null,
+            'profile_photo_mime' => null,
+        ]);
+
+        $this->actingAs($candidate)
+            ->get(route('candidate.applications.create', $election))
+            ->assertOk()
+            ->assertSee('Candidate reapplication')
+            ->assertSee('Submit reapplication');
+
+        $response = $this->actingAs($candidate)
+            ->post(route('candidate.applications.store', $election), [
+                'manifesto' => str_repeat('A renewed commitment to student representation. ', 2),
+                'candidate_introduction' => 'I am ready to submit my candidate application again.',
+                'qualifications' => 'Previous committee experience.',
+                'reason_for_candidacy' => 'I want to serve students through accountable representation.',
+                'profile_photo' => UploadedFile::fake()->create('replacement.jpg', 100, 'image/jpeg'),
+            ]);
+
+        $candidacy->refresh();
+        $response->assertRedirect(route('candidate.payments.show', $candidacy->payment_id));
+        $this->assertSame(Candidacy::PENDING, $candidacy->status);
+        $this->assertDatabaseCount('candidacy', 1);
+        $this->assertDatabaseCount('payment', 2);
+    }
+
     public function test_pending_application_page_displays_position_details_and_payment_status(): void
     {
         Storage::fake('candidate-test');
