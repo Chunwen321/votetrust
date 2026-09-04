@@ -69,7 +69,10 @@ final class CandidateApplicationAccess
             ->where('election_id', $election->getKey())
             ->first();
 
-        if ($existingApplication instanceof Candidacy && $existingApplication->status !== Candidacy::REJECTED) {
+        if (
+            $existingApplication instanceof Candidacy
+            && ! in_array($existingApplication->status, [Candidacy::REJECTED, Candidacy::CANCELLED], true)
+        ) {
             return 'You already have a candidate application for this election.';
         }
 

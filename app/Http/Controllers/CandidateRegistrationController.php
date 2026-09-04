@@ -37,7 +37,7 @@ final class CandidateRegistrationController extends Controller
             $existingApplication = Candidacy::query()
                 ->where('user_id', $user->getKey())
                 ->where('election_id', $election->getKey())
-                ->where('status', '!=', Candidacy::REJECTED)
+                ->whereNotIn('status', [Candidacy::REJECTED, Candidacy::CANCELLED])
                 ->first();
 
             if ($existingApplication instanceof Candidacy) {
@@ -56,7 +56,7 @@ final class CandidateRegistrationController extends Controller
             'isReapplication' => Candidacy::query()
                 ->where('user_id', $user->getKey())
                 ->where('election_id', $election->getKey())
-                ->where('status', Candidacy::REJECTED)
+                ->whereIn('status', [Candidacy::REJECTED, Candidacy::CANCELLED])
                 ->exists(),
         ]);
     }

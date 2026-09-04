@@ -82,6 +82,39 @@ final class CandidateRegistrationServiceTest extends TestCase
         Storage::disk('candidate-test')->assertExists($replacement->profile_photo);
     }
 
+    public function test_cancelled_application_can_be_resubmitted_using_the_same_record(): void
+    {
+        Storage::fake('candidate-test');
+        config(['candidate.disk' => 'candidate-test']);
+        [$candidate, $election] = $this->candidateAndOpenElection();
+        $service = $this->service();
+
+        $first = $service->apply(
+            $candidate->getKey(),
+            $election->getKey(),
+            $this->validInput(),
+            UploadedFile::fake()->create('first.jpg', 100, 'image/jpeg'),
+        );
+        $first->update([
+            'status' => Candidacy::CANCELLED,
+            'profile_photo' => null,
+            'profile_photo_mime' => null,
+        ]);
+
+        $replacement = $service->apply(
+            $candidate->getKey(),
+            $election->getKey(),
+            $this->validInput(),
+            UploadedFile::fake()->create('replacement.jpg', 100, 'image/jpeg'),
+        );
+
+        $this->assertSame($first->getKey(), $replacement->getKey());
+        $this->assertSame(Candidacy::PENDING, $replacement->status);
+        $this->assertDatabaseCount('candidacy', 1);
+        $this->assertDatabaseCount('payment', 2);
+        Storage::disk('candidate-test')->assertExists($replacement->profile_photo);
+    }
+
     public function test_a_private_election_rejects_a_direct_public_application(): void
     {
         Storage::fake('candidate-test');
