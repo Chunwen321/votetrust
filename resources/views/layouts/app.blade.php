@@ -16,6 +16,9 @@
     @stack('head')
 </head>
 <body>
+<div style="position:sticky;top:0;z-index:9999;padding:10px 18px;background:#991b1b;color:#fff;text-align:center;font:700 14px/1.3 system-ui,sans-serif;letter-spacing:.04em;box-shadow:0 2px 8px rgba(0,0,0,.25)" role="alert" data-screenshot-version="before">
+    BEFORE — INSECURE LOCAL SCREENSHOT VERSION · 127.0.0.1 ONLY · DO NOT DEPLOY
+</div>
 @php
     $isAdministrator = auth()->check() && auth()->user()->isAdmin();
     $primaryDestination = auth()->check()

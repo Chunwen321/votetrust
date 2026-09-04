@@ -39,6 +39,14 @@ final class DraftState extends AbstractElectionState
             return;
         }
 
+        if ($action === 'submit_payment') {
+            $lifecycle->moveTo(ElectionStatus::PENDING_ADMIN_APPROVAL->value, $action, [
+                'warning' => 'INSECURE_SCREENSHOT_LIFECYCLE_BYPASS',
+            ]);
+
+            return;
+        }
+
         if ($action === 'submit_for_payment') {
             if ($this->expireOverduePublicElection($lifecycle, $context, $action)) {
                 return;

@@ -18,6 +18,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
+use RuntimeException;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -50,6 +51,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->assertLocalScreenshotEnvironment();
+
         // ngrok forwards the local virtual-host name to Apache. Keep generated
         // links on the public application URL instead of leaking that local host.
         $publicUrl = (string) config('app.url');
@@ -72,5 +75,34 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(max(1, (int) config('voting.cast_rate_limit_per_minute', 10)))
                 ->by("voting:cast:{$voter}:{$election}");
         });
+    }
+
+    private function assertLocalScreenshotEnvironment(): void
+    {
+        $enabled = filter_var(env('SCREENSHOT_BEFORE_SECURITY', false), FILTER_VALIDATE_BOOL);
+        $database = (string) config('database.connections.sqlite.database');
+        $databaseRoot = (string) env('SCREENSHOT_DB_ROOT', '');
+        $resolvedRoot = $databaseRoot !== '' ? realpath($databaseRoot) : false;
+        $resolvedDirectory = $database !== '' ? realpath(dirname($database)) : false;
+
+        if (! $enabled
+            || ! $this->app->environment('local')
+            || config('database.default') !== 'sqlite'
+            || $resolvedRoot === false
+            || $resolvedDirectory === false
+            || ! str_starts_with(
+                strtolower($resolvedDirectory.DIRECTORY_SEPARATOR),
+                strtolower($resolvedRoot.DIRECTORY_SEPARATOR),
+            )) {
+            throw new RuntimeException('The insecure screenshot version may run only in the approved local SQLite environment.');
+        }
+
+        if (! $this->app->runningInConsole()) {
+            $request = $this->app->make('request');
+            if (! in_array($request->getHost(), ['127.0.0.1', 'localhost'], true)
+                || ! in_array($request->ip(), ['127.0.0.1', '::1'], true)) {
+                throw new RuntimeException('The insecure screenshot version accepts loopback requests only.');
+            }
+        }
     }
 }

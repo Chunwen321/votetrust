@@ -19,7 +19,7 @@ final class TransitionElectionRequest extends FormRequest
     {
         $action = (string) $this->input('action');
         $requiresCurrentPassword = $this->user()?->isAdmin() === true
-            || in_array($action, ['start_nomination', 'cancel'], true);
+            || $action === 'start_nomination';
 
         return [
             'action' => ['required', 'string', Rule::in([

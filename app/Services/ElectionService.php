@@ -36,7 +36,7 @@ final class ElectionService
 
     private const SCHEDULED_ACTIONS = ['close_nomination', 'start_voting', 'close_voting'];
 
-    private const ORGANIZER_REAUTHENTICATION_ACTIONS = ['start_nomination', 'cancel'];
+    private const ORGANIZER_REAUTHENTICATION_ACTIONS = ['start_nomination'];
 
     private const CANDIDACY_PENDING = 'Pending';
 

@@ -90,7 +90,7 @@
             @forelse ($actions as $action)
                 @php
                     $requiresCurrentPassword = auth()->user()?->isAdmin()
-                        || in_array($action['action'], ['start_nomination', 'cancel'], true);
+                        || $action['action'] === 'start_nomination';
                 @endphp
                 <form class="election-action election-stage-action" method="post" action="{{ $transitionRoute }}">
                     @csrf

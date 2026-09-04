@@ -102,7 +102,6 @@ final class HttpPaymentGateway implements PaymentGateway
                 && $amountMatches
                 && $currencyMatches
                 && $payerMatches
-                && $electionMatches
                 && $referenceIsValid
                 && $referenceMatches
                 && $purposeMatches
