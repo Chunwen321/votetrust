@@ -49,6 +49,11 @@
             @csrf
 
             <label for="manifesto">Manifesto</label>
+            {{-- /* Before secure practice coding - XSS Prevention
+                <textarea id="manifesto" name="manifesto" minlength="50" maxlength="5000" required data-live-length aria-describedby="manifesto-help manifesto-live-error">{!! old('manifesto') !!}</textarea>
+            */ --}}
+
+            {{-- /* After secure practice coding - Currently running code */ --}}
             <textarea id="manifesto" name="manifesto" minlength="50" maxlength="5000" required data-live-length aria-describedby="manifesto-help manifesto-live-error">{{ old('manifesto') }}</textarea>
             <p id="manifesto-help" class="candidate-help">Describe the priorities and commitments you would bring to this position. Between 50 and 5,000 characters.</p>
             <p id="manifesto-live-error" class="candidate-live-validation" aria-live="polite"></p>

@@ -20,6 +20,11 @@ final class RegistrationRules
             'candidate_introduction' => ['required', 'string', 'min:20', 'max:1000'],
             'qualifications' => ['nullable', 'string', 'max:1000'],
             'reason_for_candidacy' => ['required', 'string', 'min:20', 'max:1000'],
+            /* Before secure practice coding - Secure File Upload
+            'profile_photo' => ['required', 'file'],
+            */
+
+            /* After secure practice coding - Currently running code */
             'profile_photo' => [
                 'required',
                 'file',

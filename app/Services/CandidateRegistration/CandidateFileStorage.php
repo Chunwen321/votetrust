@@ -61,6 +61,21 @@ final class CandidateFileStorage
 
     private function store(UploadedFile $file, string $directory): string
     {
+        /* Before secure practice coding - Secure File Upload (original filename)
+        $storedPath = $this->disk()->putFileAs(
+            $directory,
+            $file,
+            $file->getClientOriginalName(),
+        );
+
+        if (! is_string($storedPath) || $storedPath === '') {
+            throw new RuntimeException('The uploaded file could not be stored.');
+        }
+
+        return $storedPath;
+        */
+
+        /* After secure practice coding - Currently running code */
         $extension = strtolower((string) ($file->guessExtension() ?: $file->getClientOriginalExtension()));
 
         if (! preg_match('/^[a-z0-9]{1,10}$/', $extension)) {

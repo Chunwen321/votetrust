@@ -89,6 +89,11 @@
         </div>
         <div class="candidate-submission-section">
             <h3>Manifesto</h3>
+            {{-- /* Before secure practice coding - XSS Prevention
+                <p class="candidate-preserve-lines">{!! $application->manifesto ?: 'Not provided' !!}</p>
+            */ --}}
+
+            {{-- /* After secure practice coding - Currently running code */ --}}
             <p class="candidate-preserve-lines">{{ $application->manifesto ?: 'Not provided' }}</p>
         </div>
 
