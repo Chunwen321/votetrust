@@ -29,25 +29,25 @@ final class VoteTrustDemoSeederTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const PUBLIC_DRAFT = '[Demo] 01 - Editable Public Draft';
+    private const PUBLIC_DRAFT = '[Simulation] Student Representative Council 2026';
 
-    private const PRIVATE_DRAFT = '[Demo] 02 - Private Roster Draft';
+    private const PRIVATE_DRAFT = '[Simulation] Seri Harmoni Residents Committee 2026';
 
-    private const PENDING_PAYMENT = '[Demo] 03 - Awaiting Hosting Payment';
+    private const PENDING_PAYMENT = '[Simulation] Faculty of Computing Delegate 2026';
 
-    private const PENDING_ADMIN = '[Demo] 04 - Awaiting Administrator Approval';
+    private const PENDING_ADMIN = '[Simulation] Taman Murni Community Programme Lead';
 
-    private const CANDIDATE_REVIEW = '[Demo] 05 - Candidate Review';
+    private const CANDIDATE_REVIEW = '[Simulation] Student Welfare Officer 2026';
 
-    private const READY_TO_OPEN = '[Demo] 06 - Ready to Open Voting';
+    private const READY_TO_OPEN = '[Simulation] Academic Affairs Representative 2026';
 
-    private const PUBLIC_VOTING = '[Demo] 07 - Public Voting Open';
+    private const PUBLIC_VOTING = '[Simulation] Campus Sustainability Lead 2026';
 
-    private const PRIVATE_VOTING = '[Demo] 08 - Private Voting Open';
+    private const PRIVATE_VOTING = '[Simulation] Graduate Association Treasurer 2026';
 
-    private const READY_TO_CLOSE = '[Demo] 09 - Ready to Close';
+    private const READY_TO_CLOSE = '[Simulation] Alumni Network Coordinator 2026';
 
-    private const CLOSED = 'VoteTrust Student Council Election 2026';
+    private const CLOSED = '[Simulation] Student Council Election 2025';
 
     public function test_demo_seed_is_idempotent_and_every_advertised_scenario_is_actionable(): void
     {
@@ -107,7 +107,7 @@ final class VoteTrustDemoSeederTest extends TestCase
         $this->seed();
 
         $this->post(route('login.store'), [
-            'email' => 'candidateaisha@votetrust.test',
+            'email' => 'aisha.rahman@votetrust.test',
             'password' => 'Candidate!2026',
         ])->assertRedirect(route('dashboard'));
         $candidateElection = Election::query()->where('title', self::CANDIDATE_REVIEW)->firstOrFail();
@@ -117,7 +117,7 @@ final class VoteTrustDemoSeederTest extends TestCase
         $this->post(route('logout'))->assertRedirect(route('login'));
 
         $this->post(route('login.store'), [
-            'email' => 'lowwenkaiorganizer@votetrust.test',
+            'email' => 'nadia.iskandar@votetrust.test',
             'password' => 'VoteTrust!2026',
         ])->assertRedirect(route('dashboard'));
         $this->get(route('elections.index'))
@@ -136,7 +136,7 @@ final class VoteTrustDemoSeederTest extends TestCase
         $this->post(route('logout'))->assertRedirect(route('login'));
 
         $this->post(route('login.store'), [
-            'email' => 'disabledmember@votetrust.test',
+            'email' => 'arjun.kumar@votetrust.test',
             'password' => 'VoteTrustMember!2026',
         ])->assertSessionHas('login_feedback', fn (array $feedback): bool => $feedback['type'] === 'locked'
             && $feedback['title'] === 'Account locked');
@@ -174,7 +174,7 @@ final class VoteTrustDemoSeederTest extends TestCase
             });
 
             $service = app(ElectionService::class);
-            $organizer = User::query()->where('email', 'lowwenkaiorganizer@votetrust.test')->sole();
+            $organizer = User::query()->where('email', 'nadia.iskandar@votetrust.test')->sole();
             $admin = User::query()->where('email', 'systemadmin@votetrust.test')->sole();
 
             foreach ([self::PUBLIC_DRAFT, self::PRIVATE_DRAFT] as $title) {
@@ -223,7 +223,7 @@ final class VoteTrustDemoSeederTest extends TestCase
             );
 
             $candidateReview = $this->election(self::CANDIDATE_REVIEW);
-            $daniel = User::query()->where('email', 'candidatedaniel@votetrust.test')->sole();
+            $daniel = User::query()->where('email', 'daniel.tan@votetrust.test')->sole();
             $danielApplication = Candidacy::query()
                 ->where('election_id', $candidateReview->id)
                 ->where('user_id', $daniel->id)
@@ -264,8 +264,8 @@ final class VoteTrustDemoSeederTest extends TestCase
             $this->seed(VoteTrustDemoSeeder::class);
             $this->fakeSeededVotingServices();
 
-            $john = User::query()->where('email', 'voterjohn@votetrust.test')->sole();
-            $benjamin = User::query()->where('email', 'voterbenjamin@votetrust.test')->sole();
+            $jason = User::query()->where('email', 'jason.lim@votetrust.test')->sole();
+            $benjamin = User::query()->where('email', 'benjamin.lee@votetrust.test')->sole();
 
             foreach ([
                 self::PUBLIC_VOTING => 'SEED-PUBLIC-VOTE-01',
@@ -278,14 +278,14 @@ final class VoteTrustDemoSeederTest extends TestCase
                     ->orderBy('id')
                     ->firstOrFail();
 
-                $response = $this->actingAs($john)->post(route('voting.cast', $election), [
+                $response = $this->actingAs($jason)->post(route('voting.cast', $election), [
                     'candidate_id' => $candidate->user_id,
                     'request_id' => $requestId,
                     'timestamp' => $now->toAtomString(),
                 ]);
                 $vote = Vote::query()
                     ->where('election_id', $election->id)
-                    ->where('voter_id', $john->id)
+                    ->where('voter_id', $jason->id)
                     ->sole();
 
                 $response->assertRedirect(route('voting.receipt', $vote));
@@ -331,13 +331,13 @@ final class VoteTrustDemoSeederTest extends TestCase
             Storage::fake($disk);
             $this->seed(VoteTrustDemoSeeder::class);
 
-            $organizer = User::query()->where('email', 'lowwenkaiorganizer@votetrust.test')->sole();
+            $organizer = User::query()->where('email', 'nadia.iskandar@votetrust.test')->sole();
             $organizerId = (int) $organizer->id;
             $organizer->forceFill(['email' => 'edited.organizer@votetrust.test'])->save();
 
             // Simulate a renamed row from the previous seeder, which did not
             // assign identity numbers but did retain its account key/name.
-            $legacyOrganizer = User::query()->where('email', 'organizeradmin@votetrust.test')->sole();
+            $legacyOrganizer = User::query()->where('email', 'harith.zulkifli@votetrust.test')->sole();
             $legacyOrganizerId = (int) $legacyOrganizer->id;
             $legacyOrganizer->forceFill([
                 'email' => 'edited.legacy.organizer@votetrust.test',
@@ -348,7 +348,7 @@ final class VoteTrustDemoSeederTest extends TestCase
             $draftId = (int) $draft->id;
             $draft->forceFill(['title' => 'A teammate renamed this demo draft'])->save();
 
-            $candidate = User::query()->where('email', 'candidateaisha@votetrust.test')->sole();
+            $candidate = User::query()->where('email', 'aisha.rahman@votetrust.test')->sole();
             $candidateReview = $this->election(self::CANDIDATE_REVIEW);
             $payment = Payment::query()->create([
                 'amount' => '10.00',
@@ -376,12 +376,12 @@ final class VoteTrustDemoSeederTest extends TestCase
 
             self::assertSame(
                 $organizerId,
-                (int) User::query()->where('email', 'lowwenkaiorganizer@votetrust.test')->sole()->id,
+                (int) User::query()->where('email', 'nadia.iskandar@votetrust.test')->sole()->id,
             );
             self::assertFalse(User::query()->where('email', 'edited.organizer@votetrust.test')->exists());
             self::assertSame(
                 $legacyOrganizerId,
-                (int) User::query()->where('email', 'organizeradmin@votetrust.test')->sole()->id,
+                (int) User::query()->where('email', 'harith.zulkifli@votetrust.test')->sole()->id,
             );
             self::assertFalse(User::query()->where('email', 'edited.legacy.organizer@votetrust.test')->exists());
             self::assertSame($draftId, (int) $this->election(self::PUBLIC_DRAFT)->id);
@@ -398,19 +398,19 @@ final class VoteTrustDemoSeederTest extends TestCase
     private function assertAdvertisedAccounts(): void
     {
         $accounts = [
-            'lowwenkaiorganizer@votetrust.test' => ['VoteTrust!2026', false, 'ACTIVE', true],
-            'organizeradmin@votetrust.test' => ['VoteTrust!2026', false, 'ACTIVE', true],
+            'nadia.iskandar@votetrust.test' => ['VoteTrust!2026', false, 'ACTIVE', true],
+            'harith.zulkifli@votetrust.test' => ['VoteTrust!2026', false, 'ACTIVE', true],
             'systemadmin@votetrust.test' => ['VoteTrustAdmin!2026', true, 'ACTIVE', true],
-            'candidateaisha@votetrust.test' => ['Candidate!2026', false, 'ACTIVE', true],
-            'candidatedaniel@votetrust.test' => ['Candidate!2026', false, 'ACTIVE', true],
-            'voterjohn@votetrust.test' => ['VoteTrustVoter!2026', false, 'ACTIVE', true],
-            'voteramina@votetrust.test' => ['VoteTrustVoter!2026', false, 'ACTIVE', true],
-            'voterbenjamin@votetrust.test' => ['VoteTrustVoter!2026', false, 'ACTIVE', true],
-            'voterchen@votetrust.test' => ['VoteTrustVoter!2026', false, 'ACTIVE', true],
-            'voterdevi@votetrust.test' => ['VoteTrustVoter!2026', false, 'ACTIVE', true],
-            'voterfarah@votetrust.test' => ['VoteTrustVoter!2026', false, 'ACTIVE', true],
-            'unverifiedmember@votetrust.test' => ['VoteTrustMember!2026', false, 'ACTIVE', false],
-            'disabledmember@votetrust.test' => ['VoteTrustMember!2026', false, 'DISABLED', true],
+            'aisha.rahman@votetrust.test' => ['Candidate!2026', false, 'ACTIVE', true],
+            'daniel.tan@votetrust.test' => ['Candidate!2026', false, 'ACTIVE', true],
+            'jason.lim@votetrust.test' => ['VoteTrustVoter!2026', false, 'ACTIVE', true],
+            'amina.yusuf@votetrust.test' => ['VoteTrustVoter!2026', false, 'ACTIVE', true],
+            'benjamin.lee@votetrust.test' => ['VoteTrustVoter!2026', false, 'ACTIVE', true],
+            'wei.chen@votetrust.test' => ['VoteTrustVoter!2026', false, 'ACTIVE', true],
+            'devi.nair@votetrust.test' => ['VoteTrustVoter!2026', false, 'ACTIVE', true],
+            'farah.aziz@votetrust.test' => ['VoteTrustVoter!2026', false, 'ACTIVE', true],
+            'siti.hajar@votetrust.test' => ['VoteTrustMember!2026', false, 'ACTIVE', false],
+            'arjun.kumar@votetrust.test' => ['VoteTrustMember!2026', false, 'DISABLED', true],
         ];
 
         self::assertSame(count($accounts), User::query()->count());
@@ -509,8 +509,8 @@ final class VoteTrustDemoSeederTest extends TestCase
 
     private function assertScenarioOwnership(): void
     {
-        $primaryOrganizer = User::query()->where('email', 'lowwenkaiorganizer@votetrust.test')->sole();
-        $secondaryOrganizer = User::query()->where('email', 'organizeradmin@votetrust.test')->sole();
+        $primaryOrganizer = User::query()->where('email', 'nadia.iskandar@votetrust.test')->sole();
+        $secondaryOrganizer = User::query()->where('email', 'harith.zulkifli@votetrust.test')->sole();
 
         self::assertSame(2, Organizer::query()->count());
         self::assertTrue(Organizer::query()->whereKey($primaryOrganizer->id)->exists());
@@ -550,8 +550,8 @@ final class VoteTrustDemoSeederTest extends TestCase
     private function assertCandidateReviewScenario(CarbonImmutable $now): void
     {
         $election = $this->election(self::CANDIDATE_REVIEW);
-        $aisha = User::query()->where('email', 'candidateaisha@votetrust.test')->sole();
-        $daniel = User::query()->where('email', 'candidatedaniel@votetrust.test')->sole();
+        $aisha = User::query()->where('email', 'aisha.rahman@votetrust.test')->sole();
+        $daniel = User::query()->where('email', 'daniel.tan@votetrust.test')->sole();
 
         self::assertTrue($election->nomination_start->lte($now));
         self::assertTrue($election->nomination_end->gte($now));
@@ -571,6 +571,10 @@ final class VoteTrustDemoSeederTest extends TestCase
             ->sole();
         self::assertNotNull($danielApplication->payment_id);
         self::assertSame('Pending', $danielApplication->payment?->status);
+        self::assertStringContainsString('quarterly budget summaries', $danielApplication->manifesto);
+        self::assertStringContainsString('accounting student', $danielApplication->candidate_introduction);
+        self::assertStringContainsString('Entrepreneurship Society', $danielApplication->qualifications);
+        self::assertStringContainsString('funds are allocated', $danielApplication->reason_for_candidacy);
         self::assertGreaterThan(
             0,
             Candidacy::query()->where('election_id', $election->id)->where('status', Candidacy::PENDING)->count(),
@@ -600,8 +604,8 @@ final class VoteTrustDemoSeederTest extends TestCase
 
     private function assertCurrentVotingScenarios(CarbonImmutable $now): void
     {
-        $john = User::query()->where('email', 'voterjohn@votetrust.test')->sole();
-        $amina = User::query()->where('email', 'voteramina@votetrust.test')->sole();
+        $jason = User::query()->where('email', 'jason.lim@votetrust.test')->sole();
+        $amina = User::query()->where('email', 'amina.yusuf@votetrust.test')->sole();
         $service = new ElectionService;
 
         foreach ([self::PUBLIC_VOTING, self::PRIVATE_VOTING] as $title) {
@@ -612,7 +616,7 @@ final class VoteTrustDemoSeederTest extends TestCase
             self::assertTrue($election->voting_end->gte($now));
             self::assertTrue($availability['votingAllowed']);
             self::assertNotEmpty($availability['ballot']);
-            foreach ([$john, $amina] as $approvedVoter) {
+            foreach ([$jason, $amina] as $approvedVoter) {
                 self::assertTrue(VoterEnrollment::query()
                     ->where('election_id', $election->id)
                     ->where('user_id', $approvedVoter->id)
@@ -621,7 +625,7 @@ final class VoteTrustDemoSeederTest extends TestCase
             }
             self::assertFalse(Vote::query()
                 ->where('election_id', $election->id)
-                ->where('voter_id', $john->id)
+                ->where('voter_id', $jason->id)
                 ->exists());
             self::assertTrue(Vote::query()
                 ->where('election_id', $election->id)

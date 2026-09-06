@@ -11,7 +11,7 @@ param(
     [int] $Requests = 5,
 
     [ValidateNotNullOrEmpty()]
-    [string] $Email = 'voterjohn@votetrust.test',
+    [string] $Email = 'jason.lim@votetrust.test',
 
     [Nullable[int]] $CandidateId
 )
