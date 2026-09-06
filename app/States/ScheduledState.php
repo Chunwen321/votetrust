@@ -30,6 +30,18 @@ final class ScheduledState extends AbstractElectionState
 
     public function apply(ElectionLifecycle $lifecycle, string $action, TransitionContext $context): void
     {
+        if ($action === 'expire_schedule') {
+            if ($this->expireOverduePublicElection(
+                $lifecycle,
+                $context,
+                (string) $context->input('expiry_trigger', 'scheduler'),
+            )) {
+                return;
+            }
+
+            throw new BusinessRuleException('Only a public scheduled election whose nomination period has ended can expire.');
+        }
+
         if ($this->cancel($lifecycle, $action, $context)) {
             return;
         }

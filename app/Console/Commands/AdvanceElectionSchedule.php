@@ -18,7 +18,8 @@ final class AdvanceElectionSchedule extends Command
         $summary = $elections->advanceScheduledElections();
 
         $this->info(sprintf(
-            'Closed nominations: %d; opened voting: %d; closed elections: %d; voting blocked: %d.',
+            'Expired stale scheduled elections: %d; closed nominations: %d; opened voting: %d; closed elections: %d; voting blocked: %d.',
+            $summary['electionsExpired'],
             $summary['nominationsClosed'],
             $summary['votingOpened'],
             $summary['electionsClosed'],

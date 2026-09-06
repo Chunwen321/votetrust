@@ -4,9 +4,13 @@
 
 namespace App\Http\Requests;
 
+use App\Contracts\Clock;
 use App\ValueObjects\EligibilityRules;
+use Carbon\CarbonImmutable;
+use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Throwable;
 
 class StoreElectionRequest extends FormRequest
 {
@@ -32,6 +36,8 @@ class StoreElectionRequest extends FormRequest
     /** @return array<string, mixed> */
     public function rules(): array
     {
+        $now = app(Clock::class)->now();
+
         return [
             'title' => ['required', 'string', 'min:5', 'max:120'],
             'position_sought' => ['required', 'string', 'min:2', 'max:100', 'regex:/^[\p{L}\p{N} .,&()\/-]+$/u'],
@@ -39,7 +45,19 @@ class StoreElectionRequest extends FormRequest
             'eligibility_mode' => ['required', Rule::in([EligibilityRules::PUBLIC, EligibilityRules::PRIVATE])],
             'eligibility_minimum_age' => ['required_if:eligibility_mode,'.EligibilityRules::PUBLIC, 'nullable', 'integer', 'min:1', 'max:130'],
             'eligibility_nationality' => ['nullable', Rule::in(array_keys(EligibilityRules::nationalityOptions()))],
-            'nomination_start' => ['required', 'date'],
+            'nomination_start' => [
+                'required',
+                'date',
+                static function (string $attribute, mixed $value, Closure $fail) use ($now): void {
+                    try {
+                        if (CarbonImmutable::parse($value)->lte($now)) {
+                            $fail('The nomination start must be a future date and time.');
+                        }
+                    } catch (Throwable) {
+                        // The date rule reports malformed values.
+                    }
+                },
+            ],
             'nomination_end' => ['required', 'date', 'after:nomination_start'],
             'voting_start' => ['required', 'date', 'after_or_equal:nomination_end'],
             'voting_end' => ['required', 'date', 'after:voting_start'],

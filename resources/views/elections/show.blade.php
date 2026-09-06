@@ -115,10 +115,18 @@
                         </div>
                     @endif
                     @if ($action['requiresReason'])
-                        <label>Reason<input name="reason" maxlength="250" required></label>
+                        <label>
+                            Reason
+                            <input name="reason" minlength="5" maxlength="250" required @if ($errors->has('reason')) aria-invalid="true" aria-describedby="reason-error-{{ $action['action'] }}" @endif>
+                            @error('reason') <small id="reason-error-{{ $action['action'] }}" class="election-field-error">{{ $message }}</small> @enderror
+                        </label>
                     @endif
                     @if ($requiresCurrentPassword)
-                        <label>Current password<input name="current_password" type="password" autocomplete="current-password" required></label>
+                        <label>
+                            Current password
+                            <input name="current_password" type="password" autocomplete="current-password" required @if ($errors->has('current_password')) aria-invalid="true" aria-describedby="current-password-error-{{ $action['action'] }}" @endif>
+                            @error('current_password') <small id="current-password-error-{{ $action['action'] }}" class="election-field-error">{{ $message }}</small> @enderror
+                        </label>
                     @endif
                     <button class="election-button {{ $action['tone'] === 'danger' ? 'election-button-danger' : ($action['tone'] === 'primary' ? 'election-button-primary' : '') }}" type="submit" @disabled($action['action'] === 'submit_payment' && ! $hostingPaymentConfirmed)>{{ $action['label'] }}</button>
                     @if ($action['action'] === 'submit_payment' && ! $hostingPaymentConfirmed)
@@ -365,7 +373,14 @@
                         <tr><td>{{ $candidateName }}</td><td>{{ \Carbon\CarbonImmutable::parse($application->registered_at)->format('d M Y, H:i') }}</td><td><select name="decisions[{{ $application->getKey() }}]">@foreach (['Pending', 'Approved', 'Rejected'] as $status)<option value="{{ $status }}" @selected(strcasecmp($application->status, $status) === 0)>{{ $status }}</option>@endforeach</select></td></tr>
                     @endforeach
                     </tbody></table></div>
-                    <div class="election-candidate-actions"><label>Current password<input name="current_password" type="password" autocomplete="current-password" required></label><button class="election-button election-button-primary" type="submit">Save candidate decisions</button></div>
+                    <div class="election-candidate-actions">
+                        <label>
+                            Current password
+                            <input name="current_password" type="password" autocomplete="current-password" required @if ($errors->has('current_password')) aria-invalid="true" aria-describedby="candidate-review-password-error" @endif>
+                            @error('current_password') <small id="candidate-review-password-error" class="election-field-error">{{ $message }}</small> @enderror
+                        </label>
+                        <button class="election-button election-button-primary" type="submit">Save candidate decisions</button>
+                    </div>
                 </form>
             @else
                 <div class="election-table-wrap"><table class="election-table"><thead><tr><th>Candidate</th><th>Assigned</th><th>Status</th></tr></thead><tbody>

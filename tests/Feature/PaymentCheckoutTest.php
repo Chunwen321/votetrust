@@ -357,14 +357,21 @@ final class PaymentCheckoutTest extends TestCase
             ->assertSee('Send for administrator review')
             ->assertSee('election-button-payment', false)
             ->assertSee('Awaiting payment')
-            ->assertSee('name="current_password"', false)
             ->assertDontSee('name="payment_reference"', false);
+        self::assertSame(1, preg_match(
+            '/<form[^>]*>.*?name="action" value="submit_payment".*?<\/form>/s',
+            (string) $response->getContent(),
+            $paymentForm,
+        ));
+        self::assertStringNotContainsString('name="current_password"', $paymentForm[0]);
+        self::assertSame(1, preg_match(
+            '/<form[^>]*>.*?name="action" value="cancel".*?<\/form>/s',
+            (string) $response->getContent(),
+            $cancellationForm,
+        ));
+        self::assertStringContainsString('name="current_password"', $cancellationForm[0]);
         self::assertMatchesRegularExpression(
             '/<button[^>]*type="submit"[^>]*disabled[^>]*>Send for administrator review<\/button>/',
-            (string) $response->getContent(),
-        );
-        self::assertMatchesRegularExpression(
-            '/<input[^>]*name="current_password"[^>]*disabled[^>]*>/',
             (string) $response->getContent(),
         );
     }

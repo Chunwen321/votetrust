@@ -67,7 +67,11 @@
                                     <form class="payment-review-form" method="post" action="{{ route('admin.payments.verify', $payment) }}">
                                         @csrf
                                         <input type="hidden" name="version" value="{{ $payment->version }}">
-                                        <label><span>Current password</span><input name="current_password" type="password" autocomplete="current-password" required></label>
+                                        <label>
+                                            <span>Current password</span>
+                                            <input name="current_password" type="password" autocomplete="current-password" required @if ($errors->has('current_password')) aria-invalid="true" aria-describedby="payment-review-password-error-{{ $payment->getKey() }}" @endif>
+                                            @error('current_password') <small id="payment-review-password-error-{{ $payment->getKey() }}" class="field-error">{{ $message }}</small> @enderror
+                                        </label>
                                         <button class="button-small" type="submit">Verify payment</button>
                                     </form>
                                 @endif
