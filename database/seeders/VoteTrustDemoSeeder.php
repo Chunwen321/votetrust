@@ -23,23 +23,23 @@ use Illuminate\Support\Facades\Hash;
 class VoteTrustDemoSeeder extends Seeder
 {
     public const SCENARIO_TITLES = [
-        'publicDraft' => '[Demo] 01 - Editable Public Draft',
-        'privateDraft' => '[Demo] 02 - Private Roster Draft',
-        'pendingPayment' => '[Demo] 03 - Awaiting Hosting Payment',
-        'pendingApproval' => '[Demo] 04 - Awaiting Administrator Approval',
-        'candidateReview' => '[Demo] 05 - Candidate Review',
-        'readyToOpen' => '[Demo] 06 - Ready to Open Voting',
-        'publicVoting' => '[Demo] 07 - Public Voting Open',
-        'privateVoting' => '[Demo] 08 - Private Voting Open',
-        'readyToClose' => '[Demo] 09 - Ready to Close',
-        'closedResults' => 'VoteTrust Student Council Election 2026',
+        'publicDraft' => '[Simulation] Student Representative Council 2026',
+        'privateDraft' => '[Simulation] Seri Harmoni Residents Committee 2026',
+        'pendingPayment' => '[Simulation] Faculty of Computing Delegate 2026',
+        'pendingApproval' => '[Simulation] Taman Murni Community Programme Lead',
+        'candidateReview' => '[Simulation] Student Welfare Officer 2026',
+        'readyToOpen' => '[Simulation] Academic Affairs Representative 2026',
+        'publicVoting' => '[Simulation] Campus Sustainability Lead 2026',
+        'privateVoting' => '[Simulation] Graduate Association Treasurer 2026',
+        'readyToClose' => '[Simulation] Alumni Network Coordinator 2026',
+        'closedResults' => '[Simulation] Student Council Election 2025',
     ];
 
     /** @var array<string, array{email:string,full_name:string,password:string,ic_number:string,date_of_birth:string,phone_number:string,is_admin:bool,account_status:string,is_verified:bool}> */
     private const ACCOUNTS = [
-        'OrganizerAdmin' => [
-            'email' => 'organizeradmin@votetrust.test',
-            'full_name' => 'Maya Lim',
+        'SecondaryOrganizer' => [
+            'email' => 'harith.zulkifli@votetrust.test',
+            'full_name' => 'Harith Zulkifli',
             'password' => 'VoteTrust!2026',
             'ic_number' => '960101105001',
             'date_of_birth' => '1996-01-01',
@@ -48,9 +48,9 @@ class VoteTrustDemoSeeder extends Seeder
             'account_status' => 'ACTIVE',
             'is_verified' => true,
         ],
-        'LowWenKaiOrganizer' => [
-            'email' => 'lowwenkaiorganizer@votetrust.test',
-            'full_name' => 'Low Wen Kai',
+        'PrimaryOrganizer' => [
+            'email' => 'nadia.iskandar@votetrust.test',
+            'full_name' => 'Nadia Iskandar',
             'password' => 'VoteTrust!2026',
             'ic_number' => '970202105002',
             'date_of_birth' => '1997-02-02',
@@ -59,7 +59,7 @@ class VoteTrustDemoSeeder extends Seeder
             'account_status' => 'ACTIVE',
             'is_verified' => true,
         ],
-        'SystemAdmin' => [
+        'SystemAdministrator' => [
             'email' => 'systemadmin@votetrust.test',
             'full_name' => 'VoteTrust System Administrator',
             'password' => 'VoteTrustAdmin!2026',
@@ -71,7 +71,7 @@ class VoteTrustDemoSeeder extends Seeder
             'is_verified' => true,
         ],
         'CandidateAisha' => [
-            'email' => 'candidateaisha@votetrust.test',
+            'email' => 'aisha.rahman@votetrust.test',
             'full_name' => 'Aisha Rahman',
             'password' => 'Candidate!2026',
             'ic_number' => '980404105004',
@@ -82,7 +82,7 @@ class VoteTrustDemoSeeder extends Seeder
             'is_verified' => true,
         ],
         'CandidateDaniel' => [
-            'email' => 'candidatedaniel@votetrust.test',
+            'email' => 'daniel.tan@votetrust.test',
             'full_name' => 'Daniel Tan',
             'password' => 'Candidate!2026',
             'ic_number' => '990505105005',
@@ -92,9 +92,9 @@ class VoteTrustDemoSeeder extends Seeder
             'account_status' => 'ACTIVE',
             'is_verified' => true,
         ],
-        'VoterJohn' => [
-            'email' => 'voterjohn@votetrust.test',
-            'full_name' => 'John Lim',
+        'VoterJason' => [
+            'email' => 'jason.lim@votetrust.test',
+            'full_name' => 'Jason Lim',
             'password' => 'VoteTrustVoter!2026',
             'ic_number' => '000606105006',
             'date_of_birth' => '2000-06-06',
@@ -104,7 +104,7 @@ class VoteTrustDemoSeeder extends Seeder
             'is_verified' => true,
         ],
         'VoterAmina' => [
-            'email' => 'voteramina@votetrust.test',
+            'email' => 'amina.yusuf@votetrust.test',
             'full_name' => 'Amina Yusuf',
             'password' => 'VoteTrustVoter!2026',
             'ic_number' => '010707105007',
@@ -115,7 +115,7 @@ class VoteTrustDemoSeeder extends Seeder
             'is_verified' => true,
         ],
         'VoterBenjamin' => [
-            'email' => 'voterbenjamin@votetrust.test',
+            'email' => 'benjamin.lee@votetrust.test',
             'full_name' => 'Benjamin Lee',
             'password' => 'VoteTrustVoter!2026',
             'ic_number' => '020808105008',
@@ -125,9 +125,9 @@ class VoteTrustDemoSeeder extends Seeder
             'account_status' => 'ACTIVE',
             'is_verified' => true,
         ],
-        'VoterChen' => [
-            'email' => 'voterchen@votetrust.test',
-            'full_name' => 'Chen Wei',
+        'VoterWei' => [
+            'email' => 'wei.chen@votetrust.test',
+            'full_name' => 'Wei Chen',
             'password' => 'VoteTrustVoter!2026',
             'ic_number' => '030909105009',
             'date_of_birth' => '2003-09-09',
@@ -137,7 +137,7 @@ class VoteTrustDemoSeeder extends Seeder
             'is_verified' => true,
         ],
         'VoterDevi' => [
-            'email' => 'voterdevi@votetrust.test',
+            'email' => 'devi.nair@votetrust.test',
             'full_name' => 'Devi Nair',
             'password' => 'VoteTrustVoter!2026',
             'ic_number' => '041010105010',
@@ -148,7 +148,7 @@ class VoteTrustDemoSeeder extends Seeder
             'is_verified' => true,
         ],
         'VoterFarah' => [
-            'email' => 'voterfarah@votetrust.test',
+            'email' => 'farah.aziz@votetrust.test',
             'full_name' => 'Farah Aziz',
             'password' => 'VoteTrustVoter!2026',
             'ic_number' => '051111105011',
@@ -158,9 +158,9 @@ class VoteTrustDemoSeeder extends Seeder
             'account_status' => 'ACTIVE',
             'is_verified' => true,
         ],
-        'UnverifiedMember' => [
-            'email' => 'unverifiedmember@votetrust.test',
-            'full_name' => 'Unverified Demo Member',
+        'MemberSiti' => [
+            'email' => 'siti.hajar@votetrust.test',
+            'full_name' => 'Siti Hajar',
             'password' => 'VoteTrustMember!2026',
             'ic_number' => '061212105012',
             'date_of_birth' => '2006-12-12',
@@ -169,9 +169,9 @@ class VoteTrustDemoSeeder extends Seeder
             'account_status' => 'ACTIVE',
             'is_verified' => false,
         ],
-        'DisabledMember' => [
-            'email' => 'disabledmember@votetrust.test',
-            'full_name' => 'Disabled Demo Member',
+        'MemberArjun' => [
+            'email' => 'arjun.kumar@votetrust.test',
+            'full_name' => 'Arjun Kumar',
             'password' => 'VoteTrustMember!2026',
             'ic_number' => '070101105013',
             'date_of_birth' => '2007-01-01',
@@ -179,6 +179,34 @@ class VoteTrustDemoSeeder extends Seeder
             'is_admin' => false,
             'account_status' => 'DISABLED',
             'is_verified' => true,
+        ],
+    ];
+
+    /** @var array<string, array{manifesto:string,candidate_introduction:string,qualifications:string,reason_for_candidacy:string}> */
+    private const CANDIDATE_PROFILES = [
+        'CandidateAisha' => [
+            'manifesto' => 'Publish a monthly student-services scorecard, extend peer-support hours, and reserve an open consultation slot before every council meeting.',
+            'candidate_introduction' => 'Aisha Rahman is a final-year public policy student who has coordinated peer-support and campus accessibility initiatives.',
+            'qualifications' => 'Student welfare committee secretary; trained peer supporter; project lead for the 2025 campus accessibility audit.',
+            'reason_for_candidacy' => 'To make student feedback visible, measurable, and easier for the council to act on throughout the term.',
+        ],
+        'CandidateDaniel' => [
+            'manifesto' => 'Introduce quarterly budget summaries, a transparent funding calendar, and practical financial-literacy workshops for student societies.',
+            'candidate_introduction' => 'Daniel Tan is an accounting student and society treasurer focused on clear reporting and responsible programme spending.',
+            'qualifications' => 'Treasurer of the Entrepreneurship Society; volunteer tax-clinic coordinator; event-budget lead for orientation week.',
+            'reason_for_candidacy' => 'To give members a clear view of how funds are allocated and help societies plan their activities with confidence.',
+        ],
+        'VoterBenjamin' => [
+            'manifesto' => 'Create a single academic-support directory, expand mentor matching, and report recurring timetable concerns to faculty each month.',
+            'candidate_introduction' => 'Benjamin Lee is a computer science student who mentors first-year students and represents his cohort in faculty dialogues.',
+            'qualifications' => 'Peer mentor; course representative; organiser of two student-led revision programmes.',
+            'reason_for_candidacy' => 'To make academic support easier to find and ensure recurring student concerns reach the right decision-makers.',
+        ],
+        'VoterFarah' => [
+            'manifesto' => 'Build a volunteer opportunity board, hold monthly listening sessions, and publish follow-up notes after community meetings.',
+            'candidate_introduction' => 'Farah Aziz is a communications student with experience organising neighbourhood outreach and volunteer programmes.',
+            'qualifications' => 'Community outreach volunteer; student media editor; logistics coordinator for a campus food-drive programme.',
+            'reason_for_candidacy' => 'To connect more members with meaningful projects and make community decisions easier to follow.',
         ],
     ];
 
@@ -194,7 +222,7 @@ class VoteTrustDemoSeeder extends Seeder
             $now = CarbonImmutable::now()->startOfMinute();
             $users = $this->seedUsers($now);
 
-            foreach (['OrganizerAdmin', 'LowWenKaiOrganizer'] as $accountKey) {
+            foreach (['SecondaryOrganizer', 'PrimaryOrganizer'] as $accountKey) {
                 Organizer::query()->updateOrCreate(['user_id' => $users[$accountKey]->id]);
             }
 
@@ -274,9 +302,9 @@ class VoteTrustDemoSeeder extends Seeder
      */
     private function seedElections(array $users, CarbonImmutable $now): array
     {
-        $primaryOrganizer = $users['LowWenKaiOrganizer'];
-        $secondaryOrganizer = $users['OrganizerAdmin'];
-        $admin = $users['SystemAdmin'];
+        $primaryOrganizer = $users['PrimaryOrganizer'];
+        $secondaryOrganizer = $users['SecondaryOrganizer'];
+        $admin = $users['SystemAdministrator'];
         $public = EligibilityRules::publicElection(18, 'MY');
         $private = EligibilityRules::privateElection();
 
@@ -291,7 +319,7 @@ class VoteTrustDemoSeeder extends Seeder
             $now,
             [
                 'position_sought' => 'Student Representative',
-                'description' => 'An editable public-election draft for testing configuration changes and the hosting-payment handoff.',
+                'description' => 'Students will choose a representative to coordinate council consultations and publish termly progress updates.',
                 'nomination_start' => $now->addDay(),
                 'nomination_end' => $now->addDays(7),
                 'voting_start' => $now->addDays(8),
@@ -308,7 +336,7 @@ class VoteTrustDemoSeeder extends Seeder
             $now,
             [
                 'position_sought' => 'Residents Committee Chair',
-                'description' => 'A private draft with a seeded roster for testing directory selection, spreadsheet import, and payment submission.',
+                'description' => 'Registered residents will elect the committee chair responsible for neighbourhood programmes and council liaison.',
                 'private_voter_list_uploaded_at' => $now->subHour(),
                 'nomination_start' => $now->addDay(),
                 'nomination_end' => $now->addDays(5),
@@ -326,7 +354,7 @@ class VoteTrustDemoSeeder extends Seeder
             $now,
             [
                 'position_sought' => 'Faculty Council Delegate',
-                'description' => 'A configured election waiting for an organizer to submit a hosting-payment reference.',
+                'description' => 'Computing students will select their faculty delegate for curriculum feedback and student-services planning.',
                 'nomination_start' => $now->addDay(),
                 'nomination_end' => $now->addDays(6),
                 'voting_start' => $now->addDays(7),
@@ -345,7 +373,7 @@ class VoteTrustDemoSeeder extends Seeder
             $now,
             array_merge([
                 'position_sought' => 'Community Programme Lead',
-                'description' => 'A paid election awaiting an administrator decision; its verified snapshot avoids requiring the external Payment service.',
+                'description' => 'Community members will appoint a lead to coordinate local learning, wellbeing, and volunteer programmes.',
                 'nomination_start' => $now->subHour(),
                 'nomination_end' => $now->addDays(5),
                 'voting_start' => $now->addDays(6),
@@ -363,7 +391,7 @@ class VoteTrustDemoSeeder extends Seeder
             $now,
             array_merge([
                 'position_sought' => 'Student Welfare Officer',
-                'description' => 'Nominations are open with mixed candidate decisions, including one application requiring organizer review.',
+                'description' => 'The welfare officer represents student wellbeing priorities and coordinates support initiatives with campus partners.',
                 'nomination_start' => $now->subDays(2),
                 'nomination_end' => $now->addDays(5),
                 'voting_start' => $now->addDays(6),
@@ -380,7 +408,7 @@ class VoteTrustDemoSeeder extends Seeder
             $now,
             array_merge([
                 'position_sought' => 'Academic Affairs Representative',
-                'description' => 'Candidate review is complete and the configured voting start has arrived, so the scheduler can open voting immediately.',
+                'description' => 'Students will elect a representative to raise teaching, assessment, and learning-resource priorities with faculty.',
                 'nomination_start' => $now->subDays(8),
                 'nomination_end' => $now->subHours(2),
                 'voting_start' => $now->subHour(),
@@ -397,7 +425,7 @@ class VoteTrustDemoSeeder extends Seeder
             $now,
             array_merge([
                 'position_sought' => 'Campus Sustainability Lead',
-                'description' => 'An active public ballot with ready-to-vote and already-voted member personas.',
+                'description' => 'The elected lead will coordinate waste-reduction, low-carbon travel, and campus greening initiatives.',
                 'nomination_start' => $now->subDays(10),
                 'nomination_end' => $now->subDays(3),
                 'voting_start' => $now->subHours(2),
@@ -414,7 +442,7 @@ class VoteTrustDemoSeeder extends Seeder
             $now,
             array_merge([
                 'position_sought' => 'Association Treasurer',
-                'description' => 'An active private ballot for testing approved-roster access and denied non-member access.',
+                'description' => 'Graduate association members will elect a treasurer to oversee budgets, reimbursements, and financial reporting.',
                 // The roster was populated while this election was still a
                 // draft, before its seeded payment-submission audit events.
                 'private_voter_list_uploaded_at' => $now->subDays(13)->subHours(12),
@@ -434,7 +462,7 @@ class VoteTrustDemoSeeder extends Seeder
             $now,
             array_merge([
                 'position_sought' => 'Alumni Network Coordinator',
-                'description' => 'Voting has ended while the lifecycle remains open, allowing the scheduler to demonstrate automatic closure.',
+                'description' => 'Alumni will choose a coordinator for mentoring, professional networking, and regional engagement programmes.',
                 'nomination_start' => $now->subDays(12),
                 'nomination_end' => $now->subDays(6),
                 'voting_start' => $now->subDays(3),
@@ -451,7 +479,7 @@ class VoteTrustDemoSeeder extends Seeder
             $now,
             array_merge([
                 'position_sought' => 'Student Council Representative',
-                'description' => 'A completed election containing stable sample votes for tally and historical-participation demonstrations.',
+                'description' => 'The completed 2025 council election is retained as a historical record with its final turnout and result.',
                 'nomination_start' => $now->subDays(35),
                 'nomination_end' => $now->subDays(30),
                 'voting_start' => $now->subDays(29),
@@ -743,10 +771,10 @@ class VoteTrustDemoSeeder extends Seeder
      */
     private function seedParticipants(array $users, array $elections, CarbonImmutable $now): void
     {
-        $primaryOrganizer = $users['LowWenKaiOrganizer'];
-        $admin = $users['SystemAdmin'];
+        $primaryOrganizer = $users['PrimaryOrganizer'];
+        $admin = $users['SystemAdministrator'];
 
-        foreach (['VoterJohn', 'VoterChen', 'VoterDevi'] as $accountKey) {
+        foreach (['VoterJason', 'VoterWei', 'VoterDevi'] as $accountKey) {
             $this->seedEnrollment(
                 $elections['privateDraft'],
                 $users[$accountKey],
@@ -815,7 +843,7 @@ class VoteTrustDemoSeeder extends Seeder
 
         $publicEnrollmentAt = CarbonImmutable::parse($elections['publicVoting']->nomination_end)->addHour();
         foreach ([
-            ['VoterJohn', VoterEnrollment::APPROVED],
+            ['VoterJason', VoterEnrollment::APPROVED],
             ['VoterAmina', VoterEnrollment::APPROVED],
         ] as [$accountKey, $status]) {
             $this->seedEnrollment(
@@ -836,9 +864,9 @@ class VoteTrustDemoSeeder extends Seeder
 
         $privateEnrollmentAt = CarbonImmutable::parse($elections['privateVoting']->private_voter_list_uploaded_at);
         foreach ([
-            ['VoterJohn', VoterEnrollment::APPROVED],
+            ['VoterJason', VoterEnrollment::APPROVED],
             ['VoterAmina', VoterEnrollment::APPROVED],
-            ['VoterChen', VoterEnrollment::APPROVED],
+            ['VoterWei', VoterEnrollment::APPROVED],
             ['VoterBenjamin', VoterEnrollment::PENDING],
             ['VoterDevi', VoterEnrollment::SUSPENDED],
         ] as [$accountKey, $status]) {
@@ -877,10 +905,10 @@ class VoteTrustDemoSeeder extends Seeder
         );
 
         $closedVotes = [
-            'VoterJohn' => 'CandidateAisha',
+            'VoterJason' => 'CandidateAisha',
             'VoterAmina' => 'CandidateAisha',
             'VoterBenjamin' => 'CandidateDaniel',
-            'VoterChen' => 'CandidateAisha',
+            'VoterWei' => 'CandidateAisha',
             'VoterDevi' => 'CandidateDaniel',
             'VoterFarah' => 'CandidateAisha',
         ];
@@ -916,15 +944,19 @@ class VoteTrustDemoSeeder extends Seeder
         CarbonImmutable $registeredAt,
         ?Payment $payment = null,
     ): Candidacy {
+        $profile = self::CANDIDATE_PROFILES[$candidate->name] ?? [
+            'manifesto' => 'Transparent decisions, inclusive participation, and measurable progress for every member of our community.',
+            'candidate_introduction' => $candidate->display_name.' is committed to practical, accountable community leadership.',
+            'qualifications' => 'Experienced in student and community projects, collaborative planning, and responsible budget oversight.',
+            'reason_for_candidacy' => 'To turn member feedback into clear priorities and publish regular progress updates throughout the term.',
+        ];
+
         return Candidacy::query()->updateOrCreate(
             ['user_id' => $candidate->getKey(), 'election_id' => $election->getKey()],
             [
                 'status' => $status,
                 'registered_at' => $registeredAt,
-                'manifesto' => 'Transparent decisions, inclusive participation, and measurable progress for every member of our community.',
-                'candidate_introduction' => $candidate->display_name.' is committed to practical, accountable community leadership.',
-                'qualifications' => 'Experienced in student and community projects, collaborative planning, and responsible budget oversight.',
-                'reason_for_candidacy' => 'To turn member feedback into clear priorities and publish regular progress updates throughout the term.',
+                ...$profile,
                 'profile_photo' => null,
                 'profile_photo_mime' => null,
                 'payment_id' => $payment?->getKey(),

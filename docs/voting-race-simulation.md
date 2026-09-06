@@ -37,7 +37,7 @@ This is a university-project verification tool, not a penetration-testing or pro
 6. Confirm the voter has not already voted in that election. The ballot form intentionally disappears after a successful vote.
 7. Confirm the User and Election module URLs/keys work. A normal ballot should load in the browser before the simulation.
 
-The default email is `voterjohn@votetrust.test`. The script makes one login attempt, so enter the correct password. Repeated bad manual logins can disable the demo account under the current failed-login strategy.
+The default email is `jason.lim@votetrust.test`. The script makes one login attempt, so enter the correct password. Repeated bad manual logins can disable the demo account under the current failed-login strategy.
 
 ## Run the simulation
 
@@ -58,7 +58,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\voting-race-simula
   -BaseUrl http://votetrust.test `
   -ElectionId 7 `
   -Requests 5 `
-  -Email voterjohn@votetrust.test `
+  -Email jason.lim@votetrust.test `
   -CandidateId 12
 ```
 

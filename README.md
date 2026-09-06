@@ -103,23 +103,23 @@ Alternatively, clone the repository directly as `C:\laragon\www\votetrust`; no j
 
 ## Demo accounts
 
-`php artisan db:seed` creates the integrated demo data without depending on fixed IDs. Sign in with the email address, not the display name.
+`php artisan db:seed` creates deterministic simulation data without depending on fixed IDs. The names and identity details are synthetic, all email addresses use the reserved `.test` domain, and fixed credentials are blocked in production. Sign in with the email address, not the display name.
 
 | Role / purpose | Email | Password |
 |---|---|---|
-| Primary organiser - owns scenarios 01-03 and 05-09 | `lowwenkaiorganizer@votetrust.test` | `VoteTrust!2026` |
-| Secondary organiser - owns scenario 04 for the administrator handoff | `organizeradmin@votetrust.test` | `VoteTrust!2026` |
+| Primary organiser (Nadia Iskandar) - owns scenarios 01-03 and 05-09 | `nadia.iskandar@votetrust.test` | `VoteTrust!2026` |
+| Secondary organiser (Harith Zulkifli) - owns scenario 04 | `harith.zulkifli@votetrust.test` | `VoteTrust!2026` |
 | System administrator - election approvals, participant review, and member access | `systemadmin@votetrust.test` | `VoteTrustAdmin!2026` |
-| Candidate - ready to apply in scenario 05 and appears on seeded ballots | `candidateaisha@votetrust.test` | `Candidate!2026` |
-| Candidate - pending application for organizer review in scenario 05 | `candidatedaniel@votetrust.test` | `Candidate!2026` |
-| Voter - approved and ready to cast in active elections | `voterjohn@votetrust.test` | `VoteTrustVoter!2026` |
-| Voter - demonstrates the already-voted state | `voteramina@votetrust.test` | `VoteTrustVoter!2026` |
-| Voter / participant fixture | `voterbenjamin@votetrust.test` | `VoteTrustVoter!2026` |
-| Voter / private-roster fixture | `voterchen@votetrust.test` | `VoteTrustVoter!2026` |
-| Voter / private-roster fixture | `voterdevi@votetrust.test` | `VoteTrustVoter!2026` |
-| Voter / historical election fixture | `voterfarah@votetrust.test` | `VoteTrustVoter!2026` |
-| Unverified member - tests the profile-verification gate and local eKYC | `unverifiedmember@votetrust.test` | `VoteTrustMember!2026` |
-| Disabled member - tests administrator restoration; cannot sign in until restored | `disabledmember@votetrust.test` | `VoteTrustMember!2026` |
+| Candidate (Aisha Rahman) - ready to apply in scenario 05 and appears on seeded ballots | `aisha.rahman@votetrust.test` | `Candidate!2026` |
+| Candidate (Daniel Tan) - pending application for organiser review in scenario 05 | `daniel.tan@votetrust.test` | `Candidate!2026` |
+| Voter (Jason Lim) - approved and ready to cast in active elections | `jason.lim@votetrust.test` | `VoteTrustVoter!2026` |
+| Voter (Amina Yusuf) - demonstrates the already-voted state | `amina.yusuf@votetrust.test` | `VoteTrustVoter!2026` |
+| Voter / participant fixture (Benjamin Lee) | `benjamin.lee@votetrust.test` | `VoteTrustVoter!2026` |
+| Voter / private-roster fixture (Wei Chen) | `wei.chen@votetrust.test` | `VoteTrustVoter!2026` |
+| Voter / private-roster fixture (Devi Nair) | `devi.nair@votetrust.test` | `VoteTrustVoter!2026` |
+| Voter / historical election fixture (Farah Aziz) | `farah.aziz@votetrust.test` | `VoteTrustVoter!2026` |
+| Unverified member (Siti Hajar) - tests the profile-verification gate and local eKYC | `siti.hajar@votetrust.test` | `VoteTrustMember!2026` |
+| Disabled member (Arjun Kumar) - tests administrator restoration | `arjun.kumar@votetrust.test` | `VoteTrustMember!2026` |
 
 ### Demo scenario gallery
 
@@ -127,16 +127,16 @@ The scenario dates are calculated relative to the time `php artisan db:seed` run
 
 | Seeded election | Immediate test |
 |---|---|
-| `[Demo] 01 - Editable Public Draft` | Edit a public draft, continue to hosting payment, or cancel it. |
-| `[Demo] 02 - Private Roster Draft` | Search and assign private voters, import a roster, download the template, or continue to payment. |
-| `[Demo] 03 - Awaiting Hosting Payment` | Pay the hosting fee, submit it for automatic election-ID matching, or cancel the request. |
-| `[Demo] 04 - Awaiting Administrator Approval` | As the administrator, approve, return, or reject the request; as its organiser, withdraw it. |
-| `[Demo] 05 - Candidate Review` | Apply as CandidateAisha, or review CandidateDaniel's pending application as the primary organiser. |
-| `[Demo] 06 - Ready to Open Voting` | Run the scheduler to open voting after the completed nomination and candidate-review gates. |
-| `[Demo] 07 - Public Voting Open` | Cast a public-election vote as VoterJohn or inspect VoterAmina's already-voted state. |
-| `[Demo] 08 - Private Voting Open` | Exercise approved-roster-only ballot access and voting. |
-| `[Demo] 09 - Ready to Close` | Run the scheduler to close an election whose configured voting period has ended. |
-| `VoteTrust Student Council Election 2026` | Inspect a closed election with stable historical candidacies, enrolments, and votes. |
+| `[Simulation] Student Representative Council 2026` | Edit a public draft, continue to hosting payment, or cancel it. |
+| `[Simulation] Seri Harmoni Residents Committee 2026` | Search and assign private voters, import a roster, download the template, or continue to payment. |
+| `[Simulation] Faculty of Computing Delegate 2026` | Pay the hosting fee, submit it for automatic election-ID matching, or cancel the request. |
+| `[Simulation] Taman Murni Community Programme Lead` | As the administrator, approve, return, or reject the request; as its organiser, withdraw it. |
+| `[Simulation] Student Welfare Officer 2026` | Apply as Aisha, or review Daniel's pending application as the primary organiser. |
+| `[Simulation] Academic Affairs Representative 2026` | Run the scheduler to open voting after the completed nomination and candidate-review gates. |
+| `[Simulation] Campus Sustainability Lead 2026` | Cast a vote as Jason or inspect Amina's already-voted state. |
+| `[Simulation] Graduate Association Treasurer 2026` | Exercise approved-roster-only ballot access and voting. |
+| `[Simulation] Alumni Network Coordinator 2026` | Run the scheduler to close an election whose configured voting period has ended. |
+| `[Simulation] Student Council Election 2025` | Inspect a closed election with stable historical candidacies, enrolments, and votes. |
 
 The organizer enters their current password once to start nominations at the configured time. Candidate reviews, emergency cancellation, and manual administrator decisions remain password protected. Normal organizer payment steps and private voter or candidate imports, assignments, and removals use the authenticated session without another password prompt. Later scheduled transitions are performed by the system. Re-running `php artisan db:seed` refreshes the relative dates and resets the reserved demo personas and scenarios, so manual changes to those fixtures are not permanent.
 
