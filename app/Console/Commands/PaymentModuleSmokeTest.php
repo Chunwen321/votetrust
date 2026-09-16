@@ -182,7 +182,7 @@ final class PaymentModuleSmokeTest extends Command
     }
 
     /** @param array<string,string> $headers
-     * @param array<string,mixed> $payload
+     * @param  array<string,mixed>  $payload
      * @return array{status:int,body:array<mixed>}
      */
     private function dispatch(Kernel $kernel, string $method, string $uri, array $headers, array $payload, bool $asQuery = false): array
