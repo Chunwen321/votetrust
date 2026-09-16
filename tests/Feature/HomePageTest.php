@@ -76,7 +76,7 @@ class HomePageTest extends TestCase
             $summaries = $xpath->query('./summary[normalize-space()]', $faqItem);
             $answerInners = $xpath->query(
                 './div[contains(concat(" ", normalize-space(@class), " "), " faq-answer ")]'
-                . '/div[contains(concat(" ", normalize-space(@class), " "), " faq-answer__inner ")]',
+                .'/div[contains(concat(" ", normalize-space(@class), " "), " faq-answer__inner ")]',
                 $faqItem,
             );
 
